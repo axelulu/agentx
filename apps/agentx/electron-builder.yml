@@ -1,0 +1,36 @@
+appId: com.agentx.desktop
+productName: AgentX
+directories:
+  buildResources: resources
+  output: release
+files:
+  - "out/**/*"
+  - "!out/types-node"
+  - "!out/types-web"
+  - "!node_modules/@workspace/**"
+asarUnpack:
+  - "resources/**"
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+  category: public.app-category.developer-tools
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: "${productName}-${version}-setup.${ext}"
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  artifactName: "${productName}-${version}.${ext}"
+  category: Development

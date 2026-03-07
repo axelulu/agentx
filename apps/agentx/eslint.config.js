@@ -1,0 +1,8 @@
+import { config } from "@workspace/eslint-config/react-internal";
+
+export default [
+  ...config,
+  {
+    ignores: ["out/", "dist/", "release/"],
+  },
+];
