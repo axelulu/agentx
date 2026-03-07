@@ -27,9 +27,7 @@ function Dialog({
   closeOnEscape?: boolean;
 }) {
   return (
-    <DialogConfigContext.Provider
-      value={{ closeOnClickOutside, closeOnEscape }}
-    >
+    <DialogConfigContext.Provider value={{ closeOnClickOutside, closeOnEscape }}>
       <DialogPrimitive.Root data-slot="dialog" {...props}>
         {children}
       </DialogPrimitive.Root>
@@ -37,9 +35,7 @@ function Dialog({
   );
 }
 
-function DialogPortal({
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Portal>) {
+function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
 
@@ -53,7 +49,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       className={cn(
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50",
-        className
+        className,
       )}
       style={{
         backdropFilter: "blur(12px)",
@@ -84,8 +80,7 @@ function DialogContent({
   overlayStyle?: React.CSSProperties;
   maxWidth?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl" | "full";
 }) {
-  const { closeOnClickOutside, closeOnEscape } =
-    React.useContext(DialogConfigContext);
+  const { closeOnClickOutside, closeOnEscape } = React.useContext(DialogConfigContext);
 
   const maxWidthClasses = {
     xs: "sm:max-w-xs",
@@ -109,7 +104,7 @@ function DialogContent({
         className={cn(
           "bg-card border border-border flex flex-col gap-4 rounded-2xl p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] shadow-lg duration-200",
           maxWidthClasses[maxWidth],
-          className
+          className,
         )}
         style={style}
         onPointerDownOutside={(e) => {

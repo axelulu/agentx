@@ -1,11 +1,36 @@
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { setSettingsOpen } from "@/slices/uiSlice";
+import { l10n, SUPPORTED_LANGUAGE } from "@workspace/l10n";
 import { motion } from "framer-motion";
-import { XIcon } from "lucide-react";
+import {
+  XIcon,
+  CpuIcon,
+  SlidersHorizontalIcon,
+  InfoIcon,
+  BookOpenIcon,
+  PlugIcon,
+} from "lucide-react";
 import { ProviderConfig } from "./ProviderConfig";
+import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
+import { MCPConfig } from "./MCPConfig";
+import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/useTheme";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+
+type SettingsSection = "general" | "providers" | "knowledgeBase" | "mcp" | "about";
 
 export function SettingsPanel() {
   const dispatch = useDispatch();
+  const [activeSection, setActiveSection] = useState<SettingsSection>("providers");
+
+  const sections: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
+    { id: "general", label: l10n.t("General"), icon: SlidersHorizontalIcon },
+    { id: "providers", label: l10n.t("AI Providers"), icon: CpuIcon },
+    { id: "knowledgeBase", label: l10n.t("Knowledge Base"), icon: BookOpenIcon },
+    { id: "mcp", label: l10n.t("MCP Servers"), icon: PlugIcon },
+    { id: "about", label: l10n.t("About"), icon: InfoIcon },
+  ];
 
   return (
     <motion.div
@@ -15,28 +40,168 @@ export function SettingsPanel() {
       className="fixed inset-0 z-50 flex items-center justify-center"
     >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50"
         onClick={() => dispatch(setSettingsOpen(false))}
       />
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
+        initial={{ scale: 0.97, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="relative bg-card border border-border rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
+        exit={{ scale: 0.97, opacity: 0 }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
+        className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[720px] h-[520px] overflow-hidden flex"
       >
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-lg font-semibold">Settings</h2>
-          <button
-            onClick={() => dispatch(setSettingsOpen(false))}
-            className="p-2 rounded-lg hover:bg-accent transition-colors"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
+        {/* Left: Navigation */}
+        <div className="w-[180px] shrink-0 bg-secondary/50 border-r border-border flex flex-col">
+          <div className="px-4 pt-5 pb-3">
+            <h2 className="text-[13px] font-semibold text-foreground">{l10n.t("Settings")}</h2>
+          </div>
+          <nav className="flex-1 px-2 space-y-0.5">
+            {sections.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id)}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors",
+                  activeSection === id
+                    ? "bg-foreground/10 text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </nav>
         </div>
-        <div className="overflow-y-auto p-6 space-y-6">
-          <ProviderConfig />
+
+        {/* Right: Content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex items-center justify-between px-6 pt-5 pb-3">
+            <h3 className="text-[13px] font-semibold text-foreground">
+              {sections.find((s) => s.id === activeSection)?.label}
+            </h3>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => dispatch(setSettingsOpen(false))}
+                  className="p-1 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  <XIcon className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{l10n.t("Close")}</TooltipContent>
+            </Tooltip>
+          </div>
+          <div className="flex-1 overflow-y-auto px-6 pb-6">
+            {activeSection === "general" && <GeneralSection />}
+            {activeSection === "providers" && <ProviderConfig />}
+            {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
+            {activeSection === "mcp" && <MCPConfig />}
+            {activeSection === "about" && <AboutSection />}
+          </div>
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function GeneralSection() {
+  const { theme, setThemeMode } = useTheme();
+  const currentLanguage = l10n.getLanguage();
+
+  const themeOptions: { value: "light" | "dark" | "system"; label: string }[] = [
+    { value: "light", label: l10n.t("Light") },
+    { value: "dark", label: l10n.t("Dark") },
+    { value: "system", label: l10n.t("System") },
+  ];
+
+  const availableLanguages = l10n.getAvailableLanguages();
+  const languageOptions = availableLanguages.map((code) => {
+    const info = SUPPORTED_LANGUAGE.find((lang) => lang.code === code);
+    return {
+      value: code,
+      label: info ? `${info.flag ?? ""} ${info.nativeName}` : code,
+    };
+  });
+
+  const handleLanguageChange = (lang: string) => {
+    localStorage.setItem("agentx-language", lang);
+    l10n.setLanguage(lang);
+    location.reload();
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+          {l10n.t("Appearance")}
+        </label>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Theme")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Choose your preferred color scheme")}
+            </p>
+          </div>
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
+            {themeOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setThemeMode(opt.value)}
+                className={cn(
+                  "px-3 py-1.5 text-[12px] font-medium transition-colors",
+                  theme === opt.value
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Language")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Select display language")}
+            </p>
+          </div>
+          <select
+            value={currentLanguage}
+            onChange={(e) => handleLanguageChange(e.target.value)}
+            className="bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring"
+          >
+            {languageOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AboutSection() {
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+          {l10n.t("Application")}
+        </label>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm text-foreground">{l10n.t("Version")}</span>
+            <span className="text-[12px] text-muted-foreground">0.1.0</span>
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm text-foreground">{l10n.t("Runtime")}</span>
+            <span className="text-[12px] text-muted-foreground">Electron</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,11 @@
+sections:
+  shell_rules:
+    tag: shell-rules
+    content: |
+      When running shell commands, follow these guidelines:
+      - Commands run in the workspace root directory.
+      - Do not run destructive commands such as rm -rf /, mkfs, or dd to devices.
+      - Set an appropriate timeout_ms for long-running commands.
+      - Prefer non-interactive commands; avoid commands that require user input.
+      - Check command output for errors before proceeding.
+      - For large outputs, consider piping through head or tail.

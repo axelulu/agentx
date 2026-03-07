@@ -6,7 +6,13 @@ export default defineConfig({
   main: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: ["@workspace/datatypes", "@workspace/l10n"],
+        exclude: [
+          "@workspace/l10n",
+          "@workspace/desktop",
+          "@workspace/agent",
+          "@workspace/toolkit",
+          "@workspace/context",
+        ],
       }),
     ],
     resolve: {
@@ -18,7 +24,7 @@ export default defineConfig({
   preload: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: ["@workspace/datatypes", "@workspace/l10n"],
+        exclude: ["@workspace/l10n"],
       }),
     ],
     resolve: {

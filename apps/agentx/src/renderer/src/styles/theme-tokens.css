@@ -13,55 +13,50 @@
    ========================================== */
 :root {
   /* 🌙 夜间模式 - 主色调 */
-  --theme-bg-primary: #000000; /* 主背景 - 纯黑 */
-  --theme-bg-secondary: #0a0a0a; /* 次级背景 - 深黑 */
-  --theme-bg-tertiary: #111111; /* 三级背景 - 黑灰 */
-  --theme-bg-elevated: #1a1a1a; /* 浮层背景 - 浅黑灰 */
+  --theme-bg-primary: #0b0f1a; /* 主背景 - 近黑微蓝 */
+  --theme-bg-secondary: #0e1320; /* 次级背景 */
+  --theme-bg-tertiary: #131825; /* 三级背景 */
+  --theme-bg-elevated: #171c2a; /* 浮层背景 */
 
   /* 🌙 夜间模式 - 玻璃形态背景 */
-  --theme-bg-glass-subtle: rgba(255, 255, 255, 0.03); /* 微妙玻璃 */
-  --theme-bg-glass-light: rgba(255, 255, 255, 0.05); /* 轻玻璃 */
-  --theme-bg-glass-medium: rgba(255, 255, 255, 0.08); /* 中玻璃 */
-  --theme-bg-glass-strong: rgba(255, 255, 255, 0.02); /* 强玻璃 */
-  --theme-bg-glass-overlay: rgba(0, 0, 0, 0.6); /* 遮罩玻璃 */
+  --theme-bg-glass-subtle: rgba(140, 170, 230, 0.03); /* 微妙玻璃 */
+  --theme-bg-glass-light: rgba(140, 170, 230, 0.05); /* 轻玻璃 */
+  --theme-bg-glass-medium: rgba(140, 170, 230, 0.08); /* 中玻璃 */
+  --theme-bg-glass-strong: rgba(140, 170, 230, 0.04); /* 强玻璃 */
+  --theme-bg-glass-overlay: rgba(6, 8, 16, 0.8); /* 遮罩玻璃 */
 
   /* 🌙 夜间模式 - 渐变背景 */
-  --theme-gradient-primary: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-  --theme-gradient-secondary: linear-gradient(135deg, #0a0a0a 0%, #2a2a2a 100%);
+  --theme-gradient-primary: linear-gradient(180deg, #0b0f1a 0%, #0e1320 100%);
+  --theme-gradient-secondary: linear-gradient(180deg, #0e1320 0%, #131825 100%);
   --theme-gradient-surface: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.02) 100%
+    rgba(140, 170, 230, 0.04) 0%,
+    rgba(140, 170, 230, 0.01) 100%
   );
   --theme-gradient-overlay: linear-gradient(
     135deg,
-    rgba(0, 0, 0, 0.4) 0%,
-    rgba(0, 0, 0, 0.6) 100%
+    rgba(6, 8, 16, 0.6) 0%,
+    rgba(6, 8, 16, 0.8) 100%
   );
 
   /* 🌙 夜间模式 - 文本颜色 */
-  --theme-text-primary: #ffffff; /* 主文本 - 白色 */
-  --theme-text-secondary: #e5e5e5; /* 次级文本 - 浅灰 */
-  --theme-text-tertiary: #b3b3b3; /* 三级文本 - 中灰 */
-  --theme-text-muted: #808080; /* 静音文本 - 灰色 */
-  --theme-text-subtle: #666666; /* 微妙文本 - 深灰 */
-  --theme-text-placeholder: rgba(255, 255, 255, 0.4); /* 占位符 */
+  --theme-text-primary: #e2e7f0; /* 主文本 - 蓝白，不刺眼 */
+  --theme-text-secondary: #a8b4c8; /* 次级文本 */
+  --theme-text-tertiary: #7a899e; /* 三级文本 */
+  --theme-text-muted: #566378; /* 静音文本 */
+  --theme-text-subtle: #3d4d64; /* 微妙文本 */
+  --theme-text-placeholder: rgba(160, 180, 220, 0.35); /* 占位符 */
 
   /* 🌙 夜间模式 - 边框颜色 */
-  --theme-border-primary: rgba(255, 255, 255, 0.08); /* 主边框 */
-  --theme-border-secondary: rgba(255, 255, 255, 0.12); /* 次级边框 */
-  --theme-border-tertiary: rgba(255, 255, 255, 0.06); /* 三级边框 */
-  --theme-border-hover: rgba(255, 255, 255, 0.15); /* 悬停边框 */
-  --theme-border-focus: rgba(
-    255,
-    255,
-    255,
-    0.2
-  ); /* 焦点边框 - 还原为原来的值 */
+  --theme-border-primary: rgba(140, 170, 230, 0.08); /* 主边框 - 极淡 */
+  --theme-border-secondary: rgba(140, 170, 230, 0.12); /* 次级边框 */
+  --theme-border-tertiary: rgba(140, 170, 230, 0.05); /* 三级边框 */
+  --theme-border-hover: rgba(140, 170, 230, 0.18); /* 悬停边框 */
+  --theme-border-focus: rgba(100, 140, 255, 0.3); /* 焦点边框 - 蓝色 */
 
   /* 🌙 夜间模式 - 强调色 */
   --theme-accent-primary: #ffffff; /* 主强调 - 白色 */
-  --theme-accent-secondary: #a855f7; /* 次强调 - 紫色 */
+  --theme-accent-secondary: #6366f1; /* 次强调 - 靛蓝 */
   --theme-accent-tertiary: #3b82f6; /* 三强调 - 蓝色 */
 
   /* 🌙 夜间模式 - 状态颜色 */
@@ -71,43 +66,39 @@
   --theme-info: #3b82f6; /* 信息 - 蓝色 */
 
   /* 🌙 夜间模式 - 交互状态 */
-  --theme-hover-overlay: rgba(255, 255, 255, 0.05); /* 悬停叠加 */
-  --theme-active-overlay: rgba(255, 255, 255, 0.08); /* 激活叠加 */
-  --theme-selected-overlay: rgba(255, 255, 255, 0.1); /* 选中叠加 */
+  --theme-hover-overlay: rgba(140, 170, 230, 0.06); /* 悬停叠加 */
+  --theme-active-overlay: rgba(140, 170, 230, 0.1); /* 激活叠加 */
+  --theme-selected-overlay: rgba(100, 140, 255, 0.12); /* 选中叠加 */
 
   /* 🌙 夜间模式 - 阴影 */
-  --theme-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --theme-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --theme-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
-  --theme-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
-  --theme-shadow-glow: 0 0 20px rgba(255, 255, 255, 0.1);
-  --theme-shadow-focus: 0 0 0 3px rgba(255, 255, 255, 0.1); /* 焦点阴影 */
+  --theme-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --theme-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --theme-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --theme-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+  --theme-shadow-glow: 0 0 24px rgba(80, 120, 255, 0.1);
+  --theme-shadow-focus: 0 0 0 2px rgba(80, 120, 255, 0.25); /* 焦点阴影 */
 
   /* 🌙 夜间模式 - 消息组件专用颜色 */
-  --message-user-bg: #3b82f6; /* 用户消息背景 - 蓝色 */
+  --message-user-bg: #5b8af5; /* 用户消息背景 - 亮蓝 */
   --message-user-text: #ffffff; /* 用户消息文本 - 白色 */
   --message-assistant-bg: var(--theme-bg-glass-light); /* AI消息背景 */
   --message-assistant-text: var(--theme-text-primary); /* AI消息文本 */
 
   /* 🌙 夜间模式 - 装饰性颜色 */
   --decoration-blue: #3b82f6; /* 蓝色装饰 */
-  --decoration-purple: #a855f7; /* 紫色装饰 */
+  --decoration-purple: #818cf8; /* 淡靛蓝装饰 */
   --decoration-orange: #f97316; /* 橙色装饰 */
   --decoration-cyan: #06b6d4; /* 青色装饰 */
   --decoration-amber: #fbbf24; /* 琥珀色装饰 */
 
   /* 🌙 夜间模式 - 高亮和特殊标识 */
   --highlight-star: #fbbf24; /* 星标颜色 - 黄色 */
-  --highlight-badge: #8b5cf6; /* 徽章颜色 - 紫色 */
-  --highlight-premium: linear-gradient(
-    135deg,
-    #fbbf24 0%,
-    #f59e0b 100%
-  ); /* 高级功能渐变 */
+  --highlight-badge: #6366f1; /* 徽章颜色 - 靛蓝 */
+  --highlight-premium: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); /* 高级功能渐变 */
 
   /* 🌙 夜间模式 - 模式指示器 */
   --mode-agent-bg-from: rgba(59, 130, 246, 0.1); /* AI Agent模式渐变起始 */
-  --mode-agent-bg-to: rgba(168, 85, 247, 0.1); /* AI Agent模式渐变结束 */
+  --mode-agent-bg-to: rgba(99, 102, 241, 0.1); /* AI Agent模式渐变结束 */
   --mode-agent-border: rgba(59, 130, 246, 0.3); /* AI Agent模式边框 */
   --mode-agent-icon: #3b82f6; /* AI Agent图标颜色 */
   --mode-agent-text: #60a5fa; /* AI Agent文本颜色 */
@@ -117,24 +108,24 @@
   --mode-chat-text: var(--theme-text-secondary); /* Chat文本颜色 */
 
   /* 🌙 夜间模式 - Skeleton加载状态 */
-  --skeleton-bg: rgba(255, 255, 255, 0.05); /* Skeleton背景 */
-  --skeleton-shimmer: rgba(255, 255, 255, 0.1); /* Skeleton闪光效果 */
+  --skeleton-bg: rgba(140, 170, 230, 0.05); /* Skeleton背景 */
+  --skeleton-shimmer: rgba(140, 170, 230, 0.1); /* Skeleton闪光效果 */
 
   /* 🌙 夜间模式 - 画布编辑器 */
-  --canvas-bg: #1a1a1a; /* 画布背景 */
-  --canvas-dot-color: rgba(255, 255, 255, 0.08); /* 画布网格点颜色 */
+  --canvas-bg: #131825; /* 画布背景 */
+  --canvas-dot-color: rgba(140, 170, 230, 0.08); /* 画布网格点颜色 */
 
   /* 🌙 夜间模式 - 拖拽状态 */
-  --drag-active-bg: rgba(59, 130, 246, 0.1); /* 拖拽激活背景 */
-  --drag-active-border: rgba(59, 130, 246, 0.3); /* 拖拽激活边框 */
-  --drag-active-text: #60a5fa; /* 拖拽激活文本 */
+  --drag-active-bg: rgba(80, 120, 255, 0.1); /* 拖拽激活背景 */
+  --drag-active-border: rgba(80, 120, 255, 0.3); /* 拖拽激活边框 */
+  --drag-active-text: #6b8cf5; /* 拖拽激活文本 */
 
   /* 🌙 夜间模式 - 状态指示器阴影 */
   --shadow-success-glow: 0 0 12px rgba(34, 197, 94, 0.2); /* 成功状态发光 */
   --shadow-warning-glow: 0 0 8px rgba(251, 191, 36, 0.12); /* 警告状态发光 */
   --shadow-error-glow: 0 0 12px rgba(239, 68, 68, 0.2); /* 错误状态发光 */
   --shadow-info-glow: 0 0 12px rgba(59, 130, 246, 0.2); /* 信息状态发光 */
-  --shadow-purple-glow: 0 0 12px rgba(168, 85, 247, 0.1); /* 紫色发光 */
+  --shadow-purple-glow: 0 0 12px rgba(99, 102, 241, 0.1); /* 靛蓝发光 */
 
   /* 🌙 夜间模式 - 按钮专用颜色 */
   --btn-stop-bg: #ef4444; /* 停止按钮背景 */
@@ -143,10 +134,10 @@
   --btn-disabled-text: var(--theme-text-subtle); /* 禁用按钮文本 */
 
   /* 🌙 夜间模式 - 输入框状态 */
-  --input-disabled-bg: rgba(255, 255, 255, 0.02); /* 禁用输入框背景 */
-  --input-disabled-border: rgba(255, 255, 255, 0.05); /* 禁用输入框边框 */
+  --input-disabled-bg: rgba(140, 170, 230, 0.02); /* 禁用输入框背景 */
+  --input-disabled-border: rgba(140, 170, 230, 0.04); /* 禁用输入框边框 */
   --input-disabled-text: var(--theme-text-subtle); /* 禁用输入框文本 */
-  --input-placeholder-disabled: rgba(255, 255, 255, 0.3); /* 禁用占位符 */
+  --input-placeholder-disabled: rgba(160, 180, 220, 0.25); /* 禁用占位符 */
 
   /* ===========================================
      📏 统一尺寸系统 (从 unified-design-tokens.css 合并)
@@ -225,10 +216,10 @@
    ========================================== */
 :root:not(.dark) {
   /* ☀️ 白天模式 - 主色调 */
-  --theme-bg-primary: #eeeeee; /* 主背景 - 纯白 */
-  --theme-bg-secondary: #f8fafc; /* 次级背景 - 浅灰白 */
-  --theme-bg-tertiary: #f1f5f9; /* 三级背景 - 灰白 */
-  --theme-bg-elevated: #f8f8f7; /* 浮层背景 - 浅灰 */
+  --theme-bg-primary: #eef2f7; /* 主背景 - 蓝白 */
+  --theme-bg-secondary: #f5f8fc; /* 次级背景 - 浅蓝白 */
+  --theme-bg-tertiary: #edf2f9; /* 三级背景 - 蓝灰白 */
+  --theme-bg-elevated: #f5f8fc; /* 浮层背景 - 浅蓝 */
 
   /* ☀️ 白天模式 - 玻璃形态背景 */
   --theme-bg-glass-subtle: rgba(0, 0, 0, 0.06); /* 微妙玻璃 */
@@ -238,8 +229,8 @@
   --theme-bg-glass-overlay: rgba(255, 255, 255, 0.8); /* 遮罩玻璃 */
 
   /* ☀️ 白天模式 - 渐变背景 */
-  --theme-gradient-primary: #f0f0f0;
-  --theme-gradient-secondary: #eeeeee;
+  --theme-gradient-primary: #eef2f7;
+  --theme-gradient-secondary: #eaeff5;
   --theme-gradient-surface: linear-gradient(
     135deg,
     rgba(0, 0, 0, 0.03) 0%,
@@ -268,7 +259,7 @@
 
   /* ☀️ 白天模式 - 强调色 */
   --theme-accent-primary: #000000; /* 主强调 - 深蓝灰 */
-  --theme-accent-secondary: #8b5cf6; /* 次强调 - 紫色 */
+  --theme-accent-secondary: #4f46e5; /* 次强调 - 靛蓝 */
   --theme-accent-tertiary: #2563eb; /* 三强调 - 蓝色 */
 
   /* ☀️ 白天模式 - 状态颜色 (保持一致) */
@@ -280,12 +271,7 @@
   /* ☀️ 白天模式 - 交互状态 */
   --theme-hover-overlay: rgba(30, 41, 59, 0.08); /* 悬停叠加 - 增强对比度 */
   --theme-active-overlay: rgba(30, 41, 59, 0.12); /* 激活叠加 */
-  --theme-selected-overlay: rgba(
-    99,
-    102,
-    241,
-    0.12
-  ); /* 选中叠加 - 增强对比度 */
+  --theme-selected-overlay: rgba(99, 102, 241, 0.12); /* 选中叠加 - 增强对比度 */
 
   /* ☀️ 白天模式 - 阴影 */
   --theme-shadow-sm: 0 1px 2px rgba(30, 41, 59, 0.08);
@@ -304,23 +290,19 @@
 
   /* ☀️ 白天模式 - 装饰性颜色 */
   --decoration-blue: #2563eb; /* 蓝色装饰 */
-  --decoration-purple: #8b5cf6; /* 紫色装饰 */
+  --decoration-purple: #6366f1; /* 靛蓝装饰 */
   --decoration-orange: #ea580c; /* 橙色装饰 */
   --decoration-cyan: #0891b2; /* 青色装饰 */
   --decoration-amber: #d97706; /* 琥珀色装饰 */
 
   /* ☀️ 白天模式 - 高亮和特殊标识 */
   --highlight-star: #d97706; /* 星标颜色 - 深黄色 */
-  --highlight-badge: #7c3aed; /* 徽章颜色 - 深紫色 */
-  --highlight-premium: linear-gradient(
-    135deg,
-    #fbbf24 0%,
-    #f59e0b 100%
-  ); /* 高级功能渐变 */
+  --highlight-badge: #4338ca; /* 徽章颜色 - 靛蓝 */
+  --highlight-premium: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); /* 高级功能渐变 */
 
   /* ☀️ 白天模式 - 模式指示器 */
   --mode-agent-bg-from: rgba(37, 99, 235, 0.08); /* AI Agent模式渐变起始 */
-  --mode-agent-bg-to: rgba(139, 92, 246, 0.08); /* AI Agent模式渐变结束 */
+  --mode-agent-bg-to: rgba(99, 102, 241, 0.08); /* AI Agent模式渐变结束 */
   --mode-agent-border: rgba(37, 99, 235, 0.25); /* AI Agent模式边框 */
   --mode-agent-icon: #2563eb; /* AI Agent图标颜色 */
   --mode-agent-text: #1e40af; /* AI Agent文本颜色 */
@@ -347,7 +329,7 @@
   --shadow-warning-glow: 0 0 8px rgba(217, 119, 6, 0.15); /* 警告状态发光 */
   --shadow-error-glow: 0 0 12px rgba(220, 38, 38, 0.2); /* 错误状态发光 */
   --shadow-info-glow: 0 0 12px rgba(37, 99, 235, 0.2); /* 信息状态发光 */
-  --shadow-purple-glow: 0 0 12px rgba(139, 92, 246, 0.15); /* 紫色发光 */
+  --shadow-purple-glow: 0 0 12px rgba(99, 102, 241, 0.15); /* 靛蓝发光 */
 
   /* ☀️ 白天模式 - 按钮专用颜色 */
   --btn-stop-bg: #dc2626; /* 停止按钮背景 */
@@ -438,10 +420,10 @@
 @keyframes pulse-glow {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(217, 70, 239, 0.3);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
   }
   50% {
-    box-shadow: 0 0 30px rgba(217, 70, 239, 0.5);
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
   }
 }
 
@@ -510,11 +492,7 @@
 
 /* 模式标识 */
 .mode-indicator-agent {
-  background: linear-gradient(
-    to right,
-    var(--mode-agent-bg-from),
-    var(--mode-agent-bg-to)
-  );
+  background: linear-gradient(to right, var(--mode-agent-bg-from), var(--mode-agent-bg-to));
   border-color: var(--mode-agent-border);
 }
 
@@ -577,13 +555,13 @@
    ========================================== */
 @media (max-width: 768px) {
   :root {
-    --theme-bg-glass-subtle: rgba(255, 255, 255, 0.05);
-    --theme-bg-glass-light: rgba(255, 255, 255, 0.08);
+    --theme-bg-glass-subtle: rgba(140, 170, 230, 0.04);
+    --theme-bg-glass-light: rgba(140, 170, 230, 0.07);
   }
 
   :root:not(.dark) {
     --theme-bg-glass-subtle: rgba(0, 0, 0, 0.07);
-    --theme-bg-glass-light: rgba(0, 0, 0, 0.10);
+    --theme-bg-glass-light: rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -593,25 +571,24 @@
 
 /* 夜间模式弹窗样式变量 */
 :root {
-  --dialog-bg-glass: rgba(0, 0, 0, 0.95);
-  --dialog-bg-premium-from: rgba(0, 0, 0, 0.98);
-  --dialog-bg-premium-to: rgba(0, 0, 0, 0.95);
-  --dialog-bg-default: #000000;
-  --dialog-border-glass: rgba(255, 255, 255, 0.2);
-  --dialog-border-premium: rgba(255, 255, 255, 0.15);
-  --dialog-border-default: rgba(255, 255, 255, 0.08);
-  --dialog-overlay-bg: rgba(0, 0, 0, 0.9);
+  --dialog-bg-glass: rgba(14, 19, 32, 0.97);
+  --dialog-bg-premium-from: rgba(14, 19, 32, 0.98);
+  --dialog-bg-premium-to: rgba(19, 24, 37, 0.97);
+  --dialog-bg-default: #0e1320;
+  --dialog-border-glass: rgba(140, 170, 230, 0.12);
+  --dialog-border-premium: rgba(140, 170, 230, 0.1);
+  --dialog-border-default: rgba(140, 170, 230, 0.08);
+  --dialog-overlay-bg: rgba(4, 6, 14, 0.85);
 
   /* 弹窗文本颜色 */
-  --dialog-title-text: #ffffff;
-  --dialog-description-text: rgba(255, 255, 255, 0.7);
-  --dialog-content-text: #ffffff;
-  --dialog-muted-text: rgba(255, 255, 255, 0.6);
+  --dialog-title-text: #e2e7f0;
+  --dialog-description-text: rgba(168, 180, 200, 0.75);
+  --dialog-content-text: #e2e7f0;
+  --dialog-muted-text: rgba(160, 175, 200, 0.6);
 
   /* 弹窗阴影 */
-  --dialog-shadow:
-    0 8px 24px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --dialog-shadow-light: 0 2px 8px -2px rgba(0, 0, 0, 0.2);
+  --dialog-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(140, 170, 230, 0.06);
+  --dialog-shadow-light: 0 4px 16px -4px rgba(0, 0, 0, 0.4);
 }
 
 /* 白天模式弹窗样式变量 */
@@ -632,8 +609,7 @@
   --dialog-muted-text: #64748b;
 
   /* 弹窗阴影 */
-  --dialog-shadow:
-    0 8px 20px -6px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.2);
+  --dialog-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.2);
   --dialog-shadow-light: 0 2px 8px -2px rgba(0, 0, 0, 0.06);
 }
 
@@ -642,8 +618,8 @@
    ========================================== */
 @media (prefers-contrast: high) {
   :root {
-    --theme-border-primary: rgba(255, 255, 255, 0.3);
-    --theme-text-secondary: #f0f0f0;
+    --theme-border-primary: rgba(140, 170, 230, 0.25);
+    --theme-text-secondary: #d0d8e8;
   }
 
   :root:not(.dark) {

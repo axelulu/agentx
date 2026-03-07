@@ -7,31 +7,22 @@ export function registerFSHandlers(): void {
     return content;
   });
 
-  ipcMain.handle(
-    "fs:writeFile",
-    async (_event, filePath: string, content: string) => {
-      await writeFile(filePath, content, "utf-8");
-      return true;
-    }
-  );
+  ipcMain.handle("fs:writeFile", async (_event, filePath: string, content: string) => {
+    await writeFile(filePath, content, "utf-8");
+    return true;
+  });
 
   ipcMain.handle(
     "fs:selectFile",
-    async (
-      _event,
-      options?: { filters?: Electron.FileFilter[]; multi?: boolean }
-    ) => {
+    async (_event, options?: { filters?: Electron.FileFilter[]; multi?: boolean }) => {
       const result = await dialog.showOpenDialog({
-        properties: [
-          "openFile",
-          ...(options?.multi ? (["multiSelections"] as const) : []),
-        ],
+        properties: ["openFile", ...(options?.multi ? (["multiSelections"] as const) : [])],
         filters: options?.filters,
       });
 
       if (result.canceled) return null;
       return result.filePaths;
-    }
+    },
   );
 
   ipcMain.handle("fs:selectDirectory", async () => {

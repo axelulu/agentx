@@ -1,11 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import { SUPPORTED_LANGUAGE } from "./languages";
-import type {
-  L10nInstance,
-  TranslationContext,
-  TranslationData,
-} from "./types.ts";
+import type { L10nInstance, TranslationContext, TranslationData } from "./types.ts";
 
 // 服务端配置接口
 export interface ServerL10nConfig {
@@ -64,9 +60,7 @@ export class ServerL10n implements L10nInstance {
     let data = this.translations.get(this.currentLanguage);
 
     if (!data) {
-      data = this.translations.get(
-        this.config.fallbackLanguage || this.config.defaultLanguage
-      );
+      data = this.translations.get(this.config.fallbackLanguage || this.config.defaultLanguage);
     }
 
     if (!data) {
@@ -111,8 +105,7 @@ export class ServerL10n implements L10nInstance {
   isRTL(): boolean {
     const langInfo = SUPPORTED_LANGUAGE.find(
       (lang) =>
-        lang.code === this.currentLanguage ||
-        lang.code === this.currentLanguage.split("-")[0]
+        lang.code === this.currentLanguage || lang.code === this.currentLanguage.split("-")[0],
     );
     return langInfo?.isRTL === true;
   }

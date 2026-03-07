@@ -1,0 +1,4 @@
+variables:
+  static:
+    app_name: AgentX
+    app_version: "0.1.0"

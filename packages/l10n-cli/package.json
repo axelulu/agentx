@@ -1,0 +1,55 @@
+{
+  "name": "@workspace/l10n-cli",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CLI tool for automatic translation generation using OpenRouter (Claude) and Gemini",
+  "type": "module",
+  "main": "src/cli-index.ts",
+  "types": "src/cli-index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/cli-index.ts",
+      "import": "./src/cli-index.ts",
+      "require": "./src/cli-index.ts"
+    }
+  },
+  "bin": {
+    "l10n": "bin/l10n.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "README.md"
+  ],
+  "keywords": [
+    "l10n",
+    "localization",
+    "internationalization",
+    "translation",
+    "cli",
+    "openrouter",
+    "claude",
+    "gemini",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.30.0",
+    "@workspace/l10n": "workspace:*",
+    "openai": "^5.16.0",
+    "yaml": "^2.8.2",
+    "tsx": "^4.19.0"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.20.1",
+    "typescript": "^5.0.0"
+  }
+}

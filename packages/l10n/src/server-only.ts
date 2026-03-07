@@ -19,10 +19,9 @@ export interface L10nServerData {
 export async function loadL10nData(
   l10nInstance: L10nClient,
   lang?: string,
-  translationsDir?: string
+  translationsDir?: string,
 ): Promise<L10nServerData> {
-  const translationPath =
-    translationsDir || join(process.cwd(), "translations");
+  const translationPath = translationsDir || join(process.cwd(), "translations");
 
   // Only load the current language translation file
   if (lang) {

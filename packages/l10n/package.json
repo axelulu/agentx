@@ -1,6 +1,7 @@
 {
   "name": "@workspace/l10n",
   "version": "1.0.0",
+  "private": true,
   "description": "Simple and powerful internationalization package for JavaScript/TypeScript applications",
   "type": "module",
   "main": "src/index.ts",
@@ -39,7 +40,8 @@
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",
-    "test": "node test/test.js"
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "keywords": [
     "i18n",
@@ -51,12 +53,15 @@
     "frontend",
     "typescript"
   ],
-  "author": "Your Name",
+  "author": "",
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@workspace/eslint-config": "workspace:*",
+    "eslint": "^9.20.1",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.5"
   },
   "engines": {
     "node": ">=16.0.0"

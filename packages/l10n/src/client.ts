@@ -1,9 +1,5 @@
 import { SUPPORTED_LANGUAGE } from "./languages";
-import type {
-  L10nInstance,
-  TranslationContext,
-  TranslationData,
-} from "./types";
+import type { L10nInstance, TranslationContext, TranslationData } from "./types";
 
 // 客户端专用的L10n类
 export class ClientL10n implements L10nInstance {
@@ -13,11 +9,7 @@ export class ClientL10n implements L10nInstance {
   private supportedLanguages: string[];
   private fallbackLanguage?: string;
 
-  constructor(
-    defaultLanguage: string,
-    supportedLanguages: string[],
-    fallbackLanguage?: string
-  ) {
+  constructor(defaultLanguage: string, supportedLanguages: string[], fallbackLanguage?: string) {
     this.defaultLanguage = defaultLanguage;
     this.supportedLanguages = supportedLanguages;
     this.fallbackLanguage = fallbackLanguage;
@@ -51,9 +43,7 @@ export class ClientL10n implements L10nInstance {
     let data = this.translations.get(this.currentLanguage);
 
     if (!data) {
-      data = this.translations.get(
-        this.fallbackLanguage || this.defaultLanguage
-      );
+      data = this.translations.get(this.fallbackLanguage || this.defaultLanguage);
     }
 
     if (!data) {
@@ -98,8 +88,7 @@ export class ClientL10n implements L10nInstance {
   isRTL(): boolean {
     const langInfo = SUPPORTED_LANGUAGE.find(
       (lang) =>
-        lang.code === this.currentLanguage ||
-        lang.code === this.currentLanguage.split("-")[0]
+        lang.code === this.currentLanguage || lang.code === this.currentLanguage.split("-")[0],
     );
     return langInfo?.isRTL === true;
   }
@@ -115,21 +104,15 @@ let globalClientL10n: ClientL10n | null = null;
 export function createClientL10n(
   defaultLanguage: string,
   supportedLanguages: string[],
-  fallbackLanguage?: string
+  fallbackLanguage?: string,
 ): ClientL10n {
-  globalClientL10n = new ClientL10n(
-    defaultLanguage,
-    supportedLanguages,
-    fallbackLanguage
-  );
+  globalClientL10n = new ClientL10n(defaultLanguage, supportedLanguages, fallbackLanguage);
   return globalClientL10n;
 }
 
 export function getClientL10n(): ClientL10n {
   if (!globalClientL10n) {
-    throw new Error(
-      "ClientL10n not initialized. Call createClientL10n() first."
-    );
+    throw new Error("ClientL10n not initialized. Call createClientL10n() first.");
   }
   return globalClientL10n;
 }

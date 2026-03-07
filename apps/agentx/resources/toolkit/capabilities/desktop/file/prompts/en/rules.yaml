@@ -1,0 +1,11 @@
+sections:
+  file_rules:
+    tag: file-rules
+    content: |
+      When working with files, follow these guidelines:
+      - Always read a file with file_read before modifying it with file_rewrite.
+      - Use file_create only for new files. Use file_rewrite for existing files.
+      - All file paths are relative to the workspace root.
+      - Do not attempt to read or write files outside the workspace.
+      - When creating files, include all necessary content in a single call.
+      - Prefer small, focused changes over large rewrites.

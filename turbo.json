@@ -28,6 +28,10 @@
       "outputs": [],
       "cache": true
     },
+    "test": {
+      "outputs": [],
+      "cache": true
+    },
     "clean": {
       "cache": false
     }

@@ -66,8 +66,7 @@ class L10nClient {
   isRTL(): boolean {
     const langInfo = SUPPORTED_LANGUAGE.find(
       (lang) =>
-        lang.code === this.currentLanguage ||
-        lang.code === this.currentLanguage.split("-")[0]
+        lang.code === this.currentLanguage || lang.code === this.currentLanguage.split("-")[0],
     );
     return langInfo?.isRTL === true;
   }
@@ -96,9 +95,7 @@ class L10nClient {
   /**
    * 批量设置翻译数据
    */
-  setAllTranslations(
-    allTranslations: Record<string, Record<string, any>>
-  ): void {
+  setAllTranslations(allTranslations: Record<string, Record<string, any>>): void {
     Object.entries(allTranslations).forEach(([lang, translations]) => {
       this.translations.set(lang, translations);
     });
@@ -131,10 +128,7 @@ class L10nClient {
    * 变量替换函数
    * 支持 ${var} 语法
    */
-  private replaceVariables(
-    text: string,
-    variables: TranslationVariables
-  ): string {
+  private replaceVariables(text: string, variables: TranslationVariables): string {
     return text.replace(/\$\{([^}]+)\}/g, (match, varName) => {
       const value = variables[varName.trim()];
       return value !== undefined ? String(value) : match;

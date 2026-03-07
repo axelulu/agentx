@@ -1,19 +1,33 @@
 /// <reference types="vite/client" />
 
 interface ElectronAPI {
-  ai: {
-    chat: (request: unknown) => Promise<unknown>;
-    stream: (request: unknown) => void;
-    onStreamData: (callback: (data: { content: string }) => void) => () => void;
-    onStreamDone: (callback: () => void) => () => void;
-    onStreamError: (callback: (data: { error: string }) => void) => () => void;
-    listModels: () => Promise<unknown>;
+  conversation: {
+    create: (title?: string) => Promise<unknown>;
+    list: () => Promise<unknown[]>;
+    delete: (id: string) => Promise<void>;
+    messages: (id: string) => Promise<unknown[]>;
+    updateTitle: (id: string, title: string) => Promise<unknown>;
   };
-  store: {
-    get: (key: string) => Promise<unknown>;
-    set: (key: string, value: unknown) => Promise<boolean>;
-    delete: (key: string) => Promise<boolean>;
-    clear: () => Promise<boolean>;
+  agent: {
+    send: (conversationId: string, content: string) => Promise<void>;
+    abort: (conversationId: string) => void;
+    onEvent: (callback: (event: unknown) => void) => () => void;
+  };
+  provider: {
+    list: () => Promise<unknown[]>;
+    set: (config: unknown) => Promise<void>;
+    remove: (id: string) => void;
+    setActive: (id: string) => void;
+  };
+  knowledgeBase: {
+    list: () => Promise<unknown[]>;
+    set: (item: unknown) => Promise<void>;
+    remove: (id: string) => void;
+  };
+  mcp: {
+    list: () => Promise<unknown[]>;
+    set: (config: unknown) => Promise<void>;
+    remove: (id: string) => void;
   };
   fs: {
     readFile: (path: string) => Promise<string>;

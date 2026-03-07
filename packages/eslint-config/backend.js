@@ -46,7 +46,6 @@ export const backendConfig = [
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/explicit-module-boundary-types": "off",
-      "@typescript-eslint/no-non-null-assertion": "warn",
       "@typescript-eslint/no-non-null-assertion": "off", // Allow non-null assertions
 
       // Import/export rules

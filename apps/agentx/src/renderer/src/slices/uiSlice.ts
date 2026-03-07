@@ -34,12 +34,7 @@ const uiSlice = createSlice({
   },
 });
 
-export const {
-  toggleSidebar,
-  setSidebarOpen,
-  toggleSettings,
-  setSettingsOpen,
-  setActivePanel,
-} = uiSlice.actions;
+export const { toggleSidebar, setSidebarOpen, toggleSettings, setSettingsOpen, setActivePanel } =
+  uiSlice.actions;
 
 export default uiSlice.reducer;

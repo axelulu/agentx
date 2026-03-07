@@ -1,25 +1,23 @@
 import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "@/slices/store";
-import {
-  setInputValue,
-  createConversation,
-  addMessage,
-  appendToLastMessage,
-  setIsStreaming,
-} from "@/slices/chatSlice";
-import { SendIcon, LoaderIcon } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import type { RootState, AppDispatch } from "@/slices/store";
+import { setInputValue } from "@/slices/chatSlice";
+import { useAgent } from "@/hooks/useAgent";
+import { l10n } from "@workspace/l10n";
+import { ArrowUpIcon, SquareIcon, PaperclipIcon, GlobeIcon, ImageIcon } from "lucide-react";
 import { useCallback, useRef, useEffect, type KeyboardEvent } from "react";
+import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 
 export function ChatInput() {
-  const dispatch = useDispatch();
-  const { inputValue, isStreaming, currentConversationId, conversations } =
-    useSelector((state: RootState) => state.chat);
-  const settings = useSelector((state: RootState) => state.settings);
+  const dispatch = useDispatch<AppDispatch>();
+  const { inputValue, isStreaming, error } = useSelector((state: RootState) => state.chat);
+  const { providers } = useSelector((state: RootState) => state.settings);
+  const { sendMessage, abort } = useAgent();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const cleanupRef = useRef<(() => void)[]>([]);
 
-  // Auto-resize textarea
+  const activeProvider = providers.find((p) => p.isActive);
+  const modelLabel = activeProvider?.defaultModel ?? "—";
+
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -28,110 +26,16 @@ export function ChatInput() {
     }
   }, [inputValue]);
 
-  const getActiveProvider = useCallback(() => {
-    const entries = Object.entries(settings.providers);
-    const active = entries.find(([, config]) => config.enabled && config.apiKey);
-    if (!active) return null;
-    return { id: active[0], ...active[1] };
-  }, [settings.providers]);
-
   const handleSend = useCallback(() => {
     const content = inputValue.trim();
     if (!content || isStreaming) return;
 
-    const provider = getActiveProvider();
-    if (!provider) {
-      alert("Please configure an AI provider in Settings first.");
-      return;
-    }
-
-    let conversationId = currentConversationId;
-    if (!conversationId) {
-      dispatch(createConversation());
-      // We need to get the ID from the store after dispatch
-      // Since createConversation generates the ID in the reducer,
-      // we'll read it back on next render. For now, use a workaround.
-      return;
-    }
+    const hasProvider = providers.some((p) => p.apiKey);
+    if (!hasProvider) return;
 
     dispatch(setInputValue(""));
-
-    // Add user message
-    dispatch(
-      addMessage({
-        conversationId,
-        message: { role: "user", content },
-      })
-    );
-
-    // Add empty assistant message
-    dispatch(
-      addMessage({
-        conversationId,
-        message: { role: "assistant", content: "" },
-      })
-    );
-
-    dispatch(setIsStreaming(true));
-
-    // Clean up previous listeners
-    cleanupRef.current.forEach((fn) => fn());
-    cleanupRef.current = [];
-
-    const api = window.api;
-
-    const removeData = api.ai.onStreamData((data) => {
-      dispatch(
-        appendToLastMessage({
-          conversationId: conversationId!,
-          content: data.content,
-        })
-      );
-    });
-
-    const removeDone = api.ai.onStreamDone(() => {
-      dispatch(setIsStreaming(false));
-      cleanupRef.current.forEach((fn) => fn());
-      cleanupRef.current = [];
-    });
-
-    const removeError = api.ai.onStreamError((data) => {
-      dispatch(
-        appendToLastMessage({
-          conversationId: conversationId!,
-          content: `\n\nError: ${data.error}`,
-        })
-      );
-      dispatch(setIsStreaming(false));
-      cleanupRef.current.forEach((fn) => fn());
-      cleanupRef.current = [];
-    });
-
-    cleanupRef.current = [removeData, removeDone, removeError];
-
-    // Build messages array for context from current Redux state
-    const conversation = conversations.find((c) => c.id === conversationId);
-    const existingMessages =
-      conversation?.messages?.map((m) => ({ role: m.role, content: m.content })) ?? [];
-
-    // Add the new user message (Redux dispatch is sync but state won't update until re-render)
-    const messages = [...existingMessages, { role: "user" as const, content }];
-
-    api.ai.stream({
-      provider: provider.id,
-      model: provider.selectedModel,
-      apiKey: provider.apiKey,
-      messages,
-      stream: true,
-    });
-  }, [
-    inputValue,
-    isStreaming,
-    currentConversationId,
-    conversations,
-    dispatch,
-    getActiveProvider,
-  ]);
+    sendMessage(content);
+  }, [inputValue, isStreaming, providers, dispatch, sendMessage]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -140,32 +44,111 @@ export function ChatInput() {
     }
   };
 
+  const canSend = inputValue.trim().length > 0;
+
   return (
-    <div className="p-4 border-t border-border">
-      <div className="flex items-end gap-2 max-w-3xl mx-auto bg-secondary rounded-2xl px-4 py-3">
-        <textarea
-          ref={textareaRef}
-          value={inputValue}
-          onChange={(e) => dispatch(setInputValue(e.target.value))}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
-          rows={1}
-          className="flex-1 bg-transparent resize-none outline-none text-sm text-foreground placeholder:text-muted-foreground max-h-[200px]"
-          disabled={isStreaming}
-        />
-        <Button
-          size="icon"
-          onClick={handleSend}
-          disabled={!inputValue.trim() || isStreaming}
-          className="shrink-0 h-8 w-8 rounded-full"
-        >
-          {isStreaming ? (
-            <LoaderIcon className="w-4 h-4 animate-spin" />
-          ) : (
-            <SendIcon className="w-4 h-4" />
-          )}
-        </Button>
+    <div className="px-5 py-4">
+      {error && (
+        <div className="max-w-3xl mx-auto mb-2.5 px-3 py-2 text-xs text-destructive bg-destructive/10 rounded-md">
+          {error}
+        </div>
+      )}
+      <div className="max-w-3xl mx-auto">
+        <div className="border border-foreground/15 rounded-xl overflow-hidden transition-colors bg-card focus-within:border-foreground/30">
+          {/* Textarea */}
+          <textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={(e) => dispatch(setInputValue(e.target.value))}
+            onKeyDown={handleKeyDown}
+            placeholder={l10n.t("Message AgentX...")}
+            rows={1}
+            className="w-full bg-transparent resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-4 pt-3 pb-2"
+            disabled={isStreaming}
+          />
+
+          {/* Toolbar */}
+          <div className="flex items-center gap-0.5 px-2.5 pb-2.5">
+            <ToolbarButton title={l10n.t("Attach file")}>
+              <PaperclipIcon className="w-4 h-4" />
+            </ToolbarButton>
+            <ToolbarButton title={l10n.t("Web search")}>
+              <GlobeIcon className="w-4 h-4" />
+            </ToolbarButton>
+            <ToolbarButton title={l10n.t("Generate image")}>
+              <ImageIcon className="w-4 h-4" />
+            </ToolbarButton>
+
+            {/* Model label */}
+            <span className="ml-1 text-[11px] text-muted-foreground/40 truncate max-w-[120px]">
+              {modelLabel}
+            </span>
+
+            <div className="flex-1" />
+
+            {/* Send / Stop */}
+            {isStreaming ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={abort}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity"
+                  >
+                    <SquareIcon className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{l10n.t("Stop")}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSend}
+                    disabled={!canSend}
+                    className={cn(
+                      "flex items-center justify-center w-7 h-7 rounded-lg transition-colors",
+                      canSend
+                        ? "bg-foreground text-background hover:opacity-90"
+                        : "bg-foreground/10 text-muted-foreground/30",
+                    )}
+                  >
+                    <ArrowUpIcon className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{l10n.t("Send")}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+function ToolbarButton({
+  children,
+  title,
+  onClick,
+}: {
+  children: React.ReactNode;
+  title?: string;
+  onClick?: () => void;
+}) {
+  const btn = (
+    <button
+      onClick={onClick}
+      className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.07] transition-colors"
+    >
+      {children}
+    </button>
+  );
+
+  if (!title) return btn;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{btn}</TooltipTrigger>
+      <TooltipContent>{title}</TooltipContent>
+    </Tooltip>
   );
 }

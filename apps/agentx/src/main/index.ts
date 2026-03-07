@@ -1,7 +1,7 @@
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, shell, ipcMain } from "electron";
 import { join } from "path";
 import { is } from "@electron-toolkit/utils";
-import { registerAllHandlers } from "./ipc/handlers";
+import { initAndRegisterHandlers } from "./ipc/handlers";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -14,9 +14,9 @@ function createWindow(): void {
     show: false,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: "#0a0a0a",
+    backgroundColor: "#0b0f1a",
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: join(__dirname, "../preload/index.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -40,10 +40,27 @@ function createWindow(): void {
   }
 }
 
-// Register IPC handlers before window creation
-registerAllHandlers();
+// Window controls
+ipcMain.on("window:minimize", (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+ipcMain.on("window:maximize", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win?.isMaximized()) {
+    win.unmaximize();
+  } else {
+    win?.maximize();
+  }
+});
+ipcMain.on("window:close", (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Initialize runtime + register IPC handlers. Errors are caught internally
+  // so createWindow() always runs.
+  await initAndRegisterHandlers();
+
   createWindow();
 
   app.on("activate", () => {

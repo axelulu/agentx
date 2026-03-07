@@ -1,0 +1,26 @@
+meta:
+  name: desktop.shell
+  version: "1.0"
+  description: Shell command execution tools for the desktop workspace
+
+tools:
+  - name: shell_run
+    description: >
+      Execute a shell command in the workspace directory.
+      Returns the command output (stdout and stderr) and exit code.
+      Use this tool for tasks like listing files, running scripts,
+      installing packages, or any other terminal operation.
+    category: shell
+    input_schema:
+      type: object
+      properties:
+        command:
+          type: string
+          description: The shell command to execute.
+        timeout_ms:
+          type: number
+          description: >
+            Timeout in milliseconds. The command will be terminated if it
+            exceeds this duration. Defaults to 30000 (30 seconds).
+      required:
+        - command

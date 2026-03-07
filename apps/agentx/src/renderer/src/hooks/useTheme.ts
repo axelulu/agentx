@@ -11,9 +11,7 @@ export function useTheme() {
     const root = document.documentElement;
 
     if (theme === "system") {
-      const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches;
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.classList.toggle("dark", prefersDark);
 
       const listener = (e: MediaQueryListEvent) => {
@@ -36,7 +34,7 @@ export function useTheme() {
     (mode: "light" | "dark" | "system") => {
       dispatch(setTheme(mode));
     },
-    [dispatch]
+    [dispatch],
   );
 
   return { theme, toggleTheme, setThemeMode };

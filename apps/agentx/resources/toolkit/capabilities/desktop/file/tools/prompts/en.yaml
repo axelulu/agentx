@@ -1,0 +1,61 @@
+meta:
+  name: desktop.file
+  version: "1.0"
+  description: File operation tools for the desktop workspace
+
+tools:
+  - name: file_read
+    description: >
+      Read the contents of a file at the given path.
+      Returns the file content, size, and whether the file exists.
+      Use this tool to inspect files before modifying them.
+    category: file
+    input_schema:
+      type: object
+      properties:
+        file_path:
+          type: string
+          description: >
+            Path to the file to read, relative to the workspace root.
+      required:
+        - file_path
+
+  - name: file_create
+    description: >
+      Create a new file with the given content.
+      Creates parent directories automatically if they don't exist.
+      Use this to write new files; use file_rewrite to modify existing files.
+    category: file
+    input_schema:
+      type: object
+      properties:
+        file_path:
+          type: string
+          description: >
+            Path where the file will be created, relative to the workspace root.
+        content:
+          type: string
+          description: The full content to write to the file.
+      required:
+        - file_path
+        - content
+
+  - name: file_rewrite
+    description: >
+      Rewrite an existing file with new content.
+      The file must already exist — use file_create for new files.
+      Always read the file first with file_read before rewriting.
+    category: file
+    input_schema:
+      type: object
+      properties:
+        file_path:
+          type: string
+          description: >
+            Path to the existing file to rewrite, relative to the workspace root.
+        content:
+          type: string
+          description: The new full content to replace the file with.
+      required:
+        - file_path
+        - content

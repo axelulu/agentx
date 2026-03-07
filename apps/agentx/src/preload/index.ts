@@ -1,44 +1,48 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 const api = {
-  ai: {
-    chat: (request: unknown) => ipcRenderer.invoke("ai:chat", request),
-    stream: (request: unknown) => {
-      ipcRenderer.send("ai:stream", request);
-    },
-    onStreamData: (callback: (data: { content: string }) => void) => {
-      const listener = (_event: unknown, data: { content: string }) =>
-        callback(data);
-      ipcRenderer.on("ai:stream:data", listener);
-      return () => ipcRenderer.removeListener("ai:stream:data", listener);
-    },
-    onStreamDone: (callback: () => void) => {
-      const listener = () => callback();
-      ipcRenderer.on("ai:stream:done", listener);
-      return () => ipcRenderer.removeListener("ai:stream:done", listener);
-    },
-    onStreamError: (callback: (data: { error: string }) => void) => {
-      const listener = (_event: unknown, data: { error: string }) =>
-        callback(data);
-      ipcRenderer.on("ai:stream:error", listener);
-      return () => ipcRenderer.removeListener("ai:stream:error", listener);
-    },
-    listModels: () => ipcRenderer.invoke("ai:list-models"),
+  conversation: {
+    create: (title?: string) => ipcRenderer.invoke("conversation:create", title),
+    list: () => ipcRenderer.invoke("conversation:list"),
+    delete: (id: string) => ipcRenderer.invoke("conversation:delete", id),
+    messages: (id: string) => ipcRenderer.invoke("conversation:messages", id),
+    updateTitle: (id: string, title: string) =>
+      ipcRenderer.invoke("conversation:updateTitle", id, title),
   },
-  store: {
-    get: (key: string) => ipcRenderer.invoke("store:get", key),
-    set: (key: string, value: unknown) =>
-      ipcRenderer.invoke("store:set", key, value),
-    delete: (key: string) => ipcRenderer.invoke("store:delete", key),
-    clear: () => ipcRenderer.invoke("store:clear"),
+  agent: {
+    send: (conversationId: string, content: string) =>
+      ipcRenderer.invoke("agent:send", conversationId, content),
+    abort: (conversationId: string) => ipcRenderer.send("agent:abort", conversationId),
+    onEvent: (callback: (event: unknown) => void) => {
+      const listener = (_: unknown, event: unknown) => callback(event);
+      ipcRenderer.on("agent:event", listener);
+      return () => {
+        ipcRenderer.removeListener("agent:event", listener);
+      };
+    },
+  },
+  provider: {
+    list: () => ipcRenderer.invoke("provider:list"),
+    set: (config: unknown) => ipcRenderer.invoke("provider:set", config),
+    remove: (id: string) => ipcRenderer.send("provider:remove", id),
+    setActive: (id: string) => ipcRenderer.send("provider:setActive", id),
   },
   fs: {
     readFile: (path: string) => ipcRenderer.invoke("fs:readFile", path),
-    writeFile: (path: string, content: string) =>
-      ipcRenderer.invoke("fs:writeFile", path, content),
+    writeFile: (path: string, content: string) => ipcRenderer.invoke("fs:writeFile", path, content),
     selectFile: (options?: { filters?: unknown[]; multi?: boolean }) =>
       ipcRenderer.invoke("fs:selectFile", options),
     selectDirectory: () => ipcRenderer.invoke("fs:selectDirectory"),
+  },
+  knowledgeBase: {
+    list: () => ipcRenderer.invoke("kb:list"),
+    set: (item: unknown) => ipcRenderer.invoke("kb:set", item),
+    remove: (id: string) => ipcRenderer.send("kb:remove", id),
+  },
+  mcp: {
+    list: () => ipcRenderer.invoke("mcp:list"),
+    set: (config: unknown) => ipcRenderer.invoke("mcp:set", config),
+    remove: (id: string) => ipcRenderer.send("mcp:remove", id),
   },
   window: {
     minimize: () => ipcRenderer.send("window:minimize"),

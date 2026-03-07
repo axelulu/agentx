@@ -7,9 +7,7 @@ import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function AppLayout() {
-  const { sidebarOpen, settingsOpen } = useSelector(
-    (state: RootState) => state.ui
-  );
+  const { sidebarOpen, settingsOpen } = useSelector((state: RootState) => state.ui);
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
@@ -22,7 +20,7 @@ export function AppLayout() {
               animate={{ width: 260, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden border-r border-border"
+              className="overflow-hidden border-r border-sidebar-border"
             >
               <Sidebar />
             </motion.div>
@@ -33,9 +31,7 @@ export function AppLayout() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {settingsOpen && <SettingsPanel />}
-      </AnimatePresence>
+      <AnimatePresence>{settingsOpen && <SettingsPanel />}</AnimatePresence>
     </div>
   );
 }

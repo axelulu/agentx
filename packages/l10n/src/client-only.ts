@@ -24,7 +24,7 @@ export default l10n;
 export function initializeClientL10n(
   language: string,
   translations: Record<string, any>,
-  options: Omit<L10nOptions, "translations"> = {}
+  options: Omit<L10nOptions, "translations"> = {},
 ): L10nClient {
   const translationsMap = new Map();
   translationsMap.set(language, translations);
@@ -39,10 +39,7 @@ export function initializeClientL10n(
 /**
  * 为现有的 l10n 实例添加翻译数据
  */
-export function addTranslations(
-  language: string,
-  translations: Record<string, any>
-): void {
+export function addTranslations(language: string, translations: Record<string, any>): void {
   const instance = getL10n();
   instance.setTranslations(language, translations);
 }
