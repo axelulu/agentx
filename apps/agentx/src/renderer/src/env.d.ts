@@ -59,7 +59,7 @@ interface ElectronAPI {
     check: (type: SystemPermissionType) => Promise<SystemPermissionStatus>;
     request: (
       type: SystemPermissionType,
-    ) => Promise<{ status: SystemPermissionStatus; opened?: boolean }>;
+    ) => Promise<{ status: SystemPermissionStatus; canRequestDirectly: boolean }>;
     openSettings: (type: SystemPermissionType) => Promise<void>;
   };
   toolPermissions: {

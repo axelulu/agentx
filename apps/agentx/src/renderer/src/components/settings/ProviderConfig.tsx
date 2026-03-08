@@ -168,7 +168,7 @@ export function ProviderConfig() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
         >
           <PlusIcon className="w-3.5 h-3.5" />
-          OpenAI
+          {l10n.t("OpenAI")}
         </button>
         <button
           onClick={() => handleAdd("custom")}

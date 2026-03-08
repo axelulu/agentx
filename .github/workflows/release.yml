@@ -91,6 +91,30 @@ jobs:
         with:
           draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
           generate_release_notes: true
+          append_body: true
+          body: |
+
+            ## Installation
+
+            ### macOS
+            1. Download the `.dmg` file for your architecture (`arm64` for Apple Silicon, `x64` for Intel)
+            2. Open the `.dmg` and drag **AgentX** to Applications
+            3. **Important**: The app is not yet code-signed. macOS will show "AgentX is damaged" error. Run this command to fix it:
+               ```bash
+               xattr -cr /Applications/AgentX.app
+               ```
+            4. Open AgentX from Applications
+
+            > Alternatively, you can right-click the app → Open → click "Open" in the dialog.
+
+            ### Windows
+            Download and run the `.exe` installer.
+
+            ### Linux
+            ```bash
+            chmod +x AgentX-*.AppImage
+            ./AgentX-*.AppImage
+            ```
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

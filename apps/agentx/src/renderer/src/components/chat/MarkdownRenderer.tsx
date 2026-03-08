@@ -1,6 +1,7 @@
 import { memo, useState, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { l10n } from "@workspace/l10n";
 import { cn } from "@/lib/utils";
 import { CheckIcon, CopyIcon, ChevronRightIcon, BrainIcon, LoaderIcon } from "lucide-react";
 
@@ -43,7 +44,7 @@ function CodeBlock({
       {/* Language label + copy button */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-foreground/[0.04] border-b border-foreground/[0.08]">
         <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
-          {lang || "code"}
+          {lang || l10n.t("code")}
         </span>
         <button
           onClick={handleCopy}
@@ -52,12 +53,12 @@ function CodeBlock({
           {copied ? (
             <>
               <CheckIcon className="w-3 h-3" />
-              <span>Copied</span>
+              <span>{l10n.t("Copied")}</span>
             </>
           ) : (
             <>
               <CopyIcon className="w-3 h-3" />
-              <span>Copy</span>
+              <span>{l10n.t("Copy")}</span>
             </>
           )}
         </button>
@@ -189,7 +190,7 @@ function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming?
           <BrainIcon className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
         )}
         <span className="text-[12px] text-muted-foreground/50 italic flex-1 min-w-0 truncate">
-          {expanded ? "Thinking" : preview}
+          {expanded ? l10n.t("Thinking") : preview}
         </span>
         <ChevronRightIcon
           className={cn(

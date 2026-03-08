@@ -46,8 +46,12 @@ export class DesktopRuntime {
   private permissionsFilePath!: string;
 
   // --- Tool Approval ---
-  private pendingApprovals = new Map<string, { resolve: (approved: boolean) => void }>();
+  private pendingApprovals = new Map<
+    string,
+    { resolve: (approved: boolean) => void; toolName: string }
+  >();
   private activeOnEvent: ((event: SerializableAgentEvent) => void) | null = null;
+  private sessionApprovedCategories = new Set<string>();
 
   constructor(config: DesktopRuntimeConfig) {
     this.config = config;
@@ -229,7 +233,11 @@ export class DesktopRuntime {
         const needsApproval =
           mode === "always-ask" || (mode === "smart" && isWriteOrExecuteTool(tool.name));
 
-        if (needsApproval && category !== "none") {
+        if (
+          needsApproval &&
+          category !== "none" &&
+          !runtime.sessionApprovedCategories.has(category)
+        ) {
           const approved = await runtime.requestToolApproval(tool.name, args);
           if (!approved) {
             return {
@@ -252,7 +260,7 @@ export class DesktopRuntime {
     return new Promise<boolean>((resolve) => {
       const approvalId = `approval_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-      this.pendingApprovals.set(approvalId, { resolve });
+      this.pendingApprovals.set(approvalId, { resolve, toolName });
 
       // Emit approval request to renderer
       this.activeOnEvent?.({
@@ -277,6 +285,12 @@ export class DesktopRuntime {
   resolveToolApproval(approvalId: string, approved: boolean): void {
     const pending = this.pendingApprovals.get(approvalId);
     if (pending) {
+      if (approved) {
+        const category = getToolPermissionCategory(pending.toolName);
+        if (category !== "none") {
+          this.sessionApprovedCategories.add(category);
+        }
+      }
       pending.resolve(approved);
       this.pendingApprovals.delete(approvalId);
     }

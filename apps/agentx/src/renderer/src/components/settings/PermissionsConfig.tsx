@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { l10n } from "@workspace/l10n";
 import {
   AccessibilityIcon,
   MonitorIcon,
@@ -39,90 +40,90 @@ type PermissionStatus =
 
 interface PermissionInfo {
   type: PermissionType;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   icon: React.ElementType;
 }
 
 const PERMISSIONS: PermissionInfo[] = [
   {
     type: "accessibility",
-    label: "Accessibility",
-    description: "Control your computer and interact with apps",
+    labelKey: "Accessibility",
+    descriptionKey: "Control your computer and interact with apps",
     icon: AccessibilityIcon,
   },
   {
     type: "screen",
-    label: "Screen Recording",
-    description: "Capture screen content for visual context",
+    labelKey: "Screen Recording",
+    descriptionKey: "Capture screen content for visual context",
     icon: MonitorIcon,
   },
   {
     type: "microphone",
-    label: "Microphone",
-    description: "Access microphone for voice input",
+    labelKey: "Microphone",
+    descriptionKey: "Access microphone for voice input",
     icon: MicIcon,
   },
   {
     type: "camera",
-    label: "Camera",
-    description: "Access camera for visual input",
+    labelKey: "Camera",
+    descriptionKey: "Access camera for visual input",
     icon: CameraIcon,
   },
   {
     type: "full-disk-access",
-    label: "Full Disk Access",
-    description: "Read and write files across the entire system",
+    labelKey: "Full Disk Access",
+    descriptionKey: "Read and write files across the entire system",
     icon: HardDriveIcon,
   },
   {
     type: "automation",
-    label: "Automation",
-    description: "Control other applications via AppleScript",
+    labelKey: "Automation",
+    descriptionKey: "Control other applications via AppleScript",
     icon: BotIcon,
   },
   {
     type: "notifications",
-    label: "Notifications",
-    description: "Send desktop notifications",
+    labelKey: "Notifications",
+    descriptionKey: "Send desktop notifications",
     icon: BellIcon,
   },
 ];
 
 const STATUS_CONFIG: Record<
   PermissionStatus,
-  { icon: React.ElementType; color: string; dotColor: string; label: string }
+  { icon: React.ElementType; color: string; dotColor: string; labelKey: string }
 > = {
   granted: {
     icon: CheckCircle2Icon,
     color: "text-emerald-500",
     dotColor: "bg-emerald-500",
-    label: "Granted",
+    labelKey: "Granted",
   },
-  denied: { icon: XCircleIcon, color: "text-red-500", dotColor: "bg-red-500", label: "Denied" },
+  denied: { icon: XCircleIcon, color: "text-red-500", dotColor: "bg-red-500", labelKey: "Denied" },
   "not-determined": {
     icon: CircleDotIcon,
     color: "text-yellow-500",
     dotColor: "bg-yellow-500",
-    label: "Not Set",
+    labelKey: "Not Set",
   },
   restricted: {
     icon: AlertCircleIcon,
     color: "text-orange-500",
     dotColor: "bg-orange-500",
-    label: "Restricted",
+    labelKey: "Restricted",
   },
   limited: {
     icon: AlertCircleIcon,
     color: "text-orange-500",
     dotColor: "bg-orange-500",
-    label: "Limited",
+    labelKey: "Limited",
   },
   unknown: {
     icon: CircleDotIcon,
     color: "text-muted-foreground",
     dotColor: "bg-muted-foreground",
-    label: "Unknown",
+    labelKey: "Unknown",
   },
 };
 
@@ -163,7 +164,8 @@ export function PermissionsConfig() {
     setTimeout(() => setFeedback(null), 4000);
   }, []);
 
-  // Click "Grant" → directly open System Settings to the right pane
+  // Click "Grant" → first try to request programmatically (triggers system dialog),
+  // then fall back to opening System Settings if not possible
   const handleGrant = useCallback(
     async (perm: PermissionInfo) => {
       console.log(`[PermissionsConfig] handleGrant called for: ${perm.type}`);
@@ -173,18 +175,45 @@ export function PermissionsConfig() {
       }
       setRequesting(perm.type);
       try {
+        // Step 1: Try to request the permission programmatically
+        // This triggers the native system dialog and auto-adds the app to the permissions list
+        console.log(`[PermissionsConfig] Calling window.api.permissions.request(${perm.type})`);
+        const result = await window.api.permissions.request(perm.type);
+        console.log(`[PermissionsConfig] request result:`, result);
+
+        if (result?.status === "granted") {
+          // Permission granted via system dialog — refresh and we're done
+          showFeedback(l10n.t("Permission granted!"));
+          await refresh();
+          return;
+        }
+
+        // Step 2: If the permission was denied or can't be requested programmatically,
+        // open System Settings so the user can toggle it manually
+        if (result?.canRequestDirectly) {
+          // The system dialog was shown but user denied — they need to enable it in Settings
+          showFeedback(
+            l10n.t(
+              "Permission was denied. Opening System Settings — please enable it manually and switch back.",
+            ),
+          );
+        } else {
+          showFeedback(
+            l10n.t(
+              "System Settings opened. Please add AgentX to the list and enable the permission.",
+            ),
+          );
+        }
+
         console.log(
           `[PermissionsConfig] Calling window.api.permissions.openSettings(${perm.type})`,
         );
         await window.api.permissions.openSettings(perm.type);
         console.log(`[PermissionsConfig] openSettings resolved successfully`);
-        showFeedback(`System Settings opened — enable "${perm.label}" and switch back`);
         setTimeout(refresh, 2000);
       } catch (err) {
-        console.error(`[PermissionsConfig] openSettings(${perm.type}) failed:`, err);
-        showFeedback(
-          "Could not open System Settings. Please open manually: System Settings > Privacy & Security",
-        );
+        console.error(`[PermissionsConfig] handleGrant(${perm.type}) failed:`, err);
+        showFeedback(l10n.t("Could not open System Settings. Please open manually."));
       } finally {
         setRequesting(null);
       }
@@ -199,17 +228,18 @@ export function PermissionsConfig() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
-          System Permissions
+          {l10n.t("System Permissions")}
         </label>
         {statuses && (
           <span className="text-[11px] text-muted-foreground">
-            {grantedCount}/{totalCount} granted
+            {grantedCount}/{totalCount} {l10n.t("granted")}
           </span>
         )}
       </div>
       <p className="text-[12px] text-muted-foreground">
-        AgentX needs these system permissions to fully control your desktop. Click "Grant" to open
-        System Settings where you can enable each permission.
+        {l10n.t(
+          "AgentX needs these permissions to control your desktop. Click Grant to open System Settings.",
+        )}
       </p>
 
       {feedback && (
@@ -243,16 +273,18 @@ export function PermissionsConfig() {
               />
 
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-foreground">{perm.label}</p>
+                <p className="text-[13px] font-medium text-foreground">{l10n.t(perm.labelKey)}</p>
                 <p className="text-[11px] text-muted-foreground leading-tight">
-                  {perm.description}
+                  {l10n.t(perm.descriptionKey)}
                 </p>
               </div>
 
               {/* Status indicator */}
               <div className="flex items-center gap-1.5 shrink-0 min-w-[70px]">
                 <div className={cn("w-1.5 h-1.5 rounded-full", config.dotColor)} />
-                <span className={cn("text-[11px] font-medium", config.color)}>{config.label}</span>
+                <span className={cn("text-[11px] font-medium", config.color)}>
+                  {l10n.t(config.labelKey)}
+                </span>
               </div>
 
               {/* Action button */}
@@ -267,14 +299,14 @@ export function PermissionsConfig() {
                       : "bg-foreground text-background hover:bg-foreground/90",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
                   )}
-                  title={isGranted ? "Open System Settings" : `Grant ${perm.label} permission`}
+                  title={isGranted ? l10n.t("Open System Settings") : l10n.t("Grant permission")}
                 >
                   {isRequesting ? (
                     <Loader2Icon className="w-3 h-3 animate-spin" />
                   ) : isGranted ? (
                     <ExternalLinkIcon className="w-3 h-3" />
                   ) : (
-                    "Grant"
+                    l10n.t("Grant")
                   )}
                 </button>
               </div>

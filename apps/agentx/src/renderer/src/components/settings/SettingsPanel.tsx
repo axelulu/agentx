@@ -205,7 +205,7 @@ function AboutSection() {
             <span className="text-[12px] text-muted-foreground">Electron</span>
           </div>
           <div className="flex items-center justify-between py-1">
-            <span className="text-sm text-foreground">GitHub</span>
+            <span className="text-sm text-foreground">{l10n.t("GitHub")}</span>
             <a
               href="https://github.com/axelulu/agentx"
               target="_blank"

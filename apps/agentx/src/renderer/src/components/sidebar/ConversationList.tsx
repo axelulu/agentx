@@ -75,10 +75,10 @@ function formatRelativeTime(timestamp: number): string {
   if (days > 7) {
     return new Date(timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return "Just now";
+  if (days > 0) return `${days}${l10n.t("d ago")}`;
+  if (hours > 0) return `${hours}${l10n.t("h ago")}`;
+  if (minutes > 0) return `${minutes}${l10n.t("m ago")}`;
+  return l10n.t("Just now");
 }
 
 // ---------------------------------------------------------------------------
@@ -150,7 +150,7 @@ export function ConversationList() {
                   {conversation.messageCount > 0 && (
                     <span className="ml-1.5">
                       &middot; {conversation.messageCount}{" "}
-                      {conversation.messageCount === 1 ? "msg" : "msgs"}
+                      {conversation.messageCount === 1 ? l10n.t("msg") : l10n.t("msgs")}
                     </span>
                   )}
                 </p>

@@ -26,7 +26,7 @@ export function MCPConfig() {
   const handleAdd = (transport: "stdio" | "sse") => {
     const config: MCPServerConfig = {
       id: uuidv4(),
-      name: transport === "stdio" ? "New Stdio Server" : "New SSE Server",
+      name: transport === "stdio" ? l10n.t("New Stdio Server") : l10n.t("New SSE Server"),
       transport,
       command: transport === "stdio" ? "" : undefined,
       args: transport === "stdio" ? [] : undefined,
@@ -124,7 +124,7 @@ export function MCPConfig() {
                     )}
 
                     {server.transport === "sse" && (
-                      <FieldRow label="URL">
+                      <FieldRow label={l10n.t("URL")}>
                         <InputBox
                           value={server.url ?? ""}
                           onChange={(e) => handleSave({ ...server, url: e.target.value })}
@@ -177,7 +177,7 @@ export function MCPConfig() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
         >
           <PlusIcon className="w-3.5 h-3.5" />
-          Stdio
+          {l10n.t("Stdio")}
         </button>
         <button
           type="button"
@@ -185,7 +185,7 @@ export function MCPConfig() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
         >
           <PlusIcon className="w-3.5 h-3.5" />
-          SSE
+          {l10n.t("SSE")}
         </button>
       </div>
     </div>

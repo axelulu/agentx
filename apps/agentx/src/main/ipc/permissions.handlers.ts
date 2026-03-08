@@ -1,4 +1,4 @@
-import { ipcMain, systemPreferences, shell, Notification } from "electron";
+import { ipcMain, systemPreferences, shell, Notification, desktopCapturer } from "electron";
 import { readdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -205,50 +205,79 @@ async function checkAllPermissions(): Promise<Record<PermissionType, PermissionS
 
 async function requestPermission(
   type: PermissionType,
-): Promise<{ status: PermissionStatus; opened?: boolean }> {
+): Promise<{ status: PermissionStatus; canRequestDirectly: boolean }> {
   if (process.platform !== "darwin") {
-    return { status: "granted" };
+    return { status: "granted", canRequestDirectly: true };
   }
 
   switch (type) {
     case "microphone": {
       try {
         const granted = await systemPreferences.askForMediaAccess("microphone");
-        return { status: granted ? "granted" : "denied" };
+        return { status: granted ? "granted" : "denied", canRequestDirectly: true };
       } catch {
-        // askForMediaAccess may fail for unsigned/dev apps
-        return { status: "denied" };
+        return { status: "denied", canRequestDirectly: false };
       }
     }
     case "camera": {
       try {
         const granted = await systemPreferences.askForMediaAccess("camera");
-        return { status: granted ? "granted" : "denied" };
+        return { status: granted ? "granted" : "denied", canRequestDirectly: true };
       } catch {
-        return { status: "denied" };
+        return { status: "denied", canRequestDirectly: false };
       }
     }
     case "accessibility": {
       try {
-        // On macOS 13+, isTrustedAccessibilityClient(true) may not show a dialog
-        // It just checks the status; granting requires System Settings
-        systemPreferences.isTrustedAccessibilityClient(true);
-        const status = checkAccessibility();
-        return { status };
+        // isTrustedAccessibilityClient(true) prompts the user and adds the app to the list
+        const trusted = systemPreferences.isTrustedAccessibilityClient(true);
+        return { status: trusted ? "granted" : "denied", canRequestDirectly: true };
       } catch {
-        return { status: "denied" };
+        return { status: "denied", canRequestDirectly: false };
       }
     }
-    // These permissions can only be granted via System Settings
-    case "screen":
+    case "screen": {
+      try {
+        // Attempting to get screen sources triggers the screen recording permission dialog
+        // This will add the app to the Screen Recording list in System Settings
+        await desktopCapturer.getSources({
+          types: ["screen"],
+          thumbnailSize: { width: 1, height: 1 },
+        });
+        const status = checkScreenRecording();
+        return { status, canRequestDirectly: true };
+      } catch {
+        return { status: "denied", canRequestDirectly: false };
+      }
+    }
+    case "automation": {
+      try {
+        // Running an AppleScript command triggers the Automation permission dialog
+        // This will add the app to the Automation list in System Settings
+        await new Promise<void>((resolve, reject) => {
+          exec(
+            "osascript -e 'tell application \"System Events\" to get name of first process'",
+            { timeout: 10000 },
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            },
+          );
+        });
+        return { status: "granted", canRequestDirectly: true };
+      } catch {
+        // The dialog was shown but user may have denied — still counts as "can request directly"
+        return { status: "denied", canRequestDirectly: true };
+      }
+    }
+    // These permissions can only be granted via System Settings manually
     case "full-disk-access":
-    case "automation":
     case "notifications": {
       const status = await checkPermission(type);
-      return { status };
+      return { status, canRequestDirectly: false };
     }
     default:
-      return { status: "unknown" };
+      return { status: "unknown", canRequestDirectly: false };
   }
 }
 

@@ -150,7 +150,7 @@ function persistToolPermissions(perms: ToolPermissionsState): void {
 // ---------------------------------------------------------------------------
 
 const initialState: SettingsState = {
-  theme: "dark",
+  theme: (localStorage.getItem("agentx-theme") as SettingsState["theme"]) || "system",
   language: localStorage.getItem("agentx-language") || "en",
   providers: [],
   knowledgeBase: [],
@@ -170,6 +170,7 @@ const settingsSlice = createSlice({
   reducers: {
     setTheme(state, action: PayloadAction<"light" | "dark" | "system">) {
       state.theme = action.payload;
+      localStorage.setItem("agentx-theme", action.payload);
     },
     setLanguage(state, action: PayloadAction<string>) {
       state.language = action.payload;
