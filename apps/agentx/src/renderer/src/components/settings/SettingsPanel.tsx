@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "@/slices/store";
 import { setSettingsOpen } from "@/slices/uiSlice";
+import { checkForUpdates } from "@/slices/updateSlice";
 import { l10n, SUPPORTED_LANGUAGE } from "@workspace/l10n";
 import { motion } from "framer-motion";
 import {
@@ -189,6 +191,31 @@ function GeneralSection() {
 }
 
 function AboutSection() {
+  const dispatch = useDispatch<AppDispatch>();
+  const updateState = useSelector((s: RootState) => s.update.state);
+  const updateVersion = useSelector((s: RootState) => s.update.version);
+
+  const updateButtonLabel = (() => {
+    switch (updateState) {
+      case "checking":
+        return l10n.t("Checking...");
+      case "available":
+        return l10n.t("Update Available");
+      case "downloading":
+        return l10n.t("Downloading update...");
+      case "downloaded":
+        return l10n.t("Update {{version}} is ready to install.", { version: updateVersion ?? "" });
+      case "not-available":
+        return l10n.t("Up to date");
+      case "error":
+        return l10n.t("Check failed");
+      default:
+        return l10n.t("Check for Updates");
+    }
+  })();
+
+  const isCheckDisabled = ["checking", "downloading"].includes(updateState);
+
   return (
     <div className="space-y-5">
       <div className="space-y-3">
@@ -215,6 +242,27 @@ function AboutSection() {
               github.com/axelulu/agentx
             </a>
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+          {l10n.t("Updates")}
+        </label>
+        <div className="flex items-center justify-between py-1">
+          <span className="text-sm text-foreground">{l10n.t("Check for Updates")}</span>
+          <button
+            onClick={() => dispatch(checkForUpdates())}
+            disabled={isCheckDisabled}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+              isCheckDisabled
+                ? "bg-foreground/5 text-muted-foreground cursor-not-allowed"
+                : "bg-foreground/10 text-foreground hover:bg-foreground/15",
+            )}
+          >
+            {updateButtonLabel}
+          </button>
         </div>
       </div>
     </div>

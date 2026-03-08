@@ -1,5 +1,9 @@
 appId: com.agentx.desktop
 productName: AgentX
+publish:
+  provider: github
+  owner: axelulu
+  repo: agentx
 directories:
   buildResources: resources
   output: release
@@ -18,6 +22,10 @@ asarUnpack:
 mac:
   target:
     - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
       arch:
         - x64
         - arm64

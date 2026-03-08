@@ -63,11 +63,12 @@ jobs:
           name: release-${{ matrix.platform }}
           path: |
             apps/agentx/release/*.dmg
+            apps/agentx/release/*.zip
             apps/agentx/release/*.exe
             apps/agentx/release/*.AppImage
             apps/agentx/release/*.yml
             apps/agentx/release/*.yaml
-            !apps/agentx/release/*.blockmap
+            apps/agentx/release/*.blockmap
           if-no-files-found: error
 
   release:

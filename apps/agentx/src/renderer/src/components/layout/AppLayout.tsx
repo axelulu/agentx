@@ -4,14 +4,18 @@ import { TitleBar } from "./TitleBar";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
+import { UpdateBanner } from "@/components/update/UpdateBanner";
+import { useUpdateListener } from "@/hooks/useUpdateListener";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function AppLayout() {
   const { sidebarOpen, settingsOpen } = useSelector((state: RootState) => state.ui);
+  useUpdateListener();
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
       <TitleBar />
+      <UpdateBanner />
       <div className="flex flex-1 overflow-hidden">
         <AnimatePresence>
           {sidebarOpen && (

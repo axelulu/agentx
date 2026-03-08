@@ -1,6 +1,7 @@
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
-import { setInputValue } from "@/slices/chatSlice";
+import { setInputValue, setError } from "@/slices/chatSlice";
+import { setSettingsOpen } from "@/slices/uiSlice";
 import { useAgent } from "@/hooks/useAgent";
 import { l10n } from "@workspace/l10n";
 import {
@@ -107,7 +108,11 @@ export function ChatInput() {
     if (isStreaming) return;
 
     const hasProvider = providers.some((p) => p.apiKey);
-    if (!hasProvider) return;
+    if (!hasProvider) {
+      dispatch(setError(l10n.t("Please configure an AI provider first")));
+      dispatch(setSettingsOpen(true));
+      return;
+    }
 
     let content = text;
     if (attachments.length > 0) {

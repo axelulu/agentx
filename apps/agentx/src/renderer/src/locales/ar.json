@@ -121,5 +121,19 @@
   "Stdio": "Stdio",
   "SSE": "SSE",
   "OpenAI": "OpenAI",
-  "GitHub": "GitHub"
+  "GitHub": "GitHub",
+  "Please configure an AI provider first": "يرجى إعداد مزود الذكاء الاصطناعي أولاً",
+  "Update Available": "تحديث متاح",
+  "A new version is available: {{version}}": "إصدار جديد متاح: {{version}}",
+  "Download": "تنزيل",
+  "Later": "لاحقاً",
+  "Downloading update...": "جارٍ تنزيل التحديث...",
+  "Update {{version}} is ready to install.": "التحديث {{version}} جاهز للتثبيت.",
+  "Restart & Update": "إعادة التشغيل والتحديث",
+  "The update will be installed when you quit the app.": "سيتم تثبيت التحديث عند إغلاق التطبيق.",
+  "Check for Updates": "التحقق من التحديثات",
+  "Checking...": "جارٍ التحقق...",
+  "Up to date": "محدّث",
+  "Check failed": "فشل التحقق",
+  "Updates": "التحديثات"
 }

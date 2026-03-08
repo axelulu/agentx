@@ -77,6 +77,12 @@ interface ElectronAPI {
     stat: (path: string) => Promise<{ size: number; isDirectory: boolean; isFile: boolean } | null>;
     getDroppedPaths: () => string[];
   };
+  updater: {
+    checkForUpdates: () => Promise<void>;
+    downloadUpdate: () => Promise<void>;
+    installUpdate: () => Promise<void>;
+    onStatus: (callback: (status: unknown) => void) => () => void;
+  };
   window: {
     minimize: () => void;
     maximize: () => void;

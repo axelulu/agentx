@@ -121,5 +121,19 @@
   "Stdio": "Stdio",
   "SSE": "SSE",
   "OpenAI": "OpenAI",
-  "GitHub": "GitHub"
+  "GitHub": "GitHub",
+  "Please configure an AI provider first": "Please configure an AI provider first",
+  "Update Available": "Update Available",
+  "A new version is available: {{version}}": "A new version is available: {{version}}",
+  "Download": "Download",
+  "Later": "Later",
+  "Downloading update...": "Downloading update...",
+  "Update {{version}} is ready to install.": "Update {{version}} is ready to install.",
+  "Restart & Update": "Restart & Update",
+  "The update will be installed when you quit the app.": "The update will be installed when you quit the app.",
+  "Check for Updates": "Check for Updates",
+  "Checking...": "Checking...",
+  "Up to date": "Up to date",
+  "Check failed": "Check failed",
+  "Updates": "Updates"
 }

@@ -1,6 +1,7 @@
 import { initDesktopRuntime, registerDesktopHandlers } from "./desktop.handlers";
 import { registerFSHandlers } from "./fs.handlers";
 import { registerPermissionsHandlers } from "./permissions.handlers";
+import { registerUpdaterHandlers } from "./updater.handlers";
 
 export async function initAndRegisterHandlers(): Promise<void> {
   try {
@@ -27,5 +28,10 @@ export async function initAndRegisterHandlers(): Promise<void> {
     console.log("[Handlers] Permissions handlers registered successfully");
   } catch (err) {
     console.error("[Handlers] registerPermissionsHandlers failed:", err);
+  }
+  try {
+    registerUpdaterHandlers();
+  } catch (err) {
+    console.error("[Handlers] registerUpdaterHandlers failed:", err);
   }
 }

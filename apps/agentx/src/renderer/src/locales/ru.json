@@ -121,5 +121,19 @@
   "Stdio": "Stdio",
   "SSE": "SSE",
   "OpenAI": "OpenAI",
-  "GitHub": "GitHub"
+  "GitHub": "GitHub",
+  "Please configure an AI provider first": "Сначала настройте поставщика ИИ",
+  "Update Available": "Доступно обновление",
+  "A new version is available: {{version}}": "Доступна новая версия: {{version}}",
+  "Download": "Скачать",
+  "Later": "Позже",
+  "Downloading update...": "Загрузка обновления...",
+  "Update {{version}} is ready to install.": "Обновление {{version}} готово к установке.",
+  "Restart & Update": "Перезапустить и обновить",
+  "The update will be installed when you quit the app.": "Обновление будет установлено при выходе из приложения.",
+  "Check for Updates": "Проверить обновления",
+  "Checking...": "Проверка...",
+  "Up to date": "Актуальная версия",
+  "Check failed": "Проверка не удалась",
+  "Updates": "Обновления"
 }

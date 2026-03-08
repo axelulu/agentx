@@ -121,5 +121,19 @@
   "Stdio": "Stdio",
   "SSE": "SSE",
   "OpenAI": "OpenAI",
-  "GitHub": "GitHub"
+  "GitHub": "GitHub",
+  "Please configure an AI provider first": "Por favor, configura un proveedor de IA primero",
+  "Update Available": "Actualización disponible",
+  "A new version is available: {{version}}": "Hay una nueva versión disponible: {{version}}",
+  "Download": "Descargar",
+  "Later": "Más tarde",
+  "Downloading update...": "Descargando actualización...",
+  "Update {{version}} is ready to install.": "La actualización {{version}} está lista para instalar.",
+  "Restart & Update": "Reiniciar y actualizar",
+  "The update will be installed when you quit the app.": "La actualización se instalará cuando cierre la aplicación.",
+  "Check for Updates": "Buscar actualizaciones",
+  "Checking...": "Verificando...",
+  "Up to date": "Actualizado",
+  "Check failed": "Verificación fallida",
+  "Updates": "Actualizaciones"
 }

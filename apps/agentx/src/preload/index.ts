@@ -97,6 +97,18 @@ const api = {
     respondApproval: (approvalId: string, approved: boolean) =>
       ipcRenderer.invoke("tool:respondApproval", approvalId, approved),
   },
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke("updater:checkForUpdates"),
+    downloadUpdate: () => ipcRenderer.invoke("updater:downloadUpdate"),
+    installUpdate: () => ipcRenderer.invoke("updater:installUpdate"),
+    onStatus: (callback: (status: unknown) => void) => {
+      const listener = (_: unknown, status: unknown) => callback(status);
+      ipcRenderer.on("updater:status", listener);
+      return () => {
+        ipcRenderer.removeListener("updater:status", listener);
+      };
+    },
+  },
   window: {
     minimize: () => ipcRenderer.send("window:minimize"),
     maximize: () => ipcRenderer.send("window:maximize"),

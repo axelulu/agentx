@@ -121,5 +121,19 @@
   "Stdio": "Stdio",
   "SSE": "SSE",
   "OpenAI": "OpenAI",
-  "GitHub": "GitHub"
+  "GitHub": "GitHub",
+  "Please configure an AI provider first": "請先設定 AI 供應商",
+  "Update Available": "有可用更新",
+  "A new version is available: {{version}}": "新版本可用：{{version}}",
+  "Download": "下載",
+  "Later": "稍後",
+  "Downloading update...": "正在下載更新...",
+  "Update {{version}} is ready to install.": "更新 {{version}} 已準備好安裝。",
+  "Restart & Update": "重新啟動並更新",
+  "The update will be installed when you quit the app.": "退出應用程式時將自動安裝更新。",
+  "Check for Updates": "檢查更新",
+  "Checking...": "檢查中...",
+  "Up to date": "已是最新版本",
+  "Check failed": "檢查失敗",
+  "Updates": "更新"
 }
