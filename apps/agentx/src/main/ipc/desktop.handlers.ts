@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, app } from "electron";
 import { join } from "path";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { DesktopRuntime } from "@workspace/desktop";
-import type { DesktopProviderConfig } from "@workspace/desktop";
+import type { DesktopProviderConfig, ToolPermissions } from "@workspace/desktop";
 
 let runtime: DesktopRuntime;
 
@@ -127,5 +127,44 @@ export function registerDesktopHandlers(): void {
       mcpPath,
       configs.filter((m) => m.id !== id),
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Tool Permissions (JSON file persistence — works even if runtime init failed)
+  // ---------------------------------------------------------------------------
+
+  const toolPermsPath = join(app.getPath("userData"), "tool-permissions.json");
+  const defaultToolPerms: ToolPermissions = {
+    approvalMode: "smart",
+    fileRead: true,
+    fileWrite: true,
+    shellExecute: true,
+    allowedPaths: [],
+  };
+
+  ipcMain.handle("toolPermissions:get", () => {
+    return readJsonFile<ToolPermissions>(toolPermsPath, defaultToolPerms);
+  });
+
+  ipcMain.handle("toolPermissions:set", (_event, permissions: ToolPermissions) => {
+    writeJsonFile(toolPermsPath, permissions);
+    // Sync to runtime if available
+    try {
+      runtime?.setToolPermissions(permissions);
+    } catch (err) {
+      console.error("[Desktop] Failed to sync tool permissions to runtime:", err);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Tool Approval (renderer responds to approval requests)
+  // ---------------------------------------------------------------------------
+
+  ipcMain.handle("tool:respondApproval", (_event, approvalId: string, approved: boolean) => {
+    try {
+      runtime?.resolveToolApproval(approvalId, approved);
+    } catch (err) {
+      console.error("[Desktop] respondApproval failed:", err);
+    }
   });
 }

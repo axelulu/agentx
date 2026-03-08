@@ -1,36 +1,76 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
-import { loadConversations, loadMessages } from "@/slices/chatSlice";
-import { loadProviders, loadKnowledgeBase, loadMCPServers } from "@/slices/settingsSlice";
+import { loadConversations, setInputValue } from "@/slices/chatSlice";
+import {
+  loadProviders,
+  loadKnowledgeBase,
+  loadMCPServers,
+  loadToolPermissions,
+} from "@/slices/settingsSlice";
+import { useAgent, useAgentEventListener } from "@/hooks/useAgent";
 import { l10n } from "@workspace/l10n";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
+import { ToolApprovalBanner } from "./ToolApprovalBanner";
 
 export function ChatPanel() {
   const dispatch = useDispatch<AppDispatch>();
-  const { currentConversationId, messages } = useSelector((state: RootState) => state.chat);
+  const { currentConversationId, messages, isStreaming, streamingMessageId } = useSelector(
+    (state: RootState) => state.chat,
+  );
+
+  // Register the IPC event listener exactly once here
+  useAgentEventListener();
+
+  const { sendMessage } = useAgent();
 
   useEffect(() => {
     dispatch(loadConversations());
     dispatch(loadProviders());
     dispatch(loadKnowledgeBase());
     dispatch(loadMCPServers());
+    dispatch(loadToolPermissions());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (currentConversationId) {
-      dispatch(loadMessages(currentConversationId));
-    }
-  }, [currentConversationId, dispatch]);
+  // Edit: populate input with the user message content
+  const handleEdit = useCallback(
+    (content: string) => {
+      dispatch(setInputValue(content));
+    },
+    [dispatch],
+  );
+
+  // Regenerate: find the last user message before this assistant message and resend
+  const handleRegenerate = useCallback(
+    (assistantMessageId: string) => {
+      const idx = messages.findIndex((m) => m.id === assistantMessageId);
+      if (idx < 0) return;
+      // Walk backwards to find the preceding user message
+      for (let i = idx - 1; i >= 0; i--) {
+        if (messages[i].role === "user" && messages[i].content) {
+          sendMessage(messages[i].content!);
+          return;
+        }
+      }
+    },
+    [messages, sendMessage],
+  );
 
   return (
     <div className="flex flex-col h-full">
       {currentConversationId ? (
         <>
           <div className="flex-1 overflow-y-auto">
-            <MessageList messages={messages} />
+            <MessageList
+              messages={messages}
+              isStreaming={isStreaming}
+              streamingMessageId={streamingMessageId}
+              onEditMessage={handleEdit}
+              onRegenerateMessage={handleRegenerate}
+            />
           </div>
+          <ToolApprovalBanner />
           <ChatInput />
         </>
       ) : (

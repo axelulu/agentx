@@ -23,6 +23,19 @@ export function createShellToolHandlers(workspaceRoot: string): NamedToolHandler
 function shellRun(workspaceRoot: string): NamedToolHandler {
   return {
     name: "shell_run",
+    description:
+      "Execute a shell command in the workspace directory and return its output. Use for running scripts, installing packages, git operations, etc.",
+    parameters: {
+      type: "object",
+      properties: {
+        command: { type: "string", description: "The shell command to execute" },
+        timeout_ms: {
+          type: "number",
+          description: "Optional timeout in milliseconds (default: 30000)",
+        },
+      },
+      required: ["command"],
+    },
     options: { category: "sequential", timeoutMs: DEFAULT_TIMEOUT_MS },
     handler(args, ctx) {
       const command = args.command as string;

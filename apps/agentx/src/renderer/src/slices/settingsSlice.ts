@@ -35,12 +35,23 @@ export interface MCPServerConfig {
   enabled: boolean;
 }
 
+export type ToolApprovalMode = "auto" | "always-ask" | "smart";
+
+export interface ToolPermissionsState {
+  approvalMode: ToolApprovalMode;
+  fileRead: boolean;
+  fileWrite: boolean;
+  shellExecute: boolean;
+  allowedPaths: string[];
+}
+
 export interface SettingsState {
   theme: "light" | "dark" | "system";
   language: string;
   providers: ProviderConfig[];
   knowledgeBase: KnowledgeBaseItem[];
   mcpServers: MCPServerConfig[];
+  toolPermissions: ToolPermissionsState;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,6 +94,19 @@ export const loadMCPServers = createAsyncThunk("settings/loadMCPServers", async 
   return configs as MCPServerConfig[];
 });
 
+export const loadToolPermissions = createAsyncThunk("settings/loadToolPermissions", async () => {
+  const perms = await window.api.toolPermissions.get();
+  return perms as ToolPermissionsState;
+});
+
+export const saveToolPermissions = createAsyncThunk(
+  "settings/saveToolPermissions",
+  async (permissions: ToolPermissionsState) => {
+    await window.api.toolPermissions.set(permissions);
+    return permissions;
+  },
+);
+
 // ---------------------------------------------------------------------------
 // IPC persistence helpers (fire-and-forget, errors logged)
 // ---------------------------------------------------------------------------
@@ -115,6 +139,12 @@ function persistMCPRemove(id: string): void {
   }
 }
 
+function persistToolPermissions(perms: ToolPermissionsState): void {
+  window.api.toolPermissions.set(perms).catch((err: unknown) => {
+    console.error("[ToolPermissions] Failed to persist:", err);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Slice
 // ---------------------------------------------------------------------------
@@ -125,6 +155,13 @@ const initialState: SettingsState = {
   providers: [],
   knowledgeBase: [],
   mcpServers: [],
+  toolPermissions: {
+    approvalMode: "smart",
+    fileRead: true,
+    fileWrite: true,
+    shellExecute: true,
+    allowedPaths: [],
+  },
 };
 
 const settingsSlice = createSlice({
@@ -170,6 +207,12 @@ const settingsSlice = createSlice({
       state.mcpServers = state.mcpServers.filter((m) => m.id !== action.payload);
       persistMCPRemove(action.payload);
     },
+
+    // Tool Permissions — synchronous reducer for instant UI updates
+    updateToolPermissions(state, action: PayloadAction<Partial<ToolPermissionsState>>) {
+      state.toolPermissions = { ...state.toolPermissions, ...action.payload };
+      persistToolPermissions(state.toolPermissions);
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -200,6 +243,13 @@ const settingsSlice = createSlice({
       // MCP Servers — load from disk
       .addCase(loadMCPServers.fulfilled, (state, action) => {
         state.mcpServers = action.payload;
+      })
+      // Tool Permissions
+      .addCase(loadToolPermissions.fulfilled, (state, action) => {
+        state.toolPermissions = action.payload;
+      })
+      .addCase(saveToolPermissions.fulfilled, (state, action) => {
+        state.toolPermissions = action.payload;
       });
   },
 });
@@ -211,6 +261,7 @@ export const {
   deleteKBItem,
   upsertMCPServer,
   deleteMCPServer,
+  updateToolPermissions,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

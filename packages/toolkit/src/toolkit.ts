@@ -33,6 +33,8 @@ import type {
   ToolDefinition,
   ToolHandler,
   ToolHandlerOptions,
+  ToolInputSchema,
+  ToolType,
 } from "./types";
 
 export class Toolkit {
@@ -199,10 +201,15 @@ export class Toolkit {
   // ============================================================
 
   /**
-   * Register a tool handler by name.
+   * Register a tool handler by name, with optional inline metadata.
    */
-  registerToolHandler(name: string, handler: ToolHandler, options?: ToolHandlerOptions): void {
-    this.toolService.registerHandler(name, handler, options);
+  registerToolHandler(
+    name: string,
+    handler: ToolHandler,
+    options?: ToolHandlerOptions,
+    meta?: { description?: string; parameters?: ToolInputSchema; toolType?: ToolType },
+  ): void {
+    this.toolService.registerHandler(name, handler, options, meta);
   }
 
   /**
@@ -220,6 +227,16 @@ export class Toolkit {
   buildTools(capabilities: string[]): BuiltTool[] {
     this.ensureInitialized();
     return this.toolService.buildTools(this.capabilityRegistry, capabilities);
+  }
+
+  /**
+   * Build AgentTool[] from all registered handlers.
+   * Uses YAML definitions when available, falls back to inline metadata.
+   * Does NOT require capability YAML directories to exist.
+   */
+  buildToolsFromHandlers(): BuiltTool[] {
+    this.ensureInitialized();
+    return this.toolService.buildToolsFromHandlers();
   }
 
   // ============================================================

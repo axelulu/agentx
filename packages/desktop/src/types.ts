@@ -100,7 +100,8 @@ export type SerializableAgentEvent =
   | SerializableToolStart
   | SerializableToolUpdate
   | SerializableToolEnd
-  | SerializableError;
+  | SerializableError
+  | SerializableToolApprovalRequest;
 
 // ---------------------------------------------------------------------------
 // Conversation data
@@ -139,6 +140,75 @@ export interface DesktopProviderConfig {
   baseUrl?: string;
   defaultModel?: string;
   isActive?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Tool Permissions
+// ---------------------------------------------------------------------------
+
+export type ToolApprovalMode = "auto" | "always-ask" | "smart";
+
+export interface ToolPermissions {
+  /** How tool execution is approved: auto (no ask), always-ask (ask for every tool), smart (auto for reads, ask for writes/exec) */
+  approvalMode: ToolApprovalMode;
+  /** Whether file_read is allowed */
+  fileRead: boolean;
+  /** Whether file_create / file_rewrite are allowed */
+  fileWrite: boolean;
+  /** Whether shell_run is allowed */
+  shellExecute: boolean;
+  /** If non-empty, file tools are restricted to these directories */
+  allowedPaths: string[];
+}
+
+export const DEFAULT_TOOL_PERMISSIONS: ToolPermissions = {
+  approvalMode: "smart",
+  fileRead: true,
+  fileWrite: true,
+  shellExecute: true,
+  allowedPaths: [],
+};
+
+/** Maps tool names to their permission category */
+export function getToolPermissionCategory(
+  toolName: string,
+): "fileRead" | "fileWrite" | "shellExecute" | "none" {
+  switch (toolName) {
+    case "file_read":
+      return "fileRead";
+    case "file_create":
+    case "file_rewrite":
+      return "fileWrite";
+    case "shell_run":
+      return "shellExecute";
+    default:
+      return "none";
+  }
+}
+
+/** Returns true if a tool is considered a "write" or "execute" operation (used by smart mode) */
+export function isWriteOrExecuteTool(toolName: string): boolean {
+  const category = getToolPermissionCategory(toolName);
+  return category === "fileWrite" || category === "shellExecute";
+}
+
+// ---------------------------------------------------------------------------
+// Tool Approval Events
+// ---------------------------------------------------------------------------
+
+export interface SerializableToolApprovalRequest {
+  type: "tool_approval_request";
+  timestamp: number;
+  approvalId: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface SerializableToolApprovalResponse {
+  type: "tool_approval_response";
+  timestamp: number;
+  approvalId: string;
+  approved: boolean;
 }
 
 // ---------------------------------------------------------------------------

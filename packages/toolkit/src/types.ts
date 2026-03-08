@@ -165,6 +165,12 @@ export interface NamedToolHandler {
   name: string;
   handler: ToolHandler;
   options?: ToolHandlerOptions;
+  /** Inline description — used when no YAML definition exists */
+  description?: string;
+  /** Inline JSON Schema parameters — used when no YAML definition exists */
+  parameters?: ToolInputSchema;
+  /** Tool type: "terminal" tools stop the agent loop */
+  toolType?: ToolType;
 }
 
 /**

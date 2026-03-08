@@ -10,15 +10,17 @@ import {
   InfoIcon,
   BookOpenIcon,
   PlugIcon,
+  ShieldCheckIcon,
 } from "lucide-react";
 import { ProviderConfig } from "./ProviderConfig";
 import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
 import { MCPConfig } from "./MCPConfig";
+import { PermissionsConfig } from "./PermissionsConfig";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 
-type SettingsSection = "general" | "providers" | "knowledgeBase" | "mcp" | "about";
+type SettingsSection = "general" | "providers" | "knowledgeBase" | "mcp" | "permissions" | "about";
 
 export function SettingsPanel() {
   const dispatch = useDispatch();
@@ -29,6 +31,7 @@ export function SettingsPanel() {
     { id: "providers", label: l10n.t("AI Providers"), icon: CpuIcon },
     { id: "knowledgeBase", label: l10n.t("Knowledge Base"), icon: BookOpenIcon },
     { id: "mcp", label: l10n.t("MCP Servers"), icon: PlugIcon },
+    { id: "permissions", label: l10n.t("Permissions"), icon: ShieldCheckIcon },
     { id: "about", label: l10n.t("About"), icon: InfoIcon },
   ];
 
@@ -97,6 +100,7 @@ export function SettingsPanel() {
             {activeSection === "providers" && <ProviderConfig />}
             {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
             {activeSection === "mcp" && <MCPConfig />}
+            {activeSection === "permissions" && <PermissionsConfig />}
             {activeSection === "about" && <AboutSection />}
           </div>
         </div>
@@ -199,6 +203,17 @@ function AboutSection() {
           <div className="flex items-center justify-between py-1">
             <span className="text-sm text-foreground">{l10n.t("Runtime")}</span>
             <span className="text-[12px] text-muted-foreground">Electron</span>
+          </div>
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm text-foreground">GitHub</span>
+            <a
+              href="https://github.com/axelulu/agentx"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[12px] text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+            >
+              github.com/axelulu/agentx
+            </a>
           </div>
         </div>
       </div>

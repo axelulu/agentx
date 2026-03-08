@@ -15,10 +15,19 @@ export { createAnthropicStreamFn } from "./providers/adapters/anthropic-adapter.
 // Types
 export type {
   SerializableAgentEvent,
+  SerializableToolApprovalRequest,
   ConversationData,
   MessageData,
   DesktopProviderConfig,
   DesktopRuntimeConfig,
+  ToolPermissions,
+  ToolApprovalMode,
+} from "./types.js";
+
+export {
+  DEFAULT_TOOL_PERMISSIONS,
+  getToolPermissionCategory,
+  isWriteOrExecuteTool,
 } from "./types.js";
 
 export type { ConversationStore } from "./conversations/conversation-store.js";

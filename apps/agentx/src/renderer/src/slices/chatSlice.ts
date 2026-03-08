@@ -9,6 +9,8 @@ export interface ToolCallData {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  status?: "running" | "done" | "error";
+  result?: { content: string; isError?: boolean };
 }
 
 export interface Message {
@@ -29,6 +31,13 @@ export interface ConversationSummary {
   messageCount: number;
 }
 
+export interface PendingApproval {
+  approvalId: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  timestamp: number;
+}
+
 export interface ChatState {
   conversations: ConversationSummary[];
   currentConversationId: string | null;
@@ -36,7 +45,11 @@ export interface ChatState {
   inputValue: string;
   isStreaming: boolean;
   streamingMessageId: string | null;
+  /** Tracks the single assistant message used across all turns in one agent run */
+  activeAgentMessageId: string | null;
   error: string | null;
+  /** Tool approval request waiting for user response */
+  pendingApproval: PendingApproval | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +81,20 @@ export const loadMessages = createAsyncThunk(
   },
 );
 
+export const switchConversation = createAsyncThunk(
+  "chat/switchConversation",
+  async (conversationId: string) => {
+    const msgs = await window.api.conversation.messages(conversationId);
+    return {
+      conversationId,
+      messages: (msgs as Array<Omit<Message, "id">>).map((m) => ({
+        ...m,
+        id: uuidv4(),
+      })) as Message[],
+    };
+  },
+);
+
 export const removeConversation = createAsyncThunk(
   "chat/removeConversation",
   async (id: string, { getState }) => {
@@ -83,6 +110,46 @@ export const updateConversationTitle = createAsyncThunk(
     return updated as ConversationSummary;
   },
 );
+
+// ---------------------------------------------------------------------------
+// Normalize loaded messages: fold tool result messages into assistant toolCalls
+// ---------------------------------------------------------------------------
+
+function normalizeMessages(messages: Message[]): Message[] {
+  // Build a map of toolCallId → result from tool messages
+  const resultMap = new Map<string, { content: string; isError?: boolean }>();
+  for (const msg of messages) {
+    if (msg.role === "tool" && msg.toolCallId) {
+      resultMap.set(msg.toolCallId, {
+        content: msg.content ?? "",
+        isError: msg.isError,
+      });
+    }
+  }
+  if (resultMap.size === 0) return messages;
+
+  // Attach results to assistant toolCalls, filter out standalone tool messages
+  const result: Message[] = [];
+  for (const msg of messages) {
+    if (msg.role === "tool" && msg.toolCallId && resultMap.has(msg.toolCallId)) {
+      continue; // skip — result is folded into assistant's toolCalls
+    }
+    if (msg.role === "assistant" && msg.toolCalls) {
+      msg.toolCalls = msg.toolCalls.map((tc) => {
+        const res = resultMap.get(tc.id);
+        return res
+          ? {
+              ...tc,
+              result: res,
+              status: (res.isError ? "error" : "done") as ToolCallData["status"],
+            }
+          : tc;
+      });
+    }
+    result.push(msg);
+  }
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // Agent event types (matching SerializableAgentEvent from @workspace/desktop)
@@ -138,6 +205,13 @@ interface ErrorEventData extends AgentEventBase {
   fatal: boolean;
 }
 
+interface ToolApprovalRequestEvent extends AgentEventBase {
+  type: "tool_approval_request";
+  approvalId: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+}
+
 type AgentEvent =
   | AgentStartEvent
   | AgentEndEvent
@@ -147,6 +221,7 @@ type AgentEvent =
   | ToolStartEvent
   | ToolEndEvent
   | ErrorEventData
+  | ToolApprovalRequestEvent
   | { type: "turn_start" | "turn_end" | "tool_update"; [key: string]: unknown };
 
 // ---------------------------------------------------------------------------
@@ -160,16 +235,50 @@ const initialState: ChatState = {
   inputValue: "",
   isStreaming: false,
   streamingMessageId: null,
+  activeAgentMessageId: null,
   error: null,
+  pendingApproval: null,
 };
+
+// ---------------------------------------------------------------------------
+// Immer-safe helpers — always access draft elements via state.messages[index],
+// never via [...spread].reverse().find() which can detach from the draft tree.
+// ---------------------------------------------------------------------------
+
+/** Find message by ID directly in the Immer draft array. */
+function findDraftMessage(messages: Message[], id: string): Message | undefined {
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].id === id) return messages[i];
+  }
+  return undefined;
+}
+
+/** Find the last assistant message in the Immer draft array. */
+function findLastAssistantDraft(messages: Message[]): Message | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant") return messages[i];
+  }
+  return undefined;
+}
+
+/**
+ * Find the target assistant message for tool events.
+ * Prefer activeAgentMessageId (precise), fall back to last assistant (robust).
+ */
+function findToolTargetMessage(
+  messages: Message[],
+  activeAgentMessageId: string | null,
+): Message | undefined {
+  if (activeAgentMessageId) {
+    return findDraftMessage(messages, activeAgentMessageId);
+  }
+  return findLastAssistantDraft(messages);
+}
 
 const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
-    setCurrentConversation(state, action: PayloadAction<string>) {
-      state.currentConversationId = action.payload;
-    },
     setInputValue(state, action: PayloadAction<string>) {
       state.inputValue = action.payload;
     },
@@ -190,11 +299,16 @@ const chatSlice = createSlice({
         case "agent_start":
           state.isStreaming = true;
           state.error = null;
+          state.activeAgentMessageId = null;
           break;
 
         case "message_start": {
+          // Always create a new message per turn — avoids collapsing tool calls
+          // from separate turns into one message (which caused rendering bugs
+          // where only the last tool call was visible during streaming).
           const msgId = event.messageId;
           state.streamingMessageId = msgId;
+          state.activeAgentMessageId = msgId;
           state.messages.push({
             id: msgId,
             role: "assistant",
@@ -205,7 +319,8 @@ const chatSlice = createSlice({
         }
 
         case "message_delta": {
-          const msg = state.messages.find((m) => m.id === event.messageId);
+          const targetId = state.streamingMessageId ?? event.messageId;
+          const msg = findDraftMessage(state.messages, targetId);
           if (msg) {
             msg.content = (msg.content ?? "") + event.delta;
           }
@@ -213,7 +328,8 @@ const chatSlice = createSlice({
         }
 
         case "message_end": {
-          const msg = state.messages.find((m) => m.id === event.messageId);
+          const targetId = state.streamingMessageId ?? event.messageId;
+          const msg = findDraftMessage(state.messages, targetId);
           if (msg) {
             msg.content = event.content;
           }
@@ -222,45 +338,65 @@ const chatSlice = createSlice({
         }
 
         case "tool_start": {
-          // Find the current assistant message and add tool call info
-          const lastAssistant = [...state.messages].reverse().find((m) => m.role === "assistant");
-          if (lastAssistant) {
-            if (!lastAssistant.toolCalls) lastAssistant.toolCalls = [];
-            lastAssistant.toolCalls.push({
-              id: event.toolCallId,
-              name: event.toolName,
-              arguments: event.arguments,
-            });
+          const msg = findToolTargetMessage(state.messages, state.activeAgentMessageId);
+          if (msg) {
+            if (!msg.toolCalls) msg.toolCalls = [];
+            // Guard: skip if this tool call ID already exists
+            if (!msg.toolCalls.some((t) => t.id === event.toolCallId)) {
+              msg.toolCalls.push({
+                id: event.toolCallId,
+                name: event.toolName,
+                arguments: event.arguments,
+                status: "running",
+              });
+            }
           }
           break;
         }
 
         case "tool_end": {
-          state.messages.push({
-            id: uuidv4(),
-            role: "tool",
-            content: event.result.content,
-            toolCallId: event.toolCallId,
-            isError: event.result.isError,
-            timestamp: event.timestamp,
-          });
+          const msg = findToolTargetMessage(state.messages, state.activeAgentMessageId);
+          if (msg?.toolCalls) {
+            const idx = msg.toolCalls.findIndex((t) => t.id === event.toolCallId);
+            if (idx !== -1) {
+              // Mutate the specific element in the draft array directly
+              msg.toolCalls[idx].result = event.result;
+              msg.toolCalls[idx].status = event.result.isError ? "error" : "done";
+            }
+          }
           break;
         }
 
         case "agent_end":
           state.isStreaming = false;
           state.streamingMessageId = null;
+          state.activeAgentMessageId = null;
+          state.pendingApproval = null;
           if (event.result.error) {
             state.error = event.result.error;
           }
           break;
 
+        case "tool_approval_request":
+          state.pendingApproval = {
+            approvalId: event.approvalId,
+            toolName: event.toolName,
+            arguments: event.arguments,
+            timestamp: event.timestamp,
+          };
+          break;
+
         case "error":
           state.isStreaming = false;
           state.streamingMessageId = null;
+          state.activeAgentMessageId = null;
           state.error = event.error;
+          state.pendingApproval = null;
           break;
       }
+    },
+    clearPendingApproval(state) {
+      state.pendingApproval = null;
     },
   },
   extraReducers: (builder) => {
@@ -274,7 +410,7 @@ const chatSlice = createSlice({
         state.messages = [];
       })
       .addCase(loadMessages.fulfilled, (state, action) => {
-        state.messages = action.payload;
+        state.messages = normalizeMessages(action.payload);
       })
       .addCase(removeConversation.fulfilled, (state, action) => {
         const id = action.payload;
@@ -289,11 +425,15 @@ const chatSlice = createSlice({
         if (idx >= 0) {
           state.conversations[idx] = action.payload;
         }
+      })
+      .addCase(switchConversation.fulfilled, (state, action) => {
+        state.currentConversationId = action.payload.conversationId;
+        state.messages = normalizeMessages(action.payload.messages);
       });
   },
 });
 
-export const { setCurrentConversation, setInputValue, setError, addUserMessage, handleAgentEvent } =
+export const { setInputValue, setError, addUserMessage, handleAgentEvent, clearPendingApproval } =
   chatSlice.actions;
 
 export default chatSlice.reducer;

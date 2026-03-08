@@ -254,6 +254,17 @@ async function runLoop(
       messages.push(toolResultMsg);
     }
 
+    // Check if any executed tool is a terminal tool (e.g. task_complete)
+    const hasTerminal = assistantMsg.toolCalls!.some((tc) => {
+      const tool = toolMap.get(tc.name);
+      return tool && "toolType" in tool && tool.toolType === "terminal";
+    });
+
+    if (hasTerminal) {
+      emit({ type: "turn_end", turn, continueLoop: false, timestamp: Date.now() });
+      break;
+    }
+
     emit({ type: "turn_end", turn, continueLoop: true, timestamp: Date.now() });
   }
 

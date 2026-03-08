@@ -1,4 +1,41 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop path extraction
+// ---------------------------------------------------------------------------
+// File objects are structurally cloned across the contextBridge boundary,
+// which strips Electron's internal path metadata. We intercept the drop event
+// in the preload context (capture phase, before the renderer's handler) where
+// webUtils.getPathForFile() works on the *original* File objects, cache the
+// paths, and let the renderer retrieve them synchronously via getDroppedPaths().
+// ---------------------------------------------------------------------------
+let _droppedPaths: string[] = [];
+
+// Prevent Electron's default file-drop navigation globally.
+// Without this, the browser doesn't treat the window as a valid drop target
+// and the `drop` event never fires.
+document.addEventListener("dragover", (e) => e.preventDefault(), true);
+
+document.addEventListener(
+  "drop",
+  (e) => {
+    e.preventDefault(); // prevent navigation to the dropped file
+
+    _droppedPaths = [];
+    const files = e.dataTransfer?.files;
+    if (files) {
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const p = webUtils.getPathForFile(files[i]);
+          if (p) _droppedPaths.push(p);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  },
+  true, // capture phase — runs before renderer's onDrop
+);
 
 const api = {
   conversation: {
@@ -33,6 +70,8 @@ const api = {
     selectFile: (options?: { filters?: unknown[]; multi?: boolean }) =>
       ipcRenderer.invoke("fs:selectFile", options),
     selectDirectory: () => ipcRenderer.invoke("fs:selectDirectory"),
+    stat: (path: string) => ipcRenderer.invoke("fs:stat", path),
+    getDroppedPaths: () => _droppedPaths,
   },
   knowledgeBase: {
     list: () => ipcRenderer.invoke("kb:list"),
@@ -43,6 +82,20 @@ const api = {
     list: () => ipcRenderer.invoke("mcp:list"),
     set: (config: unknown) => ipcRenderer.invoke("mcp:set", config),
     remove: (id: string) => ipcRenderer.send("mcp:remove", id),
+  },
+  permissions: {
+    checkAll: () => ipcRenderer.invoke("permissions:checkAll"),
+    check: (type: string) => ipcRenderer.invoke("permissions:check", type),
+    request: (type: string) => ipcRenderer.invoke("permissions:request", type),
+    openSettings: (type: string) => ipcRenderer.invoke("permissions:openSettings", type),
+  },
+  toolPermissions: {
+    get: () => ipcRenderer.invoke("toolPermissions:get"),
+    set: (permissions: unknown) => ipcRenderer.invoke("toolPermissions:set", permissions),
+  },
+  tool: {
+    respondApproval: (approvalId: string, approved: boolean) =>
+      ipcRenderer.invoke("tool:respondApproval", approvalId, approved),
   },
   window: {
     minimize: () => ipcRenderer.send("window:minimize"),

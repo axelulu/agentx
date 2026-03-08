@@ -14,6 +14,15 @@ export function createFileToolHandlers(workspaceRoot: string): NamedToolHandler[
 function fileRead(workspaceRoot: string): NamedToolHandler {
   return {
     name: "file_read",
+    description:
+      "Read the contents of a file at the given path. Returns file content and metadata.",
+    parameters: {
+      type: "object",
+      properties: {
+        file_path: { type: "string", description: "Relative or absolute path to the file to read" },
+      },
+      required: ["file_path"],
+    },
     options: { category: "parallel" },
     async handler(args) {
       const filePath = sanitizePath(args.file_path as string, workspaceRoot);
@@ -46,6 +55,16 @@ function fileRead(workspaceRoot: string): NamedToolHandler {
 function fileCreate(workspaceRoot: string): NamedToolHandler {
   return {
     name: "file_create",
+    description:
+      "Create a new file with the given content. Parent directories are created automatically.",
+    parameters: {
+      type: "object",
+      properties: {
+        file_path: { type: "string", description: "Path for the new file" },
+        content: { type: "string", description: "Content to write to the file" },
+      },
+      required: ["file_path", "content"],
+    },
     options: { category: "sequential" },
     async handler(args) {
       const filePath = sanitizePath(args.file_path as string, workspaceRoot);
@@ -73,6 +92,15 @@ function fileCreate(workspaceRoot: string): NamedToolHandler {
 function fileRewrite(workspaceRoot: string): NamedToolHandler {
   return {
     name: "file_rewrite",
+    description: "Overwrite an existing file with new content. The file must already exist.",
+    parameters: {
+      type: "object",
+      properties: {
+        file_path: { type: "string", description: "Path to the existing file to rewrite" },
+        content: { type: "string", description: "New content to replace the file contents" },
+      },
+      required: ["file_path", "content"],
+    },
     options: { category: "sequential" },
     async handler(args) {
       const filePath = sanitizePath(args.file_path as string, workspaceRoot);

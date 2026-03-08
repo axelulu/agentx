@@ -8,17 +8,29 @@ import {
   createNewConversation,
 } from "@/slices/chatSlice";
 
-export function useAgent() {
+/**
+ * Register the global agent:event IPC listener exactly ONCE.
+ * Call this from a single top-level component (e.g. ChatPanel).
+ * Do NOT call from multiple components — it would cause duplicate dispatches.
+ */
+export function useAgentEventListener() {
   const dispatch = useDispatch<AppDispatch>();
-  const { currentConversationId, isStreaming } = useSelector((state: RootState) => state.chat);
 
-  // Register global agent:event listener (once)
   useEffect(() => {
     const cleanup = window.api.agent.onEvent((event) => {
       dispatch(handleAgentEvent(event as Parameters<typeof handleAgentEvent>[0]));
     });
     return cleanup;
   }, [dispatch]);
+}
+
+/**
+ * Provides sendMessage / abort actions and streaming state.
+ * Does NOT register event listeners — use useAgentEventListener() for that.
+ */
+export function useAgent() {
+  const dispatch = useDispatch<AppDispatch>();
+  const { currentConversationId, isStreaming } = useSelector((state: RootState) => state.chat);
 
   const sendMessage = useCallback(
     async (content: string) => {

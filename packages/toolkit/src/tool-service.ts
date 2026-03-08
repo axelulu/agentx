@@ -21,6 +21,8 @@ import type {
   ToolExecutionContext,
   ToolHandler,
   ToolHandlerOptions,
+  ToolInputSchema,
+  ToolType,
 } from "./types";
 import { mergeVariables, replaceVariables, replaceVariablesInObject } from "./variable-resolver";
 
@@ -43,6 +45,7 @@ export interface BuiltTool {
   parameters: Record<string, unknown>;
   category?: "parallel" | "sequential";
   timeoutMs?: number;
+  toolType?: ToolType;
   execute(args: Record<string, unknown>, ctx: ToolExecutionContext): Promise<AgentToolResult>;
 }
 
@@ -57,7 +60,16 @@ export class ToolService {
   private initialized = false;
 
   // --- Handler registry ---
-  private handlers = new Map<string, { handler: ToolHandler; options?: ToolHandlerOptions }>();
+  private handlers = new Map<
+    string,
+    {
+      handler: ToolHandler;
+      options?: ToolHandlerOptions;
+      description?: string;
+      parameters?: ToolInputSchema;
+      toolType?: ToolType;
+    }
+  >();
 
   // --- Config ---
   private capabilitiesPath: string;
@@ -117,8 +129,13 @@ export class ToolService {
   // Handler registration
   // ============================================================
 
-  registerHandler(name: string, handler: ToolHandler, options?: ToolHandlerOptions): void {
-    this.handlers.set(name, { handler, options });
+  registerHandler(
+    name: string,
+    handler: ToolHandler,
+    options?: ToolHandlerOptions,
+    meta?: { description?: string; parameters?: ToolInputSchema; toolType?: ToolType },
+  ): void {
+    this.handlers.set(name, { handler, options, ...meta });
   }
 
   unregisterHandler(name: string): void {
@@ -177,6 +194,46 @@ export class ToolService {
         parameters: def.input_schema,
         category: entry.options?.category ?? "sequential",
         timeoutMs: entry.options?.timeoutMs,
+        execute: entry.handler,
+      });
+    }
+
+    return tools;
+  }
+
+  /**
+   * Build tools from all registered handlers.
+   * For each handler, prefer YAML definition if available; otherwise fall back
+   * to inline metadata (description, parameters) provided at registration time.
+   * Only handlers that have either a YAML definition or inline metadata are included.
+   */
+  buildToolsFromHandlers(): BuiltTool[] {
+    if (!this.initialized) this.initialize();
+
+    const tools: BuiltTool[] = [];
+
+    for (const [name, entry] of this.handlers) {
+      const def = this.definitionCache.get(name);
+
+      const description = def?.description ?? entry.description;
+      const parameters = def?.input_schema ??
+        entry.parameters ?? { type: "object" as const, properties: {} };
+      const toolType = def?.toolType ?? entry.toolType;
+
+      if (!description) {
+        this.logger?.warn(
+          `ToolService: skipping handler "${name}" — no description (YAML or inline)`,
+        );
+        continue;
+      }
+
+      tools.push({
+        name,
+        description,
+        parameters,
+        category: entry.options?.category ?? "sequential",
+        timeoutMs: entry.options?.timeoutMs,
+        ...(toolType ? { toolType } : {}),
         execute: entry.handler,
       });
     }

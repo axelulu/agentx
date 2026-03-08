@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from "electron";
-import { readFile, writeFile } from "fs/promises";
+import { readFile, writeFile, stat } from "fs/promises";
 
 export function registerFSHandlers(): void {
   ipcMain.handle("fs:readFile", async (_event, filePath: string) => {
@@ -16,7 +16,11 @@ export function registerFSHandlers(): void {
     "fs:selectFile",
     async (_event, options?: { filters?: Electron.FileFilter[]; multi?: boolean }) => {
       const result = await dialog.showOpenDialog({
-        properties: ["openFile", ...(options?.multi ? (["multiSelections"] as const) : [])],
+        properties: [
+          "openFile",
+          "openDirectory",
+          ...(options?.multi ? (["multiSelections"] as const) : []),
+        ],
         filters: options?.filters,
       });
 
@@ -24,6 +28,15 @@ export function registerFSHandlers(): void {
       return result.filePaths;
     },
   );
+
+  ipcMain.handle("fs:stat", async (_event, filePath: string) => {
+    try {
+      const info = await stat(filePath);
+      return { size: info.size, isDirectory: info.isDirectory(), isFile: info.isFile() };
+    } catch {
+      return null;
+    }
+  });
 
   ipcMain.handle("fs:selectDirectory", async () => {
     const result = await dialog.showOpenDialog({

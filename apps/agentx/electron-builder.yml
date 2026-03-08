@@ -18,6 +18,14 @@ mac:
         - arm64
   artifactName: "${productName}-${version}-${arch}.${ext}"
   category: public.app-category.developer-tools
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: "AgentX needs microphone access for voice input and audio processing."
+    NSCameraUsageDescription: "AgentX needs camera access for visual input and image capture."
+    NSAppleEventsUsageDescription: "AgentX needs automation access to control other applications on your behalf."
+    NSScreenCaptureUsageDescription: "AgentX needs screen recording access to capture screen content for visual context."
+    NSAccessibilityUsageDescription: "AgentX needs accessibility access to interact with your desktop and control applications."
 win:
   target:
     - target: nsis

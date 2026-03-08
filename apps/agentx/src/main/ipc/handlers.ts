@@ -1,5 +1,6 @@
 import { initDesktopRuntime, registerDesktopHandlers } from "./desktop.handlers";
 import { registerFSHandlers } from "./fs.handlers";
+import { registerPermissionsHandlers } from "./permissions.handlers";
 
 export async function initAndRegisterHandlers(): Promise<void> {
   try {
@@ -10,8 +11,21 @@ export async function initAndRegisterHandlers(): Promise<void> {
       err,
     );
   }
-  // Always register IPC handlers and FS handlers even if runtime init failed,
-  // so the window opens and can show an appropriate error state.
-  registerDesktopHandlers();
-  registerFSHandlers();
+  // Register each handler group independently so one failure doesn't block the others
+  try {
+    registerDesktopHandlers();
+  } catch (err) {
+    console.error("[Handlers] registerDesktopHandlers failed:", err);
+  }
+  try {
+    registerFSHandlers();
+  } catch (err) {
+    console.error("[Handlers] registerFSHandlers failed:", err);
+  }
+  try {
+    registerPermissionsHandlers();
+    console.log("[Handlers] Permissions handlers registered successfully");
+  } catch (err) {
+    console.error("[Handlers] registerPermissionsHandlers failed:", err);
+  }
 }
