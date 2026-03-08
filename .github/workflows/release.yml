@@ -51,7 +51,7 @@ jobs:
         run: pnpm build:prod
 
       - name: Build Electron app (${{ matrix.platform }})
-        run: pnpm --filter agentx dist:${{ matrix.platform }} -- -p never
+        run: pnpm --filter agentx dist:${{ matrix.platform }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Skip code signing if no certificates are configured

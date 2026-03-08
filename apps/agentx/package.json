@@ -1,6 +1,6 @@
 {
   "name": "agentx",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "AgentX AI Desktop Assistant",
   "author": "AgentX",
   "repository": {
@@ -19,10 +19,10 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "dist": "electron-builder -p never",
+    "dist:mac": "electron-builder --mac -p never",
+    "dist:win": "electron-builder --win -p never",
+    "dist:linux": "electron-builder --linux -p never"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
