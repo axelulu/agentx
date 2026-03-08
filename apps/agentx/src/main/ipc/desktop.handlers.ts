@@ -43,6 +43,17 @@ export async function initDesktopRuntime(): Promise<void> {
     // registered so the window can open and show an appropriate error state.
     throw err;
   }
+
+  // Restore persisted provider configs into runtime
+  const providersPath = join(app.getPath("userData"), "providers.json");
+  const savedProviders = readJsonFile<DesktopProviderConfig[]>(providersPath, []);
+  for (const config of savedProviders) {
+    runtime.setProviderConfig(config);
+  }
+  const activeProvider = savedProviders.find((p) => p.isActive);
+  if (activeProvider) {
+    runtime.setActiveProvider(activeProvider.id);
+  }
 }
 
 export function registerDesktopHandlers(): void {
@@ -66,13 +77,45 @@ export function registerDesktopHandlers(): void {
   });
   ipcMain.on("agent:abort", (_event, conversationId: string) => runtime.abort(conversationId));
 
-  // Provider management
+  // ---------------------------------------------------------------------------
+  // Provider management (JSON file persistence)
+  // ---------------------------------------------------------------------------
+
+  const providersPath = join(app.getPath("userData"), "providers.json");
+
+  ipcMain.handle("provider:list", () => {
+    return readJsonFile<DesktopProviderConfig[]>(providersPath, []);
+  });
+
   ipcMain.handle("provider:set", (_event, config: DesktopProviderConfig) => {
+    const configs = readJsonFile<DesktopProviderConfig[]>(providersPath, []);
+    const idx = configs.findIndex((p) => p.id === config.id);
+    if (idx >= 0) {
+      configs[idx] = config;
+    } else {
+      configs.push(config);
+    }
+    writeJsonFile(providersPath, configs);
     runtime.setProviderConfig(config);
   });
-  ipcMain.on("provider:remove", (_event, id: string) => runtime.removeProvider(id));
-  ipcMain.on("provider:setActive", (_event, id: string) => runtime.setActiveProvider(id));
-  ipcMain.handle("provider:list", () => runtime.getProviderConfigs());
+
+  ipcMain.on("provider:remove", (_event, id: string) => {
+    const configs = readJsonFile<DesktopProviderConfig[]>(providersPath, []);
+    writeJsonFile(
+      providersPath,
+      configs.filter((p) => p.id !== id),
+    );
+    runtime.removeProvider(id);
+  });
+
+  ipcMain.on("provider:setActive", (_event, id: string) => {
+    const configs = readJsonFile<DesktopProviderConfig[]>(providersPath, []);
+    for (const p of configs) {
+      p.isActive = p.id === id;
+    }
+    writeJsonFile(providersPath, configs);
+    runtime.setActiveProvider(id);
+  });
 
   // ---------------------------------------------------------------------------
   // Knowledge Base (JSON file persistence)

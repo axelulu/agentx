@@ -225,7 +225,7 @@ function AboutSection() {
         <div className="space-y-3">
           <div className="flex items-center justify-between py-1">
             <span className="text-sm text-foreground">{l10n.t("Version")}</span>
-            <span className="text-[12px] text-muted-foreground">0.1.0</span>
+            <span className="text-[12px] text-muted-foreground">{__APP_VERSION__}</span>
           </div>
           <div className="flex items-center justify-between py-1">
             <span className="text-sm text-foreground">{l10n.t("Runtime")}</span>

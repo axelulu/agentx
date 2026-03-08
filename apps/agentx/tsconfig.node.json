@@ -6,10 +6,11 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "outDir": "./out/types-node",
+    "resolveJsonModule": true,
     "paths": {
       "@main/*": ["./src/main/*"],
       "@preload/*": ["./src/preload/*"]
     }
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "electron.vite.config.ts"]
+  "include": ["src/main/**/*", "src/preload/**/*", "electron.vite.config.ts", "package.json"]
 }
