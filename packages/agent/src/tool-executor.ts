@@ -54,7 +54,7 @@ export async function executeTools(
       // Sequential execution
       for (const idx of group.indices) {
         if (signal.aborted) break;
-        const r = await executeSingle(toolCalls[idx], toolMap, signal, emit, timeoutMs);
+        const r = await executeSingle(toolCalls[idx]!, toolMap, signal, emit, timeoutMs);
         results.push(r);
       }
     }
@@ -78,7 +78,7 @@ function resolveExecutionGroups(
   };
 
   for (let i = 0; i < toolCalls.length; i++) {
-    const tool = toolMap.get(toolCalls[i].name);
+    const tool = toolMap.get(toolCalls[i]!.name);
     const category = tool?.category ?? "sequential";
     if (category === "parallel") {
       parallelBatch.push(i);
@@ -103,17 +103,17 @@ async function runParallel(
 ): Promise<Array<{ toolCallId: string; result: AgentToolResult }>> {
   // Run all parallel tools concurrently via Promise.allSettled
   const settled = await Promise.allSettled(
-    indices.map((idx) => executeSingle(toolCalls[idx], toolMap, signal, emit, timeoutMs)),
+    indices.map((idx) => executeSingle(toolCalls[idx]!, toolMap, signal, emit, timeoutMs)),
   );
 
   const results: Array<{ toolCallId: string; result: AgentToolResult }> = [];
 
   for (let i = 0; i < indices.length; i++) {
-    const outcome = settled[i];
+    const outcome = settled[i]!;
     if (outcome.status === "fulfilled") {
       results.push(outcome.value);
     } else {
-      const toolCall = toolCalls[indices[i]];
+      const toolCall = toolCalls[indices[i]!]!;
       results.push({
         toolCallId: toolCall.id,
         result: {

@@ -34,7 +34,7 @@ export function composeMiddleware(...middlewares: AgentMiddleware[]): AgentMiddl
     async afterModelCall(ctx) {
       // Reverse order for after hooks
       for (let i = middlewares.length - 1; i >= 0; i--) {
-        const mw = middlewares[i];
+        const mw = middlewares[i]!;
         if (mw.afterModelCall) {
           const shouldStop = await mw.afterModelCall(ctx);
           if (shouldStop === true) return true;
@@ -56,7 +56,7 @@ export function composeMiddleware(...middlewares: AgentMiddleware[]): AgentMiddl
 
     async afterToolExecution(ctx) {
       for (let i = middlewares.length - 1; i >= 0; i--) {
-        const mw = middlewares[i];
+        const mw = middlewares[i]!;
         if (mw.afterToolExecution) {
           await mw.afterToolExecution(ctx);
         }

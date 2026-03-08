@@ -26,7 +26,7 @@ document.addEventListener(
     if (files) {
       for (let i = 0; i < files.length; i++) {
         try {
-          const p = webUtils.getPathForFile(files[i]);
+          const p = webUtils.getPathForFile(files[i]!);
           if (p) _droppedPaths.push(p);
         } catch {
           // ignore
