@@ -21,7 +21,7 @@ export interface UpdateSliceState {
   version: string | null;
   progress: UpdateProgress | null;
   error: string | null;
-  dismissed: boolean;
+  dialogOpen: boolean;
 }
 
 const initialState: UpdateSliceState = {
@@ -29,7 +29,7 @@ const initialState: UpdateSliceState = {
   version: null,
   progress: null,
   error: null,
-  dismissed: false,
+  dialogOpen: false,
 };
 
 export const checkForUpdates = createAsyncThunk("update/checkForUpdates", async () => {
@@ -57,21 +57,21 @@ const updateSlice = createSlice({
         error?: string;
       }>,
     ) {
-      const prev = state.state;
       state.state = action.payload.state;
       state.version = action.payload.version ?? state.version;
       state.progress = action.payload.progress ?? null;
       state.error = action.payload.error ?? null;
-      // Un-dismiss when state changes to a new actionable state
-      if (
-        prev !== action.payload.state &&
-        ["available", "downloaded"].includes(action.payload.state)
-      ) {
-        state.dismissed = false;
+
+      // Auto-open dialog when update is available (from periodic checks)
+      if (action.payload.state === "available" || action.payload.state === "downloaded") {
+        state.dialogOpen = true;
       }
     },
-    dismissUpdate(state) {
-      state.dismissed = true;
+    openUpdateDialog(state) {
+      state.dialogOpen = true;
+    },
+    closeUpdateDialog(state) {
+      state.dialogOpen = false;
     },
     resetUpdateState() {
       return initialState;
@@ -79,5 +79,6 @@ const updateSlice = createSlice({
   },
 });
 
-export const { setUpdateStatus, dismissUpdate, resetUpdateState } = updateSlice.actions;
+export const { setUpdateStatus, openUpdateDialog, closeUpdateDialog, resetUpdateState } =
+  updateSlice.actions;
 export default updateSlice.reducer;

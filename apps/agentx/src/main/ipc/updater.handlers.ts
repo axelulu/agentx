@@ -100,7 +100,11 @@ export function registerUpdaterHandlers(): void {
   });
 
   ipcMain.handle("updater:installUpdate", () => {
-    setImmediate(() => autoUpdater.quitAndInstall());
+    // Force quit all windows and restart with the update.
+    // isSilent=false (show installer UI if any), isForceRunAfter=true (relaunch after install).
+    setImmediate(() => {
+      autoUpdater.quitAndInstall(false, true);
+    });
   });
 
   // ---- Scheduled checks ----
