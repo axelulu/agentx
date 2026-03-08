@@ -203,6 +203,22 @@ export function registerDesktopHandlers(): void {
   });
 
   // ---------------------------------------------------------------------------
+  // User Preferences (theme, language, sidebar — JSON file persistence)
+  // ---------------------------------------------------------------------------
+
+  const prefsPath = join(app.getPath("userData"), "preferences.json");
+  const defaultPrefs = { theme: "system", language: "en", sidebarOpen: true };
+
+  ipcMain.handle("preferences:get", () => {
+    return readJsonFile(prefsPath, defaultPrefs);
+  });
+
+  ipcMain.handle("preferences:set", (_event, prefs: Record<string, unknown>) => {
+    const current = readJsonFile(prefsPath, defaultPrefs);
+    writeJsonFile(prefsPath, { ...current, ...prefs });
+  });
+
+  // ---------------------------------------------------------------------------
   // Tool Approval (renderer responds to approval requests)
   // ---------------------------------------------------------------------------
 

@@ -97,6 +97,10 @@ const api = {
     respondApproval: (approvalId: string, approved: boolean) =>
       ipcRenderer.invoke("tool:respondApproval", approvalId, approved),
   },
+  preferences: {
+    get: () => ipcRenderer.invoke("preferences:get"),
+    set: (prefs: Record<string, unknown>) => ipcRenderer.invoke("preferences:set", prefs),
+  },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke("updater:checkForUpdates"),
     downloadUpdate: () => ipcRenderer.invoke("updater:downloadUpdate"),

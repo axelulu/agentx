@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { setSettingsOpen } from "@/slices/uiSlice";
+import { setLanguage } from "@/slices/settingsSlice";
 import { checkForUpdates, openUpdateDialog } from "@/slices/updateSlice";
 import { l10n, SUPPORTED_LANGUAGE } from "@workspace/l10n";
 import { motion } from "framer-motion";
@@ -112,6 +113,7 @@ export function SettingsPanel() {
 }
 
 function GeneralSection() {
+  const dispatch = useDispatch<AppDispatch>();
   const { theme, setThemeMode } = useTheme();
   const currentLanguage = l10n.getLanguage();
 
@@ -131,7 +133,7 @@ function GeneralSection() {
   });
 
   const handleLanguageChange = (lang: string) => {
-    localStorage.setItem("agentx-language", lang);
+    dispatch(setLanguage(lang));
     l10n.setLanguage(lang);
     location.reload();
   };

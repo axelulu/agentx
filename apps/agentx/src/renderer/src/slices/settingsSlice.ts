@@ -58,6 +58,15 @@ export interface SettingsState {
 // Async thunks — load only (read from main process)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Preferences (theme, language, sidebar — disk-persisted via main process)
+// ---------------------------------------------------------------------------
+
+export const loadPreferences = createAsyncThunk("settings/loadPreferences", async () => {
+  const prefs = await window.api.preferences.get();
+  return prefs as { theme?: string; language?: string; sidebarOpen?: boolean };
+});
+
 export const loadProviders = createAsyncThunk("settings/loadProviders", async () => {
   const configs = await window.api.provider.list();
   return configs as ProviderConfig[];
@@ -110,6 +119,12 @@ export const saveToolPermissions = createAsyncThunk(
 // ---------------------------------------------------------------------------
 // IPC persistence helpers (fire-and-forget, errors logged)
 // ---------------------------------------------------------------------------
+
+function persistPreferences(prefs: Record<string, unknown>): void {
+  window.api.preferences.set(prefs).catch((err: unknown) => {
+    console.error("[Preferences] Failed to persist:", err);
+  });
+}
 
 function persistKBItem(item: KnowledgeBaseItem): void {
   window.api.knowledgeBase.set(item).catch((err: unknown) => {
@@ -171,10 +186,12 @@ const settingsSlice = createSlice({
     setTheme(state, action: PayloadAction<"light" | "dark" | "system">) {
       state.theme = action.payload;
       localStorage.setItem("agentx-theme", action.payload);
+      persistPreferences({ theme: action.payload });
     },
     setLanguage(state, action: PayloadAction<string>) {
       state.language = action.payload;
       localStorage.setItem("agentx-language", action.payload);
+      persistPreferences({ language: action.payload });
     },
 
     // Knowledge Base — synchronous reducers for instant UI updates
@@ -217,6 +234,17 @@ const settingsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(loadPreferences.fulfilled, (state, action) => {
+        const prefs = action.payload;
+        if (prefs.theme && ["light", "dark", "system"].includes(prefs.theme)) {
+          state.theme = prefs.theme as SettingsState["theme"];
+          localStorage.setItem("agentx-theme", prefs.theme);
+        }
+        if (prefs.language) {
+          state.language = prefs.language;
+          localStorage.setItem("agentx-language", prefs.language);
+        }
+      })
       .addCase(loadProviders.fulfilled, (state, action) => {
         state.providers = action.payload;
       })

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { loadConversations, setInputValue } from "@/slices/chatSlice";
 import {
+  loadPreferences,
   loadProviders,
   loadKnowledgeBase,
   loadMCPServers,
@@ -26,6 +27,7 @@ export function ChatPanel() {
   const { sendMessage } = useAgent();
 
   useEffect(() => {
+    dispatch(loadPreferences());
     dispatch(loadConversations());
     dispatch(loadProviders());
     dispatch(loadKnowledgeBase());

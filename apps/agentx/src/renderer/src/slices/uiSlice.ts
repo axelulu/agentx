@@ -1,9 +1,16 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { loadPreferences } from "./settingsSlice";
 
 export interface UIState {
   sidebarOpen: boolean;
   settingsOpen: boolean;
   activePanel: "chat" | "settings";
+}
+
+function persistSidebar(open: boolean): void {
+  window.api.preferences.set({ sidebarOpen: open }).catch((err: unknown) => {
+    console.error("[Preferences] Failed to persist sidebar:", err);
+  });
 }
 
 const initialState: UIState = {
@@ -18,9 +25,11 @@ const uiSlice = createSlice({
   reducers: {
     toggleSidebar(state) {
       state.sidebarOpen = !state.sidebarOpen;
+      persistSidebar(state.sidebarOpen);
     },
     setSidebarOpen(state, action: PayloadAction<boolean>) {
       state.sidebarOpen = action.payload;
+      persistSidebar(action.payload);
     },
     toggleSettings(state) {
       state.settingsOpen = !state.settingsOpen;
@@ -31,6 +40,13 @@ const uiSlice = createSlice({
     setActivePanel(state, action: PayloadAction<"chat" | "settings">) {
       state.activePanel = action.payload;
     },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(loadPreferences.fulfilled, (state, action) => {
+      if (typeof action.payload.sidebarOpen === "boolean") {
+        state.sidebarOpen = action.payload.sidebarOpen;
+      }
+    });
   },
 });
 

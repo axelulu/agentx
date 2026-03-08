@@ -79,6 +79,10 @@ interface ElectronAPI {
     stat: (path: string) => Promise<{ size: number; isDirectory: boolean; isFile: boolean } | null>;
     getDroppedPaths: () => string[];
   };
+  preferences: {
+    get: () => Promise<Record<string, unknown>>;
+    set: (prefs: Record<string, unknown>) => Promise<void>;
+  };
   updater: {
     checkForUpdates: () => Promise<void>;
     downloadUpdate: () => Promise<void>;
