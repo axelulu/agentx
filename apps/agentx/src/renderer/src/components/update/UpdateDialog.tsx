@@ -32,7 +32,6 @@ export function UpdateDialog() {
   const dispatch = useDispatch<AppDispatch>();
   const { state, version, progress, error, dialogOpen } = useSelector((s: RootState) => s.update);
 
-  // Don't allow closing during download
   const canClose = state !== "downloading";
 
   const handleOpenChange = (open: boolean) => {
@@ -48,23 +47,32 @@ export function UpdateDialog() {
       closeOnClickOutside={canClose}
       closeOnEscape={canClose}
     >
-      <DialogContent title={l10n.t("Software Update")} showCloseButton={canClose} maxWidth="sm">
-        <div className="flex flex-col items-center gap-4 py-2">
+      <DialogContent
+        title={l10n.t("Software Update")}
+        showCloseButton={canClose}
+        maxWidth="xs"
+        className="!p-4 !gap-0 !rounded-xl"
+      >
+        <div className="flex flex-col items-center gap-3 pt-1 pb-1">
           {/* Checking */}
           {state === "checking" && (
             <>
-              <LoaderIcon className="w-10 h-10 text-blue-500 animate-spin" />
-              <p className="text-sm text-muted-foreground">{l10n.t("Checking for updates...")}</p>
+              <LoaderIcon className="w-6 h-6 text-blue-500 animate-spin" />
+              <p className="text-[13px] text-muted-foreground">
+                {l10n.t("Checking for updates...")}
+              </p>
             </>
           )}
 
           {/* Up to date */}
           {state === "not-available" && (
             <>
-              <CheckCircle2Icon className="w-10 h-10 text-emerald-500" />
+              <CheckCircle2Icon className="w-6 h-6 text-emerald-500" />
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">{l10n.t("You're up to date")}</p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[13px] font-medium text-foreground">
+                  {l10n.t("You're up to date")}
+                </p>
+                <p className="text-[12px] text-muted-foreground mt-0.5">
                   {l10n.t("AgentX ${version} is the latest version.", {
                     version: __APP_VERSION__,
                   })}
@@ -73,7 +81,7 @@ export function UpdateDialog() {
               <button
                 onClick={() => dispatch(closeUpdateDialog())}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full",
+                  "w-full px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                   "bg-foreground/10 text-foreground hover:bg-foreground/15",
                 )}
               >
@@ -85,13 +93,13 @@ export function UpdateDialog() {
           {/* Update available */}
           {state === "available" && (
             <>
-              <DownloadIcon className="w-10 h-10 text-blue-500" />
+              <DownloadIcon className="w-6 h-6 text-blue-500" />
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-[13px] font-medium text-foreground">
                   {l10n.t("A new version is available")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {l10n.t("AgentX {{newVersion}} is available (you have {{currentVersion}}).", {
+                <p className="text-[12px] text-muted-foreground mt-0.5">
+                  {l10n.t("AgentX ${newVersion} is available (you have ${currentVersion}).", {
                     newVersion: version ?? "",
                     currentVersion: __APP_VERSION__,
                   })}
@@ -101,7 +109,7 @@ export function UpdateDialog() {
                 <button
                   onClick={() => dispatch(closeUpdateDialog())}
                   className={cn(
-                    "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex-1 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                     "bg-foreground/10 text-foreground hover:bg-foreground/15",
                   )}
                 >
@@ -110,7 +118,7 @@ export function UpdateDialog() {
                 <button
                   onClick={() => dispatch(downloadUpdate())}
                   className={cn(
-                    "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex-1 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                     "bg-blue-600 text-white hover:bg-blue-700",
                   )}
                 >
@@ -123,17 +131,17 @@ export function UpdateDialog() {
           {/* Downloading */}
           {state === "downloading" && (
             <>
-              <RefreshCwIcon className="w-10 h-10 text-blue-500 animate-spin" />
-              <div className="w-full space-y-2">
+              <RefreshCwIcon className="w-5 h-5 text-blue-500 animate-spin" />
+              <div className="w-full space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-foreground">{l10n.t("Downloading update...")}</p>
-                  <span className="text-xs text-muted-foreground">
+                  <p className="text-[13px] text-foreground">{l10n.t("Downloading update...")}</p>
+                  <span className="text-[11px] text-muted-foreground">
                     {progress ? `${progress.percent.toFixed(0)}%` : ""}
                   </span>
                 </div>
                 {progress && (
                   <>
-                    <div className="w-full h-2 rounded-full bg-foreground/10 overflow-hidden">
+                    <div className="w-full h-1.5 rounded-full bg-foreground/10 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-blue-500 transition-all duration-300"
                         style={{ width: `${progress.percent}%` }}
@@ -154,14 +162,14 @@ export function UpdateDialog() {
           {/* Downloaded - ready to install */}
           {state === "downloaded" && (
             <>
-              <CheckCircle2Icon className="w-10 h-10 text-emerald-500" />
+              <CheckCircle2Icon className="w-6 h-6 text-emerald-500" />
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-[13px] font-medium text-foreground">
                   {l10n.t("Update ready to install")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[12px] text-muted-foreground mt-0.5">
                   {l10n.t(
-                    "AgentX {{version}} has been downloaded. Restart now to complete the update.",
+                    "AgentX ${version} has been downloaded. Restart now to complete the update.",
                     { version: version ?? "" },
                   )}
                 </p>
@@ -170,7 +178,7 @@ export function UpdateDialog() {
                 <button
                   onClick={() => dispatch(closeUpdateDialog())}
                   className={cn(
-                    "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex-1 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                     "bg-foreground/10 text-foreground hover:bg-foreground/15",
                   )}
                 >
@@ -179,7 +187,7 @@ export function UpdateDialog() {
                 <button
                   onClick={() => dispatch(installUpdate())}
                   className={cn(
-                    "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex-1 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                     "bg-emerald-600 text-white hover:bg-emerald-700",
                   )}
                 >
@@ -192,18 +200,20 @@ export function UpdateDialog() {
           {/* Error */}
           {state === "error" && (
             <>
-              <AlertCircleIcon className="w-10 h-10 text-red-500" />
+              <AlertCircleIcon className="w-6 h-6 text-red-500" />
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-[13px] font-medium text-foreground">
                   {l10n.t("Update check failed")}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">{error}</p>
+                {error && (
+                  <p className="text-[11px] text-muted-foreground mt-0.5 break-all">{error}</p>
+                )}
               </div>
               <div className="flex gap-2 w-full">
                 <button
                   onClick={() => dispatch(closeUpdateDialog())}
                   className={cn(
-                    "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex-1 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
                     "bg-foreground/10 text-foreground hover:bg-foreground/15",
                   )}
                 >
@@ -212,11 +222,11 @@ export function UpdateDialog() {
                 <button
                   onClick={() => dispatch(checkForUpdates())}
                   className={cn(
-                    "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-1.5",
+                    "flex-1 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors inline-flex items-center justify-center gap-1",
                     "bg-foreground/10 text-foreground hover:bg-foreground/15",
                   )}
                 >
-                  <RotateCcwIcon className="w-3.5 h-3.5" />
+                  <RotateCcwIcon className="w-3 h-3" />
                   {l10n.t("Retry")}
                 </button>
               </div>
