@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, app } from "electron";
 import { join } from "path";
 import { readFileSync, writeFileSync, existsSync } from "fs";
+import { is } from "@electron-toolkit/utils";
 import { DesktopRuntime } from "@workspace/desktop";
 import type { DesktopProviderConfig, ToolPermissions } from "@workspace/desktop";
 
@@ -27,7 +28,9 @@ function writeJsonFile(filePath: string, data: unknown): void {
 
 export async function initDesktopRuntime(): Promise<void> {
   runtime = new DesktopRuntime({
-    toolkitPath: join(app.getAppPath(), "resources", "toolkit"),
+    toolkitPath: is.dev
+      ? join(app.getAppPath(), "resources", "toolkit")
+      : join(process.resourcesPath, "toolkit"),
     language: "en",
     workspacePath: app.getPath("documents"),
     dataPath: join(app.getPath("userData"), "conversations"),

@@ -8,6 +8,11 @@ files:
   - "!out/types-node"
   - "!out/types-web"
   - "!node_modules/@workspace/**"
+extraResources:
+  - from: "resources/toolkit"
+    to: "toolkit"
+    filter:
+      - "**/*"
 asarUnpack:
   - "resources/**"
 mac:
