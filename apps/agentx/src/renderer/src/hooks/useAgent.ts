@@ -7,25 +7,43 @@ import {
   setError,
   createNewConversation,
   initializeSessions,
+  setBranchInfo,
 } from "@/slices/chatSlice";
+import type { BranchInfoEntry } from "@/slices/chatSlice";
+import { openTab } from "@/slices/uiSlice";
 
 /**
  * Register the global agent:event IPC listener exactly ONCE.
  * Call this from a single top-level component (e.g. ChatPanel).
  * Do NOT call from multiple components — it would cause duplicate dispatches.
  *
- * Also handles subscribe/unsubscribe lifecycle when switching conversations,
- * and initializes running session tracking on mount.
+ * Also handles subscribe/unsubscribe lifecycle for all open tabs
+ * with running sessions, and initializes running session tracking on mount.
  */
 export function useAgentEventListener() {
   const dispatch = useDispatch<AppDispatch>();
   const currentConversationId = useSelector((state: RootState) => state.chat.currentConversationId);
-  const prevConvIdRef = useRef<string | null>(null);
+  const openTabs = useSelector((state: RootState) => state.ui.openTabs);
+  const runningSessions = useSelector((state: RootState) => state.chat.runningSessions);
+  const subscribedRef = useRef<Set<string>>(new Set());
 
   // Global event listener — always active
   useEffect(() => {
     const cleanup = window.api.agent.onEvent((event) => {
       dispatch(handleAgentEvent(event as Parameters<typeof handleAgentEvent>[0]));
+
+      // Refresh branchInfo when an agent run ends for the current conversation
+      const e = event as { type: string; conversationId?: string };
+      if (e.type === "agent_end" && e.conversationId) {
+        window.api.conversation
+          .branchInfo(e.conversationId)
+          .then((info) => {
+            dispatch(setBranchInfo((info ?? {}) as Record<string, BranchInfoEntry>));
+          })
+          .catch(() => {
+            /* ignore */
+          });
+      }
     });
     return cleanup;
   }, [dispatch]);
@@ -35,24 +53,48 @@ export function useAgentEventListener() {
     dispatch(initializeSessions());
   }, [dispatch]);
 
-  // Subscribe/unsubscribe when conversation changes
+  // Subscribe to all open tabs that have running sessions + the current conversation
   useEffect(() => {
-    const prevId = prevConvIdRef.current;
+    const desired = new Set<string>();
 
-    // Unsubscribe from previous conversation
-    if (prevId && prevId !== currentConversationId) {
-      window.api.agent.unsubscribe(prevId);
+    // Always subscribe to current conversation if it's running
+    if (currentConversationId && runningSessions.includes(currentConversationId)) {
+      desired.add(currentConversationId);
     }
 
-    prevConvIdRef.current = currentConversationId;
-
-    // Cleanup on unmount: unsubscribe from current
-    return () => {
-      if (currentConversationId) {
-        window.api.agent.unsubscribe(currentConversationId);
+    // Subscribe to all open tabs with running sessions
+    for (const tabId of openTabs) {
+      if (runningSessions.includes(tabId)) {
+        desired.add(tabId);
       }
+    }
+
+    const current = subscribedRef.current;
+
+    // Subscribe to new ones
+    for (const id of desired) {
+      if (!current.has(id)) {
+        window.api.agent.subscribe(id);
+      }
+    }
+
+    // Unsubscribe from ones no longer needed
+    for (const id of current) {
+      if (!desired.has(id)) {
+        window.api.agent.unsubscribe(id);
+      }
+    }
+
+    subscribedRef.current = desired;
+
+    // Cleanup on unmount: unsubscribe from all
+    return () => {
+      for (const id of subscribedRef.current) {
+        window.api.agent.unsubscribe(id);
+      }
+      subscribedRef.current = new Set();
     };
-  }, [currentConversationId]);
+  }, [currentConversationId, openTabs, runningSessions]);
 }
 
 /**
@@ -69,6 +111,7 @@ export function useAgent() {
       if (!convId) {
         const conv = await dispatch(createNewConversation()).unwrap();
         convId = conv.id;
+        dispatch(openTab(convId));
       }
 
       // Optimistically add user message to UI

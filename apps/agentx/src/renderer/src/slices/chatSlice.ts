@@ -9,7 +9,7 @@ export interface ToolCallData {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
-  status?: "running" | "done" | "error";
+  status?: "running" | "done" | "error" | "cancelled";
   result?: { content: string; isError?: boolean };
 }
 
@@ -29,6 +29,8 @@ export interface ConversationSummary {
   createdAt: number;
   updatedAt: number;
   messageCount: number;
+  folderId?: string;
+  isFavorite?: boolean;
 }
 
 export interface PendingApproval {
@@ -36,6 +38,16 @@ export interface PendingApproval {
   toolName: string;
   arguments: Record<string, unknown>;
   timestamp: number;
+}
+
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface BranchInfoEntry {
+  siblings: string[];
+  activeIndex: number;
 }
 
 export interface ChatState {
@@ -52,6 +64,14 @@ export interface ChatState {
   pendingApproval: PendingApproval | null;
   /** Conversation IDs with running agent sessions */
   runningSessions: string[];
+  /** Accumulated token usage for the current conversation session */
+  sessionUsage: TokenUsage;
+  /** Total accumulated token usage for the current conversation (all sessions) */
+  conversationUsage: TokenUsage;
+  /** Skill IDs enabled for the current conversation */
+  enabledSkills: string[];
+  /** Branch navigation info — keyed by message ID */
+  branchInfo: Record<string, BranchInfoEntry>;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,10 +95,10 @@ export const loadMessages = createAsyncThunk(
   "chat/loadMessages",
   async (conversationId: string) => {
     const msgs = await window.api.conversation.messages(conversationId);
-    // Add local IDs to messages from the store (they don't have IDs)
-    return (msgs as Array<Omit<Message, "id">>).map((m) => ({
+    // Use backend-assigned id if present, fall back to uuidv4()
+    return (msgs as Array<Omit<Message, "id"> & { id?: string }>).map((m) => ({
       ...m,
-      id: uuidv4(),
+      id: m.id || uuidv4(),
     })) as Message[];
   },
 );
@@ -86,8 +106,12 @@ export const loadMessages = createAsyncThunk(
 export const switchConversation = createAsyncThunk(
   "chat/switchConversation",
   async (conversationId: string) => {
-    const msgs = await window.api.conversation.messages(conversationId);
-    const status = await window.api.agent.status(conversationId);
+    const [msgs, status, enabledSkills, branchInfo] = await Promise.all([
+      window.api.conversation.messages(conversationId),
+      window.api.agent.status(conversationId),
+      window.api.skills.getEnabled(conversationId),
+      window.api.conversation.branchInfo(conversationId),
+    ]);
     const isRunning =
       status &&
       (status as { status: string }).status !== "completed" &&
@@ -98,11 +122,13 @@ export const switchConversation = createAsyncThunk(
     }
     return {
       conversationId,
-      messages: (msgs as Array<Omit<Message, "id">>).map((m) => ({
+      messages: (msgs as Array<Omit<Message, "id"> & { id?: string }>).map((m) => ({
         ...m,
-        id: uuidv4(),
+        id: m.id || uuidv4(),
       })) as Message[],
       isRunning: !!isRunning,
+      enabledSkills: enabledSkills as string[],
+      branchInfo: (branchInfo ?? {}) as Record<string, BranchInfoEntry>,
     };
   },
 );
@@ -153,6 +179,67 @@ export const initializeSessions = createAsyncThunk("chat/initializeSessions", as
   const running = (await window.api.agent.runningConversations()) as string[];
   return running;
 });
+
+export const updateConversationFolder = createAsyncThunk(
+  "chat/updateConversationFolder",
+  async ({ id, folderId }: { id: string; folderId: string | null }) => {
+    await window.api.conversation.setFolder(id, folderId);
+    return { id, folderId };
+  },
+);
+
+export const toggleConversationFavorite = createAsyncThunk(
+  "chat/toggleConversationFavorite",
+  async ({ id, isFavorite }: { id: string; isFavorite: boolean }) => {
+    await window.api.conversation.setFavorite(id, isFavorite);
+    return { id, isFavorite };
+  },
+);
+
+export const switchBranch = createAsyncThunk(
+  "chat/switchBranch",
+  async ({
+    conversationId,
+    targetMessageId,
+  }: {
+    conversationId: string;
+    targetMessageId: string;
+  }) => {
+    await window.api.conversation.switchBranch(conversationId, targetMessageId);
+    const [msgs, branchInfo] = await Promise.all([
+      window.api.conversation.messages(conversationId),
+      window.api.conversation.branchInfo(conversationId),
+    ]);
+    return {
+      messages: (msgs as Array<Omit<Message, "id"> & { id?: string }>).map((m) => ({
+        ...m,
+        id: m.id || uuidv4(),
+      })) as Message[],
+      branchInfo: (branchInfo ?? {}) as Record<string, BranchInfoEntry>,
+    };
+  },
+);
+
+export const regenerateMessage = createAsyncThunk(
+  "chat/regenerateMessage",
+  async ({
+    conversationId,
+    assistantMessageId,
+  }: {
+    conversationId: string;
+    assistantMessageId: string;
+  }) => {
+    const result = (await window.api.agent.regenerate(conversationId, assistantMessageId)) as
+      | {
+          started: boolean;
+        }
+      | undefined;
+    if (result?.started) {
+      await window.api.agent.subscribe(conversationId);
+    }
+    return { started: !!result?.started };
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Normalize loaded messages: fold tool result messages into assistant toolCalls
@@ -256,6 +343,12 @@ interface ToolApprovalRequestEvent extends AgentEventBase {
   arguments: Record<string, unknown>;
 }
 
+interface UsageEventData extends AgentEventBase {
+  type: "usage";
+  inputTokens: number;
+  outputTokens: number;
+}
+
 type AgentEvent =
   | AgentStartEvent
   | AgentEndEvent
@@ -266,6 +359,7 @@ type AgentEvent =
   | ToolEndEvent
   | ErrorEventData
   | ToolApprovalRequestEvent
+  | UsageEventData
   | {
       type: "turn_start" | "turn_end" | "tool_update";
       conversationId: string;
@@ -275,6 +369,8 @@ type AgentEvent =
 // ---------------------------------------------------------------------------
 // Slice
 // ---------------------------------------------------------------------------
+
+const EMPTY_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
 const initialState: ChatState = {
   conversations: [],
@@ -287,6 +383,10 @@ const initialState: ChatState = {
   error: null,
   pendingApproval: null,
   runningSessions: [],
+  sessionUsage: { ...EMPTY_USAGE },
+  conversationUsage: { ...EMPTY_USAGE },
+  enabledSkills: [],
+  branchInfo: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -322,6 +422,37 @@ function findToolTargetMessage(
     return findDraftMessage(messages, activeAgentMessageId);
   }
   return findLastAssistantDraft(messages);
+}
+
+/**
+ * Clean up incomplete state after abort or error:
+ * - Remove empty streaming messages (no content & no tool calls)
+ * - Mark still-running tool calls as "cancelled"
+ */
+function cleanupPartialMessages(messages: Message[]): void {
+  // Walk backwards to safely remove empty messages
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "assistant") continue;
+
+    const hasContent = !!msg.content;
+    const hasToolCalls = !!msg.toolCalls && msg.toolCalls.length > 0;
+
+    // Remove completely empty assistant messages (no content at all)
+    if (!hasContent && !hasToolCalls) {
+      messages.splice(i, 1);
+      continue;
+    }
+
+    // Mark running tool calls as cancelled
+    if (msg.toolCalls) {
+      for (let j = 0; j < msg.toolCalls.length; j++) {
+        if (msg.toolCalls[j].status === "running") {
+          msg.toolCalls[j].status = "cancelled";
+        }
+      }
+    }
+  }
 }
 
 const chatSlice = createSlice({
@@ -363,6 +494,7 @@ const chatSlice = createSlice({
           state.isStreaming = true;
           state.error = null;
           state.activeAgentMessageId = null;
+          state.sessionUsage = { ...EMPTY_USAGE };
           if (event.conversationId && !state.runningSessions.includes(event.conversationId)) {
             state.runningSessions.push(event.conversationId);
           }
@@ -449,6 +581,15 @@ const chatSlice = createSlice({
           if (event.result.error) {
             state.error = event.result.error;
           }
+          // Clean up incomplete messages from abort or unexpected termination
+          cleanupPartialMessages(state.messages);
+          break;
+
+        case "usage":
+          state.sessionUsage.inputTokens += event.inputTokens;
+          state.sessionUsage.outputTokens += event.outputTokens;
+          state.conversationUsage.inputTokens += event.inputTokens;
+          state.conversationUsage.outputTokens += event.outputTokens;
           break;
 
         case "tool_approval_request":
@@ -471,11 +612,28 @@ const chatSlice = createSlice({
               (id) => id !== event.conversationId,
             );
           }
+          // Clean up incomplete messages from the error
+          cleanupPartialMessages(state.messages);
           break;
       }
     },
     clearPendingApproval(state) {
       state.pendingApproval = null;
+    },
+    setBranchInfo(state, action: PayloadAction<Record<string, BranchInfoEntry>>) {
+      state.branchInfo = action.payload;
+    },
+    setEnabledSkills(state, action: PayloadAction<string[]>) {
+      state.enabledSkills = action.payload;
+    },
+    toggleSkill(state, action: PayloadAction<string>) {
+      const id = action.payload;
+      const idx = state.enabledSkills.indexOf(id);
+      if (idx >= 0) {
+        state.enabledSkills.splice(idx, 1);
+      } else {
+        state.enabledSkills.push(id);
+      }
     },
   },
   extraReducers: (builder) => {
@@ -492,6 +650,10 @@ const chatSlice = createSlice({
         state.activeAgentMessageId = null;
         state.pendingApproval = null;
         state.error = null;
+        state.sessionUsage = { ...EMPTY_USAGE };
+        state.conversationUsage = { ...EMPTY_USAGE };
+        state.enabledSkills = [];
+        state.branchInfo = {};
       })
       .addCase(loadMessages.fulfilled, (state, action) => {
         state.messages = normalizeMessages(action.payload);
@@ -524,6 +686,10 @@ const chatSlice = createSlice({
         state.activeAgentMessageId = null;
         state.pendingApproval = null;
         state.error = null;
+        state.sessionUsage = { ...EMPTY_USAGE };
+        state.conversationUsage = { ...EMPTY_USAGE };
+        state.enabledSkills = action.payload.enabledSkills ?? [];
+        state.branchInfo = action.payload.branchInfo ?? {};
       })
       .addCase(removeConversations.fulfilled, (state, action) => {
         const deleted = new Set(action.payload);
@@ -540,11 +706,57 @@ const chatSlice = createSlice({
       })
       .addCase(initializeSessions.fulfilled, (state, action) => {
         state.runningSessions = action.payload;
+      })
+      .addCase(updateConversationFolder.fulfilled, (state, action) => {
+        const { id, folderId } = action.payload;
+        const conv = state.conversations.find((c) => c.id === id);
+        if (conv) {
+          conv.folderId = folderId ?? undefined;
+        }
+      })
+      .addCase(toggleConversationFavorite.fulfilled, (state, action) => {
+        const { id, isFavorite } = action.payload;
+        const conv = state.conversations.find((c) => c.id === id);
+        if (conv) {
+          conv.isFavorite = isFavorite || undefined;
+        }
+      })
+      .addCase(switchBranch.fulfilled, (state, action) => {
+        state.messages = normalizeMessages(action.payload.messages);
+        state.branchInfo = action.payload.branchInfo;
+      })
+      .addCase(regenerateMessage.pending, (state, action) => {
+        state.isStreaming = true;
+        state.error = null;
+        // Truncate messages from the assistant message being regenerated onwards
+        const { assistantMessageId } = action.meta.arg;
+        const idx = state.messages.findIndex((m) => m.id === assistantMessageId);
+        if (idx >= 0) {
+          state.messages = state.messages.slice(0, idx);
+        }
+      })
+      .addCase(regenerateMessage.fulfilled, (state, action) => {
+        if (!action.payload.started) {
+          state.isStreaming = false;
+          state.error = "Failed to regenerate: message not found";
+        }
+      })
+      .addCase(regenerateMessage.rejected, (state, action) => {
+        state.isStreaming = false;
+        state.error = action.error.message ?? "Regeneration failed";
       });
   },
 });
 
-export const { setInputValue, setError, addUserMessage, handleAgentEvent, clearPendingApproval } =
-  chatSlice.actions;
+export const {
+  setInputValue,
+  setError,
+  addUserMessage,
+  handleAgentEvent,
+  clearPendingApproval,
+  setBranchInfo,
+  setEnabledSkills,
+  toggleSkill,
+} = chatSlice.actions;
 
 export default chatSlice.reducer;

@@ -109,5 +109,14 @@ export function toSerializableEvent(
         error: event.error?.message ?? "Unknown error",
         fatal: event.fatal,
       };
+
+    case "usage":
+      return {
+        type: "usage",
+        conversationId,
+        timestamp: event.timestamp,
+        inputTokens: event.inputTokens,
+        outputTokens: event.outputTokens,
+      };
   }
 }

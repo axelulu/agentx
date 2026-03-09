@@ -12,6 +12,12 @@ export { toSerializableEvent } from "./sessions/event-bridge.js";
 export { createOpenAIStreamFn } from "./providers/adapters/openai-adapter.js";
 export { createAnthropicStreamFn } from "./providers/adapters/anthropic-adapter.js";
 
+// MCP
+export { MCPClientManager } from "./mcp/index.js";
+
+// Skills API
+export { searchSkills, getSkill } from "./skills/skill-api.js";
+
 // Types
 export type {
   SerializableAgentEvent,
@@ -20,10 +26,17 @@ export type {
   MessageData,
   DesktopProviderConfig,
   DesktopRuntimeConfig,
+  KnowledgeBaseItem,
+  SkillDefinition,
   ToolPermissions,
   ToolApprovalMode,
   SessionStatusInfo,
   SessionStatus,
+  Folder,
+  MCPServerConfig,
+  MCPServerState,
+  MCPConnectionStatus,
+  BranchInfo,
 } from "./types.js";
 
 export {

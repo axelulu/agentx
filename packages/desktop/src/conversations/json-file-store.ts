@@ -71,4 +71,11 @@ export class JsonFileStore implements ConversationStore {
     const msgPath = join(dir, "messages.json");
     await writeFile(msgPath, JSON.stringify(all, null, 2), "utf-8");
   }
+
+  async replaceMessages(conversationId: string, messages: MessageData[]): Promise<void> {
+    const dir = join(this.dataPath, conversationId);
+    await mkdir(dir, { recursive: true });
+    const msgPath = join(dir, "messages.json");
+    await writeFile(msgPath, JSON.stringify(messages, null, 2), "utf-8");
+  }
 }

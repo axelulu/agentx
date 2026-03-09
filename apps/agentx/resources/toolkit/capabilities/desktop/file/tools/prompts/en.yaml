@@ -42,9 +42,13 @@ tools:
 
   - name: file_rewrite
     description: >
-      Rewrite an existing file with new content.
-      The file must already exist — use file_create for new files.
-      Always read the file first with file_read before rewriting.
+      Edit an existing file. The file must already exist — use file_create for new files.
+      Always read the file first with file_read before editing.
+      Supports two modes:
+      1. Full rewrite: provide `content` to replace the entire file.
+      2. Surgical edits: provide `edits` (array of {old_text, new_text}) for targeted
+         search-and-replace changes. Each old_text must match exactly once.
+      Prefer `edits` for small changes — it saves tokens and reduces risk of losing content.
     category: file
     input_schema:
       type: object
@@ -52,10 +56,27 @@ tools:
         file_path:
           type: string
           description: >
-            Path to the existing file to rewrite, relative to the workspace root.
+            Path to the existing file to edit, relative to the workspace root.
         content:
           type: string
-          description: The new full content to replace the file with.
+          description: >
+            Full content to replace the file with. Use this OR edits, not both.
+        edits:
+          type: array
+          description: >
+            List of search-and-replace edits. Each old_text must appear exactly once
+            in the file. Edits are applied sequentially. Prefer this for small changes.
+          items:
+            type: object
+            properties:
+              old_text:
+                type: string
+                description: Exact text to find (must be unique in the file)
+              new_text:
+                type: string
+                description: Replacement text
+            required:
+              - old_text
+              - new_text
       required:
         - file_path
-        - content

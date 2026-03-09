@@ -1,12 +1,31 @@
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { setInputValue, setError } from "@/slices/chatSlice";
-import { setSettingsOpen } from "@/slices/uiSlice";
+import { openSettingsSection } from "@/slices/uiSlice";
 import { useAgent } from "@/hooks/useAgent";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { l10n } from "@workspace/l10n";
-import { ArrowUpIcon, SquareIcon, PaperclipIcon, FileIcon, FolderIcon, XIcon } from "lucide-react";
+import type { TokenUsage } from "@/slices/chatSlice";
 import {
+  ArrowUpIcon,
+  SquareIcon,
+  PaperclipIcon,
+  FileIcon,
+  FolderIcon,
+  XIcon,
+  PlayCircleIcon,
+  Music2Icon,
+  BookOpenIcon,
+  PlugIcon,
+  MicIcon,
+  Loader2Icon,
+} from "lucide-react";
+import { getPreviewType, fileUrl } from "@/lib/filePreview";
+import { FilePreviewDialog } from "@/components/ui/FilePreviewDialog";
+import {
+  forwardRef,
   useCallback,
+  useImperativeHandle,
   useRef,
   useEffect,
   useState,
@@ -15,6 +34,8 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+import { SkillSelector } from "@/components/skills/SkillSelector";
+import { ConversationPromptButton } from "./ConversationPromptBar";
 
 interface AttachedFile {
   path: string;
@@ -40,11 +61,25 @@ function shortenPath(fullPath: string): string {
 
 const MAX_ATTACHMENTS = 10;
 
-export function ChatInput() {
+export interface ChatInputHandle {
+  addFiles: (paths: string[]) => void;
+}
+
+export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, ref) {
   const dispatch = useDispatch<AppDispatch>();
-  const { inputValue, isStreaming, error } = useSelector((state: RootState) => state.chat);
+  const { inputValue, isStreaming, error, sessionUsage, conversationUsage } = useSelector(
+    (state: RootState) => state.chat,
+  );
   const { providers } = useSelector((state: RootState) => state.settings);
   const { sendMessage, abort } = useAgent();
+  const {
+    isRecording,
+    recordingDuration,
+    isTranscribing,
+    error: voiceError,
+    toggleRecording,
+    cancelRecording,
+  } = useVoiceInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +88,29 @@ export function ChatInput() {
 
   const activeProvider = providers.find((p) => p.isActive);
   const modelLabel = activeProvider?.defaultModel ?? "—";
+
+  const handleMicClick = useCallback(async () => {
+    const hasProvider = providers.some(
+      (p) => (p.type === "openai" || p.type === "custom") && p.apiKey,
+    );
+    if (!hasProvider && !isRecording) {
+      dispatch(setError(l10n.t("No OpenAI provider for transcription")));
+      dispatch(openSettingsSection("providers"));
+      return;
+    }
+    const text = await toggleRecording();
+    if (text) {
+      dispatch(setInputValue(inputValue ? `${inputValue} ${text}` : text));
+      textareaRef.current?.focus();
+    }
+  }, [providers, isRecording, toggleRecording, dispatch, inputValue]);
+
+  // Auto-focus textarea on mount and when streaming ends
+  useEffect(() => {
+    if (!isStreaming) {
+      textareaRef.current?.focus();
+    }
+  }, [isStreaming]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -89,9 +147,13 @@ export function ChatInput() {
     }
   }, []);
 
+  useImperativeHandle(ref, () => ({ addFiles }), [addFiles]);
+
   const removeAttachment = useCallback((path: string) => {
     setAttachments((prev) => prev.filter((a) => a.path !== path));
   }, []);
+
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
@@ -101,7 +163,7 @@ export function ChatInput() {
     const hasProvider = providers.some((p) => p.apiKey);
     if (!hasProvider) {
       dispatch(setError(l10n.t("Please configure an AI provider first")));
-      dispatch(setSettingsOpen(true));
+      dispatch(openSettingsSection("providers"));
       return;
     }
 
@@ -188,10 +250,16 @@ export function ChatInput() {
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-1.5 px-3 pt-3">
               {attachments.map((file) => (
-                <AttachmentChip key={file.path} file={file} onRemove={removeAttachment} />
+                <AttachmentChip
+                  key={file.path}
+                  file={file}
+                  onRemove={removeAttachment}
+                  onPreview={setPreviewPath}
+                />
               ))}
             </div>
           )}
+          <FilePreviewDialog path={previewPath} onClose={() => setPreviewPath(null)} />
 
           {/* Textarea */}
           <textarea
@@ -205,16 +273,65 @@ export function ChatInput() {
             disabled={isStreaming}
           />
 
+          {/* Recording indicator */}
+          {isRecording && (
+            <div className="flex items-center gap-2 px-3 py-1.5 mx-2.5 mb-1 rounded-md bg-destructive/10 text-destructive text-[12px]">
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="font-medium">
+                {l10n.t("Recording...")} {Math.floor(recordingDuration / 60)}:
+                {String(recordingDuration % 60).padStart(2, "0")}
+              </span>
+              <button
+                onClick={cancelRecording}
+                className="ml-auto p-0.5 rounded hover:bg-destructive/20 transition-colors"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Voice error */}
+          {voiceError && (
+            <div className="px-3 py-1.5 mx-2.5 mb-1 text-[11px] text-destructive bg-destructive/10 rounded-md">
+              {voiceError}
+            </div>
+          )}
+
           {/* Toolbar */}
           <div className="flex items-center gap-0.5 px-2.5 pb-2.5">
             <ToolbarButton title={l10n.t("Attach file")} onClick={handleAttachClick}>
               <PaperclipIcon className="w-4 h-4" />
             </ToolbarButton>
+            <ToolbarButton
+              title={l10n.t("Knowledge Base")}
+              onClick={() => dispatch(openSettingsSection("knowledgeBase"))}
+            >
+              <BookOpenIcon className="w-4 h-4" />
+            </ToolbarButton>
+            <ToolbarButton
+              title={l10n.t("MCP Servers")}
+              onClick={() => dispatch(openSettingsSection("mcp"))}
+            >
+              <PlugIcon className="w-4 h-4" />
+            </ToolbarButton>
+            <SkillSelector />
+            <ConversationPromptButton />
+            <ToolbarButton
+              title={isRecording ? l10n.t("Stop recording") : l10n.t("Voice input")}
+              onClick={handleMicClick}
+            >
+              {isTranscribing ? (
+                <Loader2Icon className="w-4 h-4 animate-spin" />
+              ) : (
+                <MicIcon className={cn("w-4 h-4", isRecording && "text-destructive")} />
+              )}
+            </ToolbarButton>
 
-            {/* Model label */}
-            <span className="ml-1 text-[11px] text-muted-foreground/40 truncate max-w-[120px]">
-              {modelLabel}
-            </span>
+            {/* Model + token usage */}
+            <div className="flex items-center gap-1.5 ml-1 text-[11px] tabular-nums">
+              <span className="text-muted-foreground/40">{modelLabel}</span>
+              <TokenUsageInline sessionUsage={sessionUsage} conversationUsage={conversationUsage} />
+            </div>
 
             <div className="flex-1" />
 
@@ -255,24 +372,54 @@ export function ChatInput() {
       </div>
     </div>
   );
-}
+});
 
 function AttachmentChip({
   file,
   onRemove,
+  onPreview,
 }: {
   file: AttachedFile;
   onRemove: (path: string) => void;
+  onPreview: (path: string) => void;
 }) {
-  const Icon = file.isDirectory ? FolderIcon : FileIcon;
   const displayPath = shortenPath(file.path);
   const sizeLabel = file.size > 0 ? formatFileSize(file.size) : null;
+  const previewType = file.isDirectory ? null : getPreviewType(file.path);
+
+  const handleClick = () => {
+    if (previewType) {
+      onPreview(file.path);
+    } else {
+      window.api.fs.openPath(file.path);
+    }
+  };
+
+  const ChipIcon =
+    previewType === "video"
+      ? PlayCircleIcon
+      : previewType === "audio"
+        ? Music2Icon
+        : file.isDirectory
+          ? FolderIcon
+          : FileIcon;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.05] hover:bg-foreground/[0.08] text-[12px] text-foreground/70 max-w-[280px] group transition-colors">
-          <Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+        <div
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.05] hover:bg-foreground/[0.08] text-[12px] text-foreground/70 max-w-[280px] group transition-colors cursor-pointer"
+          onClick={handleClick}
+        >
+          {previewType === "image" ? (
+            <img
+              src={fileUrl(file.path)}
+              alt=""
+              className="w-5 h-5 object-cover rounded shrink-0"
+            />
+          ) : (
+            <ChipIcon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+          )}
           <span className="truncate font-medium">{file.name}</span>
           {sizeLabel && <span className="shrink-0 text-muted-foreground/50">{sizeLabel}</span>}
           <button
@@ -318,5 +465,48 @@ function ToolbarButton({
       <TooltipTrigger asChild>{btn}</TooltipTrigger>
       <TooltipContent>{title}</TooltipContent>
     </Tooltip>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline token usage (sits next to the model label in the toolbar)
+// ---------------------------------------------------------------------------
+
+function formatTokenCount(count: number): string {
+  if (count < 1000) return String(count);
+  if (count < 1_000_000) return `${(count / 1000).toFixed(1)}k`;
+  return `${(count / 1_000_000).toFixed(2)}M`;
+}
+
+function TokenUsageInline({
+  sessionUsage,
+  conversationUsage,
+}: {
+  sessionUsage: TokenUsage;
+  conversationUsage: TokenUsage;
+}) {
+  const hasSession = sessionUsage.inputTokens > 0 || sessionUsage.outputTokens > 0;
+  if (!hasSession) return null;
+
+  const showTotal =
+    conversationUsage.inputTokens !== sessionUsage.inputTokens ||
+    conversationUsage.outputTokens !== sessionUsage.outputTokens;
+
+  return (
+    <>
+      <span className="text-muted-foreground/25">·</span>
+      <span className="text-muted-foreground/50">
+        {formatTokenCount(sessionUsage.inputTokens)} → {formatTokenCount(sessionUsage.outputTokens)}
+      </span>
+      {showTotal && (
+        <>
+          <span className="text-muted-foreground/25">·</span>
+          <span className="text-muted-foreground/35">
+            {l10n.t("Total")} {formatTokenCount(conversationUsage.inputTokens)} →{" "}
+            {formatTokenCount(conversationUsage.outputTokens)}
+          </span>
+        </>
+      )}
+    </>
   );
 }

@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
-import { setSettingsOpen } from "@/slices/uiSlice";
-import { setLanguage, setProxyUrl } from "@/slices/settingsSlice";
+import { setSettingsOpen, openSettingsSection, type SettingsSection } from "@/slices/uiSlice";
+import {
+  setLanguage,
+  setProxyUrl,
+  setWorkspacePath,
+  setDataPath,
+  setGlobalSystemPrompt,
+} from "@/slices/settingsSlice";
 import { checkForUpdates, openUpdateDialog } from "@/slices/updateSlice";
 import { l10n, SUPPORTED_LANGUAGE } from "@workspace/l10n";
 import { motion } from "framer-motion";
@@ -14,26 +20,34 @@ import {
   BookOpenIcon,
   PlugIcon,
   ShieldCheckIcon,
+  FolderOpenIcon,
+  ScrollTextIcon,
+  MicIcon,
+  ZapIcon,
 } from "lucide-react";
 import { ProviderConfig } from "./ProviderConfig";
 import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
 import { MCPConfig } from "./MCPConfig";
 import { PermissionsConfig } from "./PermissionsConfig";
+import { VoiceConfig } from "./VoiceConfig";
+import { SkillsConfig } from "./SkillsConfig";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 
-type SettingsSection = "general" | "providers" | "knowledgeBase" | "mcp" | "permissions" | "about";
-
 export function SettingsPanel() {
   const dispatch = useDispatch();
-  const [activeSection, setActiveSection] = useState<SettingsSection>("providers");
+  const activeSection = useSelector((s: RootState) => s.ui.settingsSection);
+  const setActiveSection = (section: SettingsSection) => dispatch(openSettingsSection(section));
 
   const sections: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
     { id: "general", label: l10n.t("General"), icon: SlidersHorizontalIcon },
+    { id: "voice", label: l10n.t("Voice"), icon: MicIcon },
+    { id: "systemPrompt", label: l10n.t("System Prompt"), icon: ScrollTextIcon },
     { id: "providers", label: l10n.t("AI Providers"), icon: CpuIcon },
     { id: "knowledgeBase", label: l10n.t("Knowledge Base"), icon: BookOpenIcon },
     { id: "mcp", label: l10n.t("MCP Servers"), icon: PlugIcon },
+    { id: "skills", label: l10n.t("Skills"), icon: ZapIcon },
     { id: "permissions", label: l10n.t("Permissions"), icon: ShieldCheckIcon },
     { id: "about", label: l10n.t("About"), icon: InfoIcon },
   ];
@@ -100,9 +114,12 @@ export function SettingsPanel() {
           </div>
           <div className="flex-1 overflow-y-auto px-6 pb-6">
             {activeSection === "general" && <GeneralSection />}
+            {activeSection === "voice" && <VoiceConfig />}
+            {activeSection === "systemPrompt" && <SystemPromptSection />}
             {activeSection === "providers" && <ProviderConfig />}
             {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
             {activeSection === "mcp" && <MCPConfig />}
+            {activeSection === "skills" && <SkillsConfig />}
             {activeSection === "permissions" && <PermissionsConfig />}
             {activeSection === "about" && <AboutSection />}
           </div>
@@ -118,6 +135,12 @@ function GeneralSection() {
   const currentLanguage = l10n.getLanguage();
   const proxyUrl = useSelector((s: RootState) => s.settings.proxyUrl);
   const [proxyDraft, setProxyDraft] = useState(proxyUrl);
+  const workspacePath = useSelector((s: RootState) => s.settings.workspacePath);
+  const dataPath = useSelector((s: RootState) => s.settings.dataPath);
+  const pickDirectory = async (setter: (path: string) => void) => {
+    const dir = await window.api.fs.selectDirectory();
+    if (dir) setter(dir);
+  };
 
   const themeOptions: { value: "light" | "dark" | "system"; label: string }[] = [
     { value: "light", label: l10n.t("Light") },
@@ -219,6 +242,114 @@ function GeneralSection() {
           }}
           placeholder="http://127.0.0.1:7890"
           className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+          {l10n.t("Directories")}
+        </label>
+
+        <div className="space-y-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Working Directory")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Default directory for agent command execution")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => workspacePath && window.api.fs.openPath(workspacePath)}
+              className={cn(
+                "flex-1 text-left bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
+                workspacePath
+                  ? "text-foreground hover:underline cursor-pointer"
+                  : "text-muted-foreground/50 cursor-default",
+              )}
+            >
+              {workspacePath || l10n.t("Default: User Home")}
+            </button>
+            <button
+              onClick={() => pickDirectory((dir) => dispatch(setWorkspacePath(dir)))}
+              className="shrink-0 p-1.5 rounded-md border border-border hover:bg-foreground/5 transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <FolderOpenIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Data Directory")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Directory for storing conversations and app data")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => dataPath && window.api.fs.openPath(dataPath)}
+              className={cn(
+                "flex-1 text-left bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
+                dataPath
+                  ? "text-foreground hover:underline cursor-pointer"
+                  : "text-muted-foreground/50 cursor-default",
+              )}
+            >
+              {dataPath || l10n.t("Default: App Data")}
+            </button>
+            <button
+              onClick={() => pickDirectory((dir) => dispatch(setDataPath(dir)))}
+              className="shrink-0 p-1.5 rounded-md border border-border hover:bg-foreground/5 transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <FolderOpenIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground/60">
+          {l10n.t("Changes take effect after restarting the app")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SystemPromptSection() {
+  const dispatch = useDispatch<AppDispatch>();
+  const globalSystemPrompt = useSelector((s: RootState) => s.settings.globalSystemPrompt);
+
+  const [globalDraft, setGlobalDraft] = useState(globalSystemPrompt);
+
+  // Sync global draft when store changes (e.g. loaded from disk)
+  useEffect(() => {
+    setGlobalDraft(globalSystemPrompt);
+  }, [globalSystemPrompt]);
+
+  const commitGlobal = useCallback(() => {
+    const trimmed = globalDraft.trim();
+    if (trimmed !== globalSystemPrompt) {
+      dispatch(setGlobalSystemPrompt(trimmed));
+    }
+  }, [globalDraft, globalSystemPrompt, dispatch]);
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+          {l10n.t("Global System Prompt")}
+        </label>
+        <p className="text-[12px] text-muted-foreground">
+          {l10n.t("Global system prompt used for all conversations")}
+        </p>
+        <textarea
+          value={globalDraft}
+          onChange={(e) => setGlobalDraft(e.target.value)}
+          onBlur={commitGlobal}
+          placeholder={l10n.t("Enter custom instructions for the AI...")}
+          rows={6}
+          className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring resize-y min-h-[120px] max-h-[300px]"
         />
       </div>
     </div>

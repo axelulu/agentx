@@ -11,7 +11,7 @@ import { l10n } from "@workspace/l10n";
 import { InputBox } from "@/components/ui/InputBox";
 import { v4 as uuidv4 } from "uuid";
 import { FileTextIcon, TypeIcon } from "lucide-react";
-import { AccordionSection, AccordionCard, FieldRow } from "./SettingsAccordion";
+import { AccordionSection, AccordionCard, FieldRow, ToggleSwitch } from "./SettingsAccordion";
 
 export function KnowledgeBaseConfig() {
   const dispatch = useDispatch<AppDispatch>();
@@ -87,9 +87,9 @@ export function KnowledgeBaseConfig() {
           enabled={item.enabled}
           titlePrefix={
             item.type === "file" ? (
-              <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+              <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
             ) : (
-              <TypeIcon className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+              <TypeIcon className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
             )
           }
         >
@@ -98,7 +98,7 @@ export function KnowledgeBaseConfig() {
               value={item.name}
               onChange={(e) => handleSave({ ...item, name: e.target.value })}
               placeholder={l10n.t("Entry name")}
-              className="h-7 text-[12px] rounded-md"
+              className="h-7 text-[12px] rounded-md bg-secondary"
             />
           </FieldRow>
 
@@ -117,23 +117,17 @@ export function KnowledgeBaseConfig() {
                 onChange={(e) => handleSave({ ...item, content: e.target.value })}
                 placeholder={l10n.t("Enter text content...")}
                 rows={4}
-                className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-[12px] outline-none focus:ring-1 focus:ring-ring resize-y"
+                className="w-full rounded-md border border-border bg-secondary px-2.5 py-1.5 text-[12px] outline-none focus:ring-1 focus:ring-ring resize-y"
               />
             </FieldRow>
           )}
 
-          {/* Enabled toggle */}
-          <div className="flex items-center pt-1">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={item.enabled}
-                onChange={(e) => handleSave({ ...item, enabled: e.target.checked })}
-                className="rounded border-border"
-              />
-              <span className="text-[11px] text-muted-foreground">{l10n.t("Enabled")}</span>
-            </label>
-          </div>
+          <FieldRow label={l10n.t("Enabled")}>
+            <ToggleSwitch
+              checked={item.enabled}
+              onChange={(v) => handleSave({ ...item, enabled: v })}
+            />
+          </FieldRow>
         </AccordionCard>
       ))}
     </AccordionSection>

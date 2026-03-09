@@ -45,10 +45,23 @@ const api = {
     messages: (id: string) => ipcRenderer.invoke("conversation:messages", id),
     updateTitle: (id: string, title: string) =>
       ipcRenderer.invoke("conversation:updateTitle", id, title),
+    search: (query: string) => ipcRenderer.invoke("conversation:search", query),
+    getSystemPrompt: (id: string) => ipcRenderer.invoke("conversation:getSystemPrompt", id),
+    setSystemPrompt: (id: string, prompt: string) =>
+      ipcRenderer.invoke("conversation:setSystemPrompt", id, prompt),
+    setFolder: (id: string, folderId: string | null) =>
+      ipcRenderer.invoke("conversation:setFolder", id, folderId),
+    setFavorite: (id: string, isFavorite: boolean) =>
+      ipcRenderer.invoke("conversation:setFavorite", id, isFavorite),
+    branchInfo: (id: string) => ipcRenderer.invoke("conversation:branchInfo", id),
+    switchBranch: (id: string, targetMessageId: string) =>
+      ipcRenderer.invoke("conversation:switchBranch", id, targetMessageId),
   },
   agent: {
     send: (conversationId: string, content: string) =>
       ipcRenderer.invoke("agent:send", conversationId, content),
+    regenerate: (conversationId: string, assistantMessageId: string) =>
+      ipcRenderer.invoke("agent:regenerate", conversationId, assistantMessageId),
     abort: (conversationId: string) => ipcRenderer.send("agent:abort", conversationId),
     onEvent: (callback: (event: unknown) => void) => {
       const listener = (_: unknown, event: unknown) => callback(event);
@@ -82,16 +95,65 @@ const api = {
       }>,
     showItemInFolder: (path: string) => ipcRenderer.invoke("fs:showItemInFolder", path),
     getDroppedPaths: () => _droppedPaths,
+    showSaveDialog: (options: { defaultPath?: string; filters?: unknown[]; title?: string }) =>
+      ipcRenderer.invoke("fs:showSaveDialog", options) as Promise<string | null>,
+    writeFileBinary: (path: string, base64Data: string) =>
+      ipcRenderer.invoke("fs:writeFileBinary", path, base64Data) as Promise<boolean>,
+  },
+  export: {
+    printToPDF: (html: string) => ipcRenderer.invoke("export:printToPDF", html) as Promise<string>,
+  },
+  shortcuts: {
+    onNewConversation: (cb: () => void) => {
+      const listener = () => cb();
+      ipcRenderer.on("shortcut:new-conversation", listener);
+      return () => {
+        ipcRenderer.removeListener("shortcut:new-conversation", listener);
+      };
+    },
+    onSearch: (cb: () => void) => {
+      const listener = () => cb();
+      ipcRenderer.on("shortcut:search", listener);
+      return () => {
+        ipcRenderer.removeListener("shortcut:search", listener);
+      };
+    },
+    onSettings: (cb: () => void) => {
+      const listener = () => cb();
+      ipcRenderer.on("shortcut:settings", listener);
+      return () => {
+        ipcRenderer.removeListener("shortcut:settings", listener);
+      };
+    },
   },
   knowledgeBase: {
     list: () => ipcRenderer.invoke("kb:list"),
     set: (item: unknown) => ipcRenderer.invoke("kb:set", item),
     remove: (id: string) => ipcRenderer.send("kb:remove", id),
   },
+  skills: {
+    search: (query: string, tag?: string, perPage?: number) =>
+      ipcRenderer.invoke("skills:search", query, tag, perPage),
+    listInstalled: () => ipcRenderer.invoke("skills:listInstalled"),
+    install: (skill: unknown) => ipcRenderer.invoke("skills:install", skill),
+    uninstall: (id: string) => ipcRenderer.invoke("skills:uninstall", id),
+    getEnabled: (conversationId: string) => ipcRenderer.invoke("skills:getEnabled", conversationId),
+    setEnabled: (conversationId: string, skillIds: string[]) =>
+      ipcRenderer.invoke("skills:setEnabled", conversationId, skillIds),
+  },
   mcp: {
     list: () => ipcRenderer.invoke("mcp:list"),
     set: (config: unknown) => ipcRenderer.invoke("mcp:set", config),
     remove: (id: string) => ipcRenderer.send("mcp:remove", id),
+    status: () => ipcRenderer.invoke("mcp:status"),
+    reconnect: (id?: string) => ipcRenderer.invoke("mcp:reconnect", id),
+    onStatusUpdate: (callback: (states: unknown[]) => void) => {
+      const listener = (_: unknown, states: unknown[]) => callback(states);
+      ipcRenderer.on("mcp:statusUpdate", listener);
+      return () => {
+        ipcRenderer.removeListener("mcp:statusUpdate", listener);
+      };
+    },
   },
   permissions: {
     checkAll: () => ipcRenderer.invoke("permissions:checkAll"),
@@ -118,6 +180,10 @@ const api = {
   },
   proxy: {
     apply: (url: string | null) => ipcRenderer.invoke("proxy:apply", url),
+  },
+  voice: {
+    transcribe: (audioBuffer: ArrayBuffer, language?: string) =>
+      ipcRenderer.invoke("voice:transcribe", audioBuffer, language),
   },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke("updater:checkForUpdates"),

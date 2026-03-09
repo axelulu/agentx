@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -11,6 +12,7 @@ import { ProviderManager } from "./providers/provider-manager.js";
 import { ConversationManager } from "./conversations/conversation-manager.js";
 import { JsonFileStore } from "./conversations/json-file-store.js";
 import { SessionRunner } from "./sessions/session-runner.js";
+import { MCPClientManager } from "./mcp/index.js";
 import {
   DEFAULT_TOOL_PERMISSIONS,
   getToolPermissionCategory,
@@ -20,7 +22,12 @@ import type {
   DesktopRuntimeConfig,
   DesktopProviderConfig,
   ConversationData,
+  KnowledgeBaseItem,
+  SkillDefinition,
+  MCPServerConfig,
+  MCPServerState,
   MessageData,
+  BranchInfo,
   SerializableAgentEvent,
   SessionStatusInfo,
   SessionStatus,
@@ -45,6 +52,12 @@ interface SessionState {
   inputMessageCount: number;
   /** Cleanup timer ID for post-completion session retention */
   cleanupTimer: ReturnType<typeof setTimeout> | null;
+  /** ID of the last message emitted in this session — used as parentId for next message */
+  lastEmittedMessageId: string | null;
+  /** ID of the user message that triggered this session — used for activeBranches */
+  triggerUserMessageId: string | null;
+  /** Promise tracking the in-flight persistence flush — awaited before regenerate */
+  flushPromise: Promise<void> | null;
 }
 
 /**
@@ -66,6 +79,17 @@ export class DesktopRuntime {
   private conversationManager!: ConversationManager;
   private sessions = new Map<string, SessionState>();
   private tools: AgentTool[] = [];
+  private mcpManager: MCPClientManager;
+  private mcpTools: AgentTool[] = [];
+
+  // --- Knowledge Base ---
+  private knowledgeBase: KnowledgeBaseItem[] = [];
+
+  // --- Installed Skills ---
+  private installedSkills: SkillDefinition[] = [];
+
+  // --- Global System Prompt ---
+  private globalSystemPrompt = "";
 
   // --- Tool Permissions ---
   private toolPermissions: ToolPermissions = { ...DEFAULT_TOOL_PERMISSIONS };
@@ -74,6 +98,8 @@ export class DesktopRuntime {
   constructor(config: DesktopRuntimeConfig) {
     this.config = config;
     this.providerManager = new ProviderManager();
+    this.mcpManager = new MCPClientManager();
+    this.mcpManager.setToolsChangedHandler(() => this.rebuildMcpTools());
   }
 
   /**
@@ -110,6 +136,7 @@ export class DesktopRuntime {
       toolResultMaxChars: 3000,
       toolResultHeadChars: 500,
       toolResultTailChars: 2500,
+      enableSummarization: true,
     });
 
     // 6. Initialize Conversation Store
@@ -148,6 +175,151 @@ export class DesktopRuntime {
     return this.conversationManager.getMessages(conversationId);
   }
 
+  async getActiveMessages(conversationId: string): Promise<MessageData[]> {
+    return this.conversationManager.getActiveMessages(conversationId);
+  }
+
+  async switchBranch(conversationId: string, targetMessageId: string): Promise<void> {
+    return this.conversationManager.switchBranch(conversationId, targetMessageId);
+  }
+
+  async getBranchInfo(conversationId: string): Promise<BranchInfo> {
+    return this.conversationManager.getBranchInfo(conversationId);
+  }
+
+  /**
+   * Regenerate: re-run the agent from the user message that precedes the
+   * given assistant message, creating a new branch.
+   */
+  async regenerateMessage(
+    conversationId: string,
+    assistantMessageId: string,
+  ): Promise<{ started: boolean }> {
+    // Wait for any pending persistence flush to complete before reading messages
+    const prevSession = this.sessions.get(conversationId);
+    if (prevSession?.flushPromise) {
+      await prevSession.flushPromise;
+    }
+
+    // Load the active path to find the user message before this assistant
+    const activeMessages = await this.conversationManager.getActiveMessages(conversationId);
+    const assistantIdx = activeMessages.findIndex((m) => m.id === assistantMessageId);
+    if (assistantIdx < 0) {
+      console.warn(
+        `[DesktopRuntime] regenerate: assistant message ${assistantMessageId} not found in active messages`,
+      );
+      return { started: false };
+    }
+
+    // Walk backwards to find the preceding user message
+    let userMessage: MessageData | undefined;
+    for (let i = assistantIdx - 1; i >= 0; i--) {
+      if (activeMessages[i]!.role === "user" && activeMessages[i]!.content) {
+        userMessage = activeMessages[i];
+        break;
+      }
+    }
+    if (!userMessage?.content) {
+      console.warn(`[DesktopRuntime] regenerate: no preceding user message found`);
+      return { started: false };
+    }
+
+    // Truncate history to just before the user message that will be re-sent
+    const userIdx = activeMessages.indexOf(userMessage);
+    const truncatedMessages = activeMessages.slice(0, userIdx);
+
+    // Now run a new agent session with the truncated history + user message
+    const streamFn = this.providerManager.createStreamFn();
+    const model = this.providerManager.getDefaultModel();
+
+    const sanitized = sanitizeMessages(truncatedMessages);
+    const agentMessages = sanitized.map(toAgentMessage);
+    agentMessages.push({ role: "user", content: userMessage.content });
+
+    // The user message already exists in the tree — we just create a new
+    // assistant child branch off it. Use the existing user message ID.
+    const userMsgId = userMessage.id ?? randomUUID();
+
+    // Build system prompt (same logic as sendMessage)
+    const capabilities = this.config.capabilities ?? this.toolkit.getAllCapabilityIds();
+    const allTools = [...this.tools, ...this.mcpTools];
+    const toolSummary = allTools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
+    const promptVars: Record<string, unknown> = {
+      tool_names: allTools.map((t) => t.name).join(", "),
+      tool_summary: toolSummary,
+    };
+    let systemPrompt = this.toolkit.composePrompt(capabilities, promptVars);
+    if (systemPrompt.length < 100) {
+      systemPrompt = FALLBACK_SYSTEM_PROMPT + (systemPrompt ? "\n\n" + systemPrompt : "");
+    }
+
+    const convData = await this.conversationManager.getConversation(conversationId);
+    const customPrompt = convData?.systemPrompt || this.globalSystemPrompt;
+    if (customPrompt) {
+      systemPrompt += "\n\n## Custom Instructions\n" + customPrompt;
+    }
+
+    const kbContext = this.buildKnowledgeBaseContext();
+    if (kbContext) {
+      systemPrompt += "\n\n" + kbContext;
+    }
+
+    const enabledSkillIds = convData?.enabledSkills ?? [];
+    const skillsContext = this.buildSkillsContext(enabledSkillIds);
+    if (skillsContext) {
+      systemPrompt += "\n\n" + skillsContext;
+    }
+
+    // Create session
+    const session: SessionState = {
+      runner: new SessionRunner(),
+      conversationId,
+      eventLog: [],
+      status: "running",
+      startedAt: Date.now(),
+      subscriber: null,
+      pendingApprovals: new Map(),
+      sessionApprovedCategories: new Set(),
+      pendingMessages: [],
+      inputMessageCount: agentMessages.length,
+      cleanupTimer: null,
+      lastEmittedMessageId: userMsgId,
+      triggerUserMessageId: userMsgId,
+      flushPromise: null,
+    };
+
+    // Abort any existing session
+    const existingSession = this.sessions.get(conversationId);
+    if (existingSession) {
+      existingSession.runner.abort();
+      if (existingSession.cleanupTimer) clearTimeout(existingSession.cleanupTimer);
+    }
+
+    this.sessions.set(conversationId, session);
+
+    const sessionTools = [...this.tools, ...this.mcpTools].map((tool) =>
+      this.wrapToolWithSessionPermissions(tool, session),
+    );
+
+    const contextMiddleware = createContextMiddleware(this.contextManager, {
+      conversationId,
+      streamFn,
+      model,
+    });
+
+    this.runSession(session, agentMessages, {
+      model,
+      systemPrompt,
+      tools: sessionTools,
+      streamFn,
+      middleware: [contextMiddleware],
+    }).catch((err) => {
+      console.error(`[DesktopRuntime] Regenerate session ${conversationId} failed:`, err);
+    });
+
+    return { started: true };
+  }
+
   async updateConversationTitle(id: string, title: string): Promise<ConversationData> {
     return this.conversationManager.updateTitle(id, title);
   }
@@ -170,6 +342,163 @@ export class DesktopRuntime {
 
   getProviderConfigs(): DesktopProviderConfig[] {
     return this.providerManager.getProviderConfigs();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Base management
+  // ---------------------------------------------------------------------------
+
+  setKnowledgeBase(items: KnowledgeBaseItem[]): void {
+    this.knowledgeBase = items;
+  }
+
+  getKnowledgeBase(): KnowledgeBaseItem[] {
+    return this.knowledgeBase;
+  }
+
+  // ---------------------------------------------------------------------------
+  // MCP Server management
+  // ---------------------------------------------------------------------------
+
+  async setMCPConfigs(configs: MCPServerConfig[]): Promise<void> {
+    await this.mcpManager.applyConfigs(configs);
+  }
+
+  getMCPServerStates(): MCPServerState[] {
+    return this.mcpManager.getServerStates();
+  }
+
+  setMCPStatusHandler(handler: (states: MCPServerState[]) => void): void {
+    this.mcpManager.setStatusChangeHandler(handler);
+  }
+
+  private rebuildMcpTools(): void {
+    this.mcpTools = this.mcpManager.buildTools();
+    console.log(`[DesktopRuntime] MCP tools rebuilt: ${this.mcpTools.length} tools available`);
+  }
+
+  async shutdown(): Promise<void> {
+    await this.mcpManager.disconnectAll();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Installed Skills management
+  // ---------------------------------------------------------------------------
+
+  setInstalledSkills(skills: SkillDefinition[]): void {
+    this.installedSkills = skills;
+  }
+
+  getInstalledSkills(): SkillDefinition[] {
+    return this.installedSkills;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-conversation enabled skills
+  // ---------------------------------------------------------------------------
+
+  async getConversationEnabledSkills(conversationId: string): Promise<string[]> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    return data?.enabledSkills ?? [];
+  }
+
+  async setConversationEnabledSkills(conversationId: string, skillIds: string[]): Promise<void> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    if (!data) throw new Error(`Conversation not found: ${conversationId}`);
+    data.enabledSkills = skillIds.length > 0 ? skillIds : undefined;
+    data.updatedAt = Date.now();
+    await this.conversationManager.saveConversation(data);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Global system prompt
+  // ---------------------------------------------------------------------------
+
+  setGlobalSystemPrompt(prompt: string): void {
+    this.globalSystemPrompt = prompt;
+  }
+
+  getGlobalSystemPrompt(): string {
+    return this.globalSystemPrompt;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-conversation system prompt
+  // ---------------------------------------------------------------------------
+
+  async setConversationSystemPrompt(conversationId: string, prompt: string): Promise<void> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    if (!data) throw new Error(`Conversation not found: ${conversationId}`);
+    data.systemPrompt = prompt || undefined;
+    data.updatedAt = Date.now();
+    await this.conversationManager.saveConversation(data);
+  }
+
+  async getConversationSystemPrompt(conversationId: string): Promise<string> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    return data?.systemPrompt ?? "";
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-conversation folder assignment
+  // ---------------------------------------------------------------------------
+
+  async setConversationFolder(conversationId: string, folderId: string | null): Promise<void> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    if (!data) throw new Error(`Conversation not found: ${conversationId}`);
+    data.folderId = folderId || undefined;
+    data.updatedAt = Date.now();
+    await this.conversationManager.saveConversation(data);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-conversation favorite toggle
+  // ---------------------------------------------------------------------------
+
+  async setConversationFavorite(conversationId: string, isFavorite: boolean): Promise<void> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    if (!data) throw new Error(`Conversation not found: ${conversationId}`);
+    data.isFavorite = isFavorite || undefined;
+    data.updatedAt = Date.now();
+    await this.conversationManager.saveConversation(data);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Conversation search
+  // ---------------------------------------------------------------------------
+
+  async searchConversations(
+    query: string,
+  ): Promise<Array<ConversationData & { snippet?: string }>> {
+    if (!query.trim()) return [];
+    const lower = query.toLowerCase();
+    const conversations = await this.conversationManager.listConversations();
+    const results: Array<ConversationData & { snippet?: string }> = [];
+
+    for (const conv of conversations) {
+      // Title match
+      if (conv.title.toLowerCase().includes(lower)) {
+        results.push(conv);
+        continue;
+      }
+      // Content match — scan messages
+      const messages = await this.conversationManager.getMessages(conv.id);
+      for (const msg of messages) {
+        if (msg.content && msg.content.toLowerCase().includes(lower)) {
+          const idx = msg.content.toLowerCase().indexOf(lower);
+          const start = Math.max(0, idx - 40);
+          const end = Math.min(msg.content.length, idx + query.length + 40);
+          const snippet =
+            (start > 0 ? "…" : "") +
+            msg.content.slice(start, end) +
+            (end < msg.content.length ? "…" : "");
+          results.push({ ...conv, snippet });
+          break;
+        }
+      }
+    }
+
+    return results;
   }
 
   // ---------------------------------------------------------------------------
@@ -413,8 +742,8 @@ export class DesktopRuntime {
     const streamFn = this.providerManager.createStreamFn();
     const model = this.providerManager.getDefaultModel();
 
-    // Load existing messages and sanitize (fix corrupted persisted data)
-    const rawMessages = await this.conversationManager.getMessages(conversationId);
+    // Load active branch messages and sanitize (fix corrupted persisted data)
+    const rawMessages = await this.conversationManager.getActiveMessages(conversationId);
     const existingMessages = sanitizeMessages(rawMessages);
     const agentMessages = existingMessages.map(toAgentMessage);
 
@@ -435,21 +764,47 @@ export class DesktopRuntime {
         .join("\n"),
     );
 
+    // Assign ID and parentId to the user message
+    const userMsgId = randomUUID();
+    const lastExisting = existingMessages[existingMessages.length - 1];
+    const parentId = lastExisting?.id ?? undefined;
+
     // Record user message
     await this.conversationManager.appendMessages(conversationId, [
-      { role: "user", content, timestamp: Date.now() },
+      { id: userMsgId, parentId, role: "user", content, timestamp: Date.now() },
     ]);
 
     // Build system prompt
     const capabilities = this.config.capabilities ?? this.toolkit.getAllCapabilityIds();
-    const toolSummary = this.tools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
+    const allTools = [...this.tools, ...this.mcpTools];
+    const toolSummary = allTools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
     const promptVars: Record<string, unknown> = {
-      tool_names: this.tools.map((t) => t.name).join(", "),
+      tool_names: allTools.map((t) => t.name).join(", "),
       tool_summary: toolSummary,
     };
     let systemPrompt = this.toolkit.composePrompt(capabilities, promptVars);
     if (systemPrompt.length < 100) {
       systemPrompt = FALLBACK_SYSTEM_PROMPT + (systemPrompt ? "\n\n" + systemPrompt : "");
+    }
+
+    // Inject custom system prompt (per-conversation takes priority, then global)
+    const convData = await this.conversationManager.getConversation(conversationId);
+    const customPrompt = convData?.systemPrompt || this.globalSystemPrompt;
+    if (customPrompt) {
+      systemPrompt += "\n\n## Custom Instructions\n" + customPrompt;
+    }
+
+    // Inject Knowledge Base context
+    const kbContext = this.buildKnowledgeBaseContext();
+    if (kbContext) {
+      systemPrompt += "\n\n" + kbContext;
+    }
+
+    // Inject Skills context
+    const enabledSkillIds = convData?.enabledSkills ?? [];
+    const skillsContext = this.buildSkillsContext(enabledSkillIds);
+    if (skillsContext) {
+      systemPrompt += "\n\n" + skillsContext;
     }
 
     // Create session state
@@ -465,6 +820,9 @@ export class DesktopRuntime {
       pendingMessages: [],
       inputMessageCount: agentMessages.length,
       cleanupTimer: null,
+      lastEmittedMessageId: userMsgId,
+      triggerUserMessageId: userMsgId,
+      flushPromise: null,
     };
 
     // Abort any existing session for this conversation
@@ -477,7 +835,7 @@ export class DesktopRuntime {
     this.sessions.set(conversationId, session);
 
     // Wrap tools with per-session permissions
-    const sessionTools = this.tools.map((tool) =>
+    const sessionTools = [...this.tools, ...this.mcpTools].map((tool) =>
       this.wrapToolWithSessionPermissions(tool, session),
     );
 
@@ -590,14 +948,20 @@ export class DesktopRuntime {
    */
   private handleIncrementalPersistence(session: SessionState, event: SerializableAgentEvent): void {
     switch (event.type) {
-      case "message_end":
-        // Accumulate assistant message
+      case "message_end": {
+        // Accumulate assistant message with id/parentId
+        // Use the event's messageId so it matches the ID the frontend knows
+        const msgId = event.messageId;
         session.pendingMessages.push({
+          id: msgId,
+          parentId: session.lastEmittedMessageId ?? undefined,
           role: "assistant",
           content: event.content,
           timestamp: event.timestamp,
         });
+        session.lastEmittedMessageId = msgId;
         break;
+      }
 
       case "tool_start": {
         // Find the last assistant message in pending (may not be the last entry
@@ -621,14 +985,18 @@ export class DesktopRuntime {
       }
 
       case "tool_end": {
-        // Accumulate tool result message (flush happens at turn_end)
+        // Accumulate tool result message with id/parentId
+        const toolMsgId = randomUUID();
         session.pendingMessages.push({
+          id: toolMsgId,
+          parentId: session.lastEmittedMessageId ?? undefined,
           role: "tool",
           content: event.result.content,
           toolCallId: event.toolCallId,
           isError: event.result.isError,
           timestamp: event.timestamp,
         });
+        session.lastEmittedMessageId = toolMsgId;
         break;
       }
 
@@ -639,16 +1007,63 @@ export class DesktopRuntime {
         // turn before being written to disk.
         const toFlush = session.pendingMessages.splice(0);
         if (toFlush.length > 0) {
-          this.conversationManager.appendMessages(session.conversationId, toFlush).catch((err) => {
-            console.error(
-              `[DesktopRuntime] Failed to persist messages for ${session.conversationId}:`,
-              err,
-            );
+          const flushP = this.conversationManager
+            .appendMessages(session.conversationId, toFlush)
+            .then(() => {
+              // After flushing, update activeBranches to point to the first assistant
+              // response in this run (the direct child of the trigger user message).
+              if (event.type === "agent_end" && session.triggerUserMessageId) {
+                return this.updateActiveBranch(session).catch((err) => {
+                  console.error(`[DesktopRuntime] Failed to update activeBranches:`, err);
+                });
+              }
+            })
+            .catch((err) => {
+              console.error(
+                `[DesktopRuntime] Failed to persist messages for ${session.conversationId}:`,
+                err,
+              );
+            });
+          session.flushPromise = flushP.then(() => {
+            session.flushPromise = null;
+          });
+        } else if (event.type === "agent_end" && session.triggerUserMessageId) {
+          const branchP = this.updateActiveBranch(session).catch((err) => {
+            console.error(`[DesktopRuntime] Failed to update activeBranches:`, err);
+          });
+          session.flushPromise = branchP.then(() => {
+            session.flushPromise = null;
           });
         }
         break;
       }
     }
+  }
+
+  /**
+   * After an agent run completes, update activeBranches to point to the
+   * new assistant response (the child of the trigger user message).
+   */
+  private async updateActiveBranch(session: SessionState): Promise<void> {
+    const { conversationId, triggerUserMessageId } = session;
+    if (!triggerUserMessageId) return;
+
+    const allMessages = await this.conversationManager.getMessages(conversationId);
+    // Find children of the trigger user message
+    const children = allMessages.filter((m) => m.parentId === triggerUserMessageId);
+    if (children.length <= 1) return; // No branching needed for single child
+
+    // Set the latest child as active
+    const latestChild = children[children.length - 1];
+    if (!latestChild?.id) return;
+
+    const convData = await this.conversationManager.getConversation(conversationId);
+    if (!convData) return;
+
+    if (!convData.activeBranches) convData.activeBranches = {};
+    convData.activeBranches[triggerUserMessageId] = latestChild.id;
+    convData.updatedAt = Date.now();
+    await this.conversationManager.saveConversation(convData);
   }
 
   /**
@@ -665,6 +1080,55 @@ export class DesktopRuntime {
       }
       session.pendingApprovals.clear();
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Skills — build context string from enabled skills
+  // ---------------------------------------------------------------------------
+
+  private buildSkillsContext(enabledSkillIds: string[]): string {
+    if (enabledSkillIds.length === 0) return "";
+
+    const sections: string[] = [];
+    for (const id of enabledSkillIds) {
+      const skill = this.installedSkills.find((s) => s.id === id);
+      if (skill) {
+        sections.push(`### ${skill.title}\n${skill.content}`);
+      }
+    }
+
+    if (sections.length === 0) return "";
+    return `## Active Skills\nThe following skills are enabled for this conversation. Follow their instructions when relevant.\n\n${sections.join("\n\n")}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Knowledge Base — build context string from enabled items
+  // ---------------------------------------------------------------------------
+
+  private buildKnowledgeBaseContext(): string {
+    const enabledItems = this.knowledgeBase.filter((item) => item.enabled);
+    if (enabledItems.length === 0) return "";
+
+    const sections: string[] = [];
+    for (const item of enabledItems) {
+      let content: string | undefined;
+      if (item.type === "text") {
+        content = item.content;
+      } else if (item.type === "file" && item.filePath) {
+        try {
+          content = readFileSync(item.filePath, "utf-8");
+        } catch {
+          console.warn(`[KnowledgeBase] Failed to read file: ${item.filePath}`);
+          continue;
+        }
+      }
+      if (content) {
+        sections.push(`### ${item.name}\n${content}`);
+      }
+    }
+
+    if (sections.length === 0) return "";
+    return `## Knowledge Base\nThe following knowledge base entries are provided by the user as reference. Use them to inform your responses when relevant.\n\n${sections.join("\n\n")}`;
   }
 }
 

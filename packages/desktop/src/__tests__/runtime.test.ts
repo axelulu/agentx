@@ -185,6 +185,9 @@ describe("ConversationManager", () => {
         const existing = messages.get(id) ?? [];
         messages.set(id, [...existing, ...msgs]);
       }),
+      replaceMessages: vi.fn(async (id: string, msgs: MessageData[]) => {
+        messages.set(id, msgs);
+      }),
     };
   }
 

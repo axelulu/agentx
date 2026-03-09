@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import { l10n } from "@workspace/l10n";
 import { cn } from "@/lib/utils";
 import {
@@ -364,7 +365,11 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
           />
         ) : (
           <div key={i} className="markdown-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+              components={markdownComponents}
+            >
               {block.content}
             </ReactMarkdown>
           </div>

@@ -1,7 +1,21 @@
-import { app, BrowserWindow, shell, ipcMain, Menu } from "electron";
-import { join } from "path";
+import { app, BrowserWindow, shell, ipcMain, Menu, protocol, net, globalShortcut } from "electron";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { is } from "@electron-toolkit/utils";
 import { initAndRegisterHandlers } from "./ipc/handlers";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ---------------------------------------------------------------------------
+// Custom protocol for serving local files to the renderer.
+// In dev mode the renderer runs on http://localhost, so file:// URLs are
+// cross-origin and blocked by Chromium.  "local-file://" goes through the
+// main process which can read any file via net.fetch("file://…").
+// Must be called before app.whenReady().
+// ---------------------------------------------------------------------------
+protocol.registerSchemesAsPrivileged([
+  { scheme: "local-file", privileges: { stream: true, supportFetchAPI: true } },
+]);
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -33,6 +47,28 @@ function createAppMenu(): void {
           },
         ]
       : []),
+    // File – app actions
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "New Conversation",
+          accelerator: "CmdOrCtrl+N",
+          click: () => mainWindow?.webContents.send("shortcut:new-conversation"),
+        },
+        {
+          label: "Search",
+          accelerator: "CmdOrCtrl+K",
+          click: () => mainWindow?.webContents.send("shortcut:search"),
+        },
+        { type: "separator" },
+        {
+          label: "Settings",
+          accelerator: "CmdOrCtrl+,",
+          click: () => mainWindow?.webContents.send("shortcut:settings"),
+        },
+      ],
+    },
     // Edit – keep standard text-editing shortcuts
     {
       label: "Edit",
@@ -200,6 +236,12 @@ ipcMain.on("window:close", (event) => {
 });
 
 app.whenReady().then(async () => {
+  // Serve local files via custom protocol (see registerSchemesAsPrivileged above)
+  protocol.handle("local-file", (request) => {
+    // Convert local-file://… → file://… and let Chromium serve it with correct MIME
+    return net.fetch(request.url.replace("local-file://", "file://"));
+  });
+
   // Initialize runtime + register IPC handlers. Errors are caught internally
   // so createWindow() always runs.
   await initAndRegisterHandlers();
@@ -207,11 +249,24 @@ app.whenReady().then(async () => {
   createAppMenu();
   createWindow();
 
+  // Global shortcut: Option+Space (macOS) / Alt+Space (others) to show/focus window
+  const globalKey = process.platform === "darwin" ? "Alt+Space" : "Alt+Space";
+  globalShortcut.register(globalKey, () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+  });
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
+});
+
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on("window-all-closed", () => {

@@ -1,4 +1,5 @@
-import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, type PayloadAction, current } from "@reduxjs/toolkit";
+import { v4 as uuidv4 } from "uuid";
 
 // ---------------------------------------------------------------------------
 // Types (mirrors DesktopProviderConfig from @workspace/desktop)
@@ -35,6 +36,16 @@ export interface MCPServerConfig {
   enabled: boolean;
 }
 
+export interface VoiceSettings {
+  sttApiUrl: string;
+  sttApiKey: string;
+  sttLanguage: string;
+  ttsVoice: string;
+  ttsRate: number;
+  ttsPitch: number;
+  autoReadReplies: boolean;
+}
+
 export type ToolApprovalMode = "auto" | "always-ask" | "smart";
 
 export interface ToolPermissionsState {
@@ -42,17 +53,48 @@ export interface ToolPermissionsState {
   fileRead: boolean;
   fileWrite: boolean;
   shellExecute: boolean;
+  mcpCall: boolean;
   allowedPaths: string[];
+}
+
+export interface SkillDefinition {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  category: string;
+  tags: string[];
+  author: string;
+  voteCount: number;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  order: number;
+}
+
+export interface ConversationOrder {
+  favorites: string[];
+  ungrouped: string[];
+  folders: Record<string, string[]>;
 }
 
 export interface SettingsState {
   theme: "light" | "dark" | "system";
   language: string;
   proxyUrl: string;
+  workspacePath: string;
+  dataPath: string;
+  globalSystemPrompt: string;
   providers: ProviderConfig[];
   knowledgeBase: KnowledgeBaseItem[];
   mcpServers: MCPServerConfig[];
   toolPermissions: ToolPermissionsState;
+  voice: VoiceSettings;
+  installedSkills: SkillDefinition[];
+  folders: Folder[];
+  conversationOrder: ConversationOrder;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +107,18 @@ export interface SettingsState {
 
 export const loadPreferences = createAsyncThunk("settings/loadPreferences", async () => {
   const prefs = await window.api.preferences.get();
-  return prefs as { theme?: string; language?: string; sidebarOpen?: boolean; proxyUrl?: string };
+  return prefs as {
+    theme?: string;
+    language?: string;
+    sidebarOpen?: boolean;
+    proxyUrl?: string;
+    workspacePath?: string;
+    dataPath?: string;
+    globalSystemPrompt?: string;
+    voice?: VoiceSettings;
+    folders?: Folder[];
+    conversationOrder?: ConversationOrder;
+  };
 });
 
 export const loadProviders = createAsyncThunk("settings/loadProviders", async () => {
@@ -104,6 +157,19 @@ export const loadMCPServers = createAsyncThunk("settings/loadMCPServers", async 
   return configs as MCPServerConfig[];
 });
 
+export const loadInstalledSkills = createAsyncThunk("settings/loadInstalledSkills", async () => {
+  const skills = await window.api.skills.listInstalled();
+  return skills as SkillDefinition[];
+});
+
+export const searchSkillStore = createAsyncThunk(
+  "settings/searchSkillStore",
+  async ({ query, category }: { query: string; category?: string }) => {
+    const result = await window.api.skills.search(query, category, 30);
+    return result.skills as SkillDefinition[];
+  },
+);
+
 export const loadToolPermissions = createAsyncThunk("settings/loadToolPermissions", async () => {
   const perms = await window.api.toolPermissions.get();
   return perms as ToolPermissionsState;
@@ -122,9 +188,13 @@ export const saveToolPermissions = createAsyncThunk(
 // ---------------------------------------------------------------------------
 
 function persistPreferences(prefs: Record<string, unknown>): void {
-  window.api.preferences.set(prefs).catch((err: unknown) => {
-    console.error("[Preferences] Failed to persist:", err);
-  });
+  try {
+    window.api.preferences.set(prefs).catch((err: unknown) => {
+      console.error("[Preferences] Failed to persist:", err);
+    });
+  } catch (err) {
+    console.error("[Preferences] Failed to serialize:", err);
+  }
 }
 
 function persistKBItem(item: KnowledgeBaseItem): void {
@@ -155,6 +225,18 @@ function persistMCPRemove(id: string): void {
   }
 }
 
+function persistSkillInstall(skill: SkillDefinition): void {
+  window.api.skills.install(skill).catch((err: unknown) => {
+    console.error("[Skills] Failed to install:", err);
+  });
+}
+
+function persistSkillUninstall(id: string): void {
+  window.api.skills.uninstall(id).catch((err: unknown) => {
+    console.error("[Skills] Failed to uninstall:", err);
+  });
+}
+
 function persistToolPermissions(perms: ToolPermissionsState): void {
   window.api.toolPermissions.set(perms).catch((err: unknown) => {
     console.error("[ToolPermissions] Failed to persist:", err);
@@ -169,6 +251,9 @@ const initialState: SettingsState = {
   theme: (localStorage.getItem("agentx-theme") as SettingsState["theme"]) || "system",
   language: localStorage.getItem("agentx-language") || "en",
   proxyUrl: "",
+  workspacePath: "",
+  dataPath: "",
+  globalSystemPrompt: "",
   providers: [],
   knowledgeBase: [],
   mcpServers: [],
@@ -177,8 +262,21 @@ const initialState: SettingsState = {
     fileRead: true,
     fileWrite: true,
     shellExecute: true,
+    mcpCall: true,
     allowedPaths: [],
   },
+  voice: {
+    sttApiUrl: "",
+    sttApiKey: "",
+    sttLanguage: "",
+    ttsVoice: "",
+    ttsRate: 1.0,
+    ttsPitch: 1.0,
+    autoReadReplies: false,
+  },
+  installedSkills: [],
+  folders: [],
+  conversationOrder: { favorites: [], ungrouped: [], folders: {} },
 };
 
 const settingsSlice = createSlice({
@@ -198,6 +296,18 @@ const settingsSlice = createSlice({
     setProxyUrl(state, action: PayloadAction<string>) {
       state.proxyUrl = action.payload;
       persistPreferences({ proxyUrl: action.payload });
+    },
+    setWorkspacePath(state, action: PayloadAction<string>) {
+      state.workspacePath = action.payload;
+      persistPreferences({ workspacePath: action.payload });
+    },
+    setDataPath(state, action: PayloadAction<string>) {
+      state.dataPath = action.payload;
+      persistPreferences({ dataPath: action.payload });
+    },
+    setGlobalSystemPrompt(state, action: PayloadAction<string>) {
+      state.globalSystemPrompt = action.payload;
+      persistPreferences({ globalSystemPrompt: action.payload });
     },
 
     // Knowledge Base — synchronous reducers for instant UI updates
@@ -237,6 +347,76 @@ const settingsSlice = createSlice({
       state.toolPermissions = { ...state.toolPermissions, ...action.payload };
       persistToolPermissions(state.toolPermissions);
     },
+
+    // Skills — synchronous reducers for instant UI updates
+    addInstalledSkill(state, action: PayloadAction<SkillDefinition>) {
+      const skill = action.payload;
+      const idx = state.installedSkills.findIndex((s) => s.id === skill.id);
+      if (idx < 0) {
+        state.installedSkills.push(skill);
+      }
+      persistSkillInstall(skill);
+    },
+    removeInstalledSkill(state, action: PayloadAction<string>) {
+      state.installedSkills = state.installedSkills.filter((s) => s.id !== action.payload);
+      persistSkillUninstall(action.payload);
+    },
+
+    // Voice settings — synchronous reducer for instant UI updates
+    setVoiceSettings(state, action: PayloadAction<Partial<VoiceSettings>>) {
+      state.voice = { ...state.voice, ...action.payload };
+      persistPreferences({ voice: current(state.voice) });
+    },
+
+    // Folder CRUD — synchronous reducers with fire-and-forget persistence
+    // NOTE: must use current() to snapshot Immer drafts before passing through IPC
+    createFolder(state, action: PayloadAction<string>) {
+      const folder: Folder = {
+        id: uuidv4(),
+        name: action.payload,
+        order: state.folders.length,
+      };
+      state.folders.push(folder);
+      persistPreferences({ folders: current(state.folders) });
+    },
+    renameFolder(state, action: PayloadAction<{ id: string; name: string }>) {
+      const folder = state.folders.find((f) => f.id === action.payload.id);
+      if (folder) {
+        folder.name = action.payload.name;
+        persistPreferences({ folders: current(state.folders) });
+      }
+    },
+    deleteFolder(state, action: PayloadAction<string>) {
+      state.folders = state.folders.filter((f) => f.id !== action.payload);
+      // Clean up ordering for the deleted folder
+      delete state.conversationOrder.folders[action.payload];
+      persistPreferences({
+        folders: current(state.folders),
+        conversationOrder: current(state.conversationOrder),
+      });
+    },
+
+    // Conversation ordering — reorder IDs within a section
+    reorderConversations(
+      state,
+      action: PayloadAction<{ section: "favorites" | "ungrouped" | string; orderedIds: string[] }>,
+    ) {
+      const { section, orderedIds } = action.payload;
+      if (section === "favorites") {
+        state.conversationOrder.favorites = orderedIds;
+      } else if (section === "ungrouped") {
+        state.conversationOrder.ungrouped = orderedIds;
+      } else {
+        state.conversationOrder.folders[section] = orderedIds;
+      }
+      persistPreferences({ conversationOrder: current(state.conversationOrder) });
+    },
+
+    // Folder ordering — update order fields from sorted array
+    reorderFolders(state, action: PayloadAction<Folder[]>) {
+      state.folders = action.payload;
+      persistPreferences({ folders: current(state.folders) });
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -252,6 +432,27 @@ const settingsSlice = createSlice({
         }
         if (typeof prefs.proxyUrl === "string") {
           state.proxyUrl = prefs.proxyUrl;
+        }
+        if (typeof prefs.workspacePath === "string") {
+          state.workspacePath = prefs.workspacePath;
+        }
+        if (typeof prefs.dataPath === "string") {
+          state.dataPath = prefs.dataPath;
+        }
+        if (typeof prefs.globalSystemPrompt === "string") {
+          state.globalSystemPrompt = prefs.globalSystemPrompt;
+        }
+        if (prefs.voice && typeof prefs.voice === "object") {
+          state.voice = { ...state.voice, ...prefs.voice };
+        }
+        if (Array.isArray(prefs.folders)) {
+          state.folders = prefs.folders as Folder[];
+        }
+        if (prefs.conversationOrder && typeof prefs.conversationOrder === "object") {
+          state.conversationOrder = {
+            ...state.conversationOrder,
+            ...(prefs.conversationOrder as ConversationOrder),
+          };
         }
       })
       .addCase(loadProviders.fulfilled, (state, action) => {
@@ -282,6 +483,10 @@ const settingsSlice = createSlice({
       .addCase(loadMCPServers.fulfilled, (state, action) => {
         state.mcpServers = action.payload;
       })
+      // Installed Skills
+      .addCase(loadInstalledSkills.fulfilled, (state, action) => {
+        state.installedSkills = action.payload;
+      })
       // Tool Permissions
       .addCase(loadToolPermissions.fulfilled, (state, action) => {
         state.toolPermissions = action.payload;
@@ -296,11 +501,22 @@ export const {
   setTheme,
   setLanguage,
   setProxyUrl,
+  setWorkspacePath,
+  setDataPath,
+  setGlobalSystemPrompt,
   upsertKBItem,
   deleteKBItem,
   upsertMCPServer,
   deleteMCPServer,
+  addInstalledSkill,
+  removeInstalledSkill,
   updateToolPermissions,
+  setVoiceSettings,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+  reorderConversations,
+  reorderFolders,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

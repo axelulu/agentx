@@ -1,19 +1,15 @@
 import { cn } from "@/lib/utils";
 import { l10n } from "@workspace/l10n";
-import { ChevronDownIcon, Trash2Icon, CheckIcon, PlusIcon } from "lucide-react";
+import { ChevronRightIcon, Trash2Icon, CheckIcon, PlusIcon } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // AccordionSection — list of cards + add buttons + empty state
 // ---------------------------------------------------------------------------
 
 interface AccordionSectionProps {
-  /** Whether there are items to show */
   hasItems: boolean;
-  /** The rendered AccordionCards */
   children: React.ReactNode;
-  /** Add-button definitions */
   addActions: { label: string; onClick: () => void }[];
-  /** Shown when the list is empty */
   emptyMessage?: string;
 }
 
@@ -29,7 +25,7 @@ export function AccordionSection({
         <div className="space-y-1.5 mb-3">{children}</div>
       ) : (
         emptyMessage && (
-          <div className="flex items-center justify-center py-8 mb-3 rounded-lg border border-dashed border-border/60 text-[12px] text-muted-foreground/40">
+          <div className="flex items-center justify-center py-8 mb-3 text-[12px] text-muted-foreground/40">
             {emptyMessage}
           </div>
         )
@@ -51,18 +47,13 @@ interface AccordionCardProps {
   expanded: boolean;
   onToggle: () => void;
   onRemove: () => void;
-  /** Primary label shown in the collapsed row */
   title: string;
-  /** Secondary info shown to the right of the title */
-  subtitle?: string;
-  /** Renders before the title (e.g. type icon) */
+  subtitle?: React.ReactNode;
   titlePrefix?: React.ReactNode;
-  /** If true, card gets green border + "Active" badge */
   active?: boolean;
   activeLabel?: string;
-  /** Show enabled/disabled status dot (for items with an enabled toggle) */
+  onActivate?: () => void;
   enabled?: boolean;
-  /** Expanded detail content */
   children: React.ReactNode;
 }
 
@@ -75,67 +66,79 @@ export function AccordionCard({
   titlePrefix,
   active,
   activeLabel,
+  onActivate,
   enabled,
   children,
 }: AccordionCardProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border overflow-hidden transition-colors",
-        active ? "border-emerald-500/30 bg-emerald-500/[0.03]" : "border-border",
+        "rounded-lg border transition-all duration-150",
+        expanded
+          ? "bg-foreground/[0.03] border-border"
+          : "bg-foreground/[0.015] border-border/60 hover:bg-foreground/[0.04] hover:border-border",
       )}
     >
-      {/* Collapsed row */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-foreground/[0.03] transition-colors"
-      >
-        {typeof enabled === "boolean" && (
-          <span
+      {/* Header */}
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-1 flex items-center gap-2 pl-3 py-2 text-left min-w-0 rounded-md hover:bg-foreground/5 transition-colors"
+        >
+          <ChevronRightIcon
             className={cn(
-              "w-1.5 h-1.5 rounded-full shrink-0",
-              enabled ? "bg-emerald-500" : "bg-muted-foreground/30",
+              "w-3.5 h-3.5 shrink-0 transition-all duration-150",
+              expanded ? "rotate-90 text-foreground/70" : "text-muted-foreground",
             )}
           />
-        )}
-        {titlePrefix}
-        <span className="text-[13px] text-foreground flex-1 truncate">
-          {title || l10n.t("Untitled")}
-        </span>
-        {subtitle && <span className="text-[11px] text-muted-foreground/50">{subtitle}</span>}
-        {active && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[10px] font-medium leading-none">
-            <CheckIcon className="w-2.5 h-2.5" />
-            {activeLabel ?? l10n.t("Active")}
-          </span>
-        )}
-        <ChevronDownIcon
-          className={cn(
-            "w-3.5 h-3.5 text-muted-foreground/30 transition-transform duration-150 shrink-0",
-            expanded && "rotate-180",
+          {typeof enabled === "boolean" && (
+            <span
+              className={cn(
+                "w-2 h-2 rounded-full shrink-0",
+                enabled ? "bg-foreground/60" : "bg-muted-foreground/30",
+              )}
+            />
           )}
-        />
-      </button>
+          {titlePrefix}
+          <span className="text-[13px] text-foreground flex-1 truncate">
+            {title || l10n.t("Untitled")}
+          </span>
+          {subtitle && (
+            <span className="text-[11px] text-muted-foreground/60 shrink-0">{subtitle}</span>
+          )}
+          {active && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-foreground/10 text-muted-foreground text-[10px] font-medium leading-none shrink-0">
+              <CheckIcon className="w-2.5 h-2.5" />
+              {activeLabel ?? l10n.t("Active")}
+            </span>
+          )}
+        </button>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-border/50 px-3 pb-3 pt-2.5 space-y-2.5">
-          {children}
-
-          {/* Delete button — always bottom-right */}
-          <div className="flex justify-end pt-1">
+        {/* Actions */}
+        <div className="flex items-center gap-0.5 pr-2 shrink-0">
+          {onActivate && !active && (
             <button
               type="button"
-              onClick={onRemove}
-              className="p-1.5 rounded-md text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-colors"
-              title={l10n.t("Remove")}
+              onClick={onActivate}
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors"
             >
-              <Trash2Icon className="w-3.5 h-3.5" />
+              {l10n.t("Set Active")}
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-1.5 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
+            title={l10n.t("Remove")}
+          >
+            <Trash2Icon className="w-3.5 h-3.5" />
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* Content */}
+      {expanded && <div className="px-3 pb-3 pt-1 space-y-2.5">{children}</div>}
     </div>
   );
 }
@@ -146,7 +149,6 @@ export function AccordionCard({
 
 interface FieldRowProps {
   label: string;
-  /** Use "start" for multi-line content like textareas */
   align?: "center" | "start";
   children: React.ReactNode;
 }
@@ -156,7 +158,7 @@ export function FieldRow({ label, align = "center", children }: FieldRowProps) {
     <div className={cn("flex gap-3", align === "start" ? "items-start" : "items-center")}>
       <label
         className={cn(
-          "w-14 shrink-0 text-[11px] text-muted-foreground/50 text-right",
+          "w-14 shrink-0 text-[11px] text-muted-foreground/70 text-right",
           align === "start" && "pt-2",
         )}
       >
@@ -168,7 +170,7 @@ export function FieldRow({ label, align = "center", children }: FieldRowProps) {
 }
 
 // ---------------------------------------------------------------------------
-// AddButton — dashed-border button for adding new items
+// AddButton — ghost button for adding new items
 // ---------------------------------------------------------------------------
 
 interface AddButtonProps {
@@ -181,10 +183,51 @@ export function AddButton({ label, onClick }: AddButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border/70 text-[12px] text-muted-foreground/60 hover:text-foreground hover:border-foreground/20 hover:bg-foreground/[0.02] transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border/30 text-[12px] text-muted-foreground hover:text-foreground hover:border-border/60 hover:bg-foreground/5 transition-colors"
     >
       <PlusIcon className="w-3 h-3" />
       {label}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ToggleSwitch — custom pill toggle
+// ---------------------------------------------------------------------------
+
+interface ToggleSwitchProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label?: string;
+}
+
+export function ToggleSwitch({ checked, onChange, label }: ToggleSwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-center gap-2 cursor-pointer group/toggle"
+    >
+      <span
+        className={cn(
+          "relative w-7 h-4 rounded-full transition-colors",
+          checked ? "bg-foreground/25" : "bg-foreground/10",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-[2px] w-3 h-3 rounded-full transition-all duration-150",
+            checked ? "left-[14px] bg-foreground/80" : "left-[2px] bg-muted-foreground/50",
+          )}
+        />
+      </span>
+      {label && (
+        <span className="text-[11px] text-muted-foreground group-hover/toggle:text-foreground transition-colors">
+          {label}
+        </span>
+      )}
     </button>
   );
 }

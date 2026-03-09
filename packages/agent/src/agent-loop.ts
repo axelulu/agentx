@@ -162,7 +162,12 @@ async function runLoop(
           }
 
           case "usage":
-            // Could be used by middleware / billing — we don't act on it here
+            emit({
+              type: "usage",
+              inputTokens: chunk.inputTokens,
+              outputTokens: chunk.outputTokens,
+              timestamp: Date.now(),
+            });
             break;
 
           case "done":

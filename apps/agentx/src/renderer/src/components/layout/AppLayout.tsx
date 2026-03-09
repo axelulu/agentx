@@ -3,14 +3,18 @@ import type { RootState } from "@/slices/store";
 import { TitleBar } from "./TitleBar";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { TabBar } from "@/components/chat/TabBar";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
+import { SearchDialog } from "@/components/search/SearchDialog";
 import { useUpdateListener } from "@/hooks/useUpdateListener";
+import { useShortcuts } from "@/hooks/useShortcuts";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function AppLayout() {
   const { sidebarOpen, settingsOpen } = useSelector((state: RootState) => state.ui);
   useUpdateListener();
+  useShortcuts();
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
@@ -30,12 +34,14 @@ export function AppLayout() {
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <TabBar />
           <ChatPanel />
         </div>
       </div>
 
       <AnimatePresence>{settingsOpen && <SettingsPanel />}</AnimatePresence>
+      <SearchDialog />
     </div>
   );
 }

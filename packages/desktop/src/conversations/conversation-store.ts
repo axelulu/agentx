@@ -16,4 +16,6 @@ export interface ConversationStore {
   getMessages(conversationId: string): Promise<MessageData[]>;
   /** Append messages to a conversation */
   appendMessages(conversationId: string, messages: MessageData[]): Promise<void>;
+  /** Replace all messages for a conversation (full rewrite) */
+  replaceMessages(conversationId: string, messages: MessageData[]): Promise<void>;
 }

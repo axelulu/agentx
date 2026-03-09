@@ -2,6 +2,7 @@ import type {
   ConversationData,
   DesktopProviderConfig,
   MessageData,
+  BranchInfo,
   SerializableAgentEvent,
 } from "../types.js";
 
@@ -20,6 +21,7 @@ import type {
 
 export interface MainToRendererChannels {
   "agent:event": (event: SerializableAgentEvent) => void;
+  "mcp:statusUpdate": (states: unknown[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,9 +36,17 @@ export interface RendererToMainChannels {
   "conversation:messages": (id: string) => Promise<MessageData[]>;
   "conversation:updateTitle": (id: string, title: string) => Promise<ConversationData>;
 
+  // Branching
+  "conversation:branchInfo": (id: string) => Promise<BranchInfo>;
+  "conversation:switchBranch": (id: string, targetMessageId: string) => Promise<void>;
+
   // Agent
   "agent:send": (conversationId: string, content: string) => Promise<void>;
   "agent:abort": (conversationId: string) => void;
+  "agent:regenerate": (
+    conversationId: string,
+    assistantMessageId: string,
+  ) => Promise<{ started: boolean }>;
 
   // Providers
   "provider:set": (config: DesktopProviderConfig) => void;
@@ -53,6 +63,8 @@ export interface RendererToMainChannels {
   "mcp:list": () => unknown[];
   "mcp:set": (config: unknown) => void;
   "mcp:remove": (id: string) => void;
+  "mcp:status": () => unknown[];
+  "mcp:reconnect": (id?: string) => Promise<void>;
 }
 
 /**

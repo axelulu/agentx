@@ -136,6 +136,11 @@ export interface ErrorEvent extends BaseEvent {
   error: Error;
   fatal: boolean;
 }
+export interface UsageEvent extends BaseEvent {
+  type: "usage";
+  inputTokens: number;
+  outputTokens: number;
+}
 
 export type AgentEvent =
   | AgentStartEvent
@@ -148,7 +153,8 @@ export type AgentEvent =
   | ToolStartEvent
   | ToolUpdateEvent
   | ToolEndEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | UsageEvent;
 
 // ---------------------------------------------------------------------------
 // Agent result

@@ -9,3 +9,8 @@ sections:
       - Do not attempt to read or write files outside the workspace.
       - When creating files, include all necessary content in a single call.
       - Prefer small, focused changes over large rewrites.
+      - When editing a few lines in an existing file, use file_rewrite with `edits`
+        (search-and-replace) instead of `content` (full rewrite). This saves tokens
+        and avoids accidentally losing content.
+      - Each old_text in an edit must be unique in the file. Include enough
+        surrounding context (e.g. the full line or a few lines) to ensure uniqueness.

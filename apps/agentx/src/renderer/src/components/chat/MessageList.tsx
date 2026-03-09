@@ -1,6 +1,7 @@
-import type { Message } from "@/slices/chatSlice";
+import type { Message, BranchInfoEntry } from "@/slices/chatSlice";
 import { l10n } from "@workspace/l10n";
 import { MessageBubble } from "./MessageBubble";
+import { BranchNavigator } from "./BranchNavigator";
 import { useEffect, useRef, useCallback, type RefObject } from "react";
 import { BotIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,8 +13,13 @@ interface MessageListProps {
   isStreaming?: boolean;
   streamingMessageId?: string | null;
   scrollContainerRef?: RefObject<HTMLDivElement | null>;
-  onEditMessage?: (content: string) => void;
+  onEditMessage?: (content: string, filePaths?: string[]) => void;
   onRegenerateMessage?: (messageId: string) => void;
+  onSpeak?: (text: string, messageId?: string) => void;
+  onStopSpeaking?: () => void;
+  speakingMessageId?: string | null;
+  branchInfo?: Record<string, BranchInfoEntry>;
+  onSwitchBranch?: (targetMessageId: string) => void;
 }
 
 export function MessageList({
@@ -23,9 +29,28 @@ export function MessageList({
   scrollContainerRef,
   onEditMessage,
   onRegenerateMessage,
+  onSpeak,
+  onStopSpeaking,
+  speakingMessageId,
+  branchInfo,
+  onSwitchBranch,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
+
+  // Track known message IDs to only animate genuinely new (streamed) messages.
+  // Bulk replacements (branch switch, conversation load) should not animate.
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const newIds = new Set<string>();
+  for (const m of messages) {
+    if (!knownIdsRef.current.has(m.id)) newIds.add(m.id);
+  }
+  // Bulk change: more than 1 new message at once and not streaming → suppress animation
+  const isBulkChange = newIds.size > 1 && !isStreaming;
+  // Update known IDs after computing animation flags
+  useEffect(() => {
+    knownIdsRef.current = new Set(messages.map((m) => m.id));
+  }, [messages]);
 
   /** Check if the scroll container is within NEAR_BOTTOM_THRESHOLD of the bottom. */
   const checkNearBottom = useCallback(() => {
@@ -72,6 +97,7 @@ export function MessageList({
         const prev = idx > 0 ? messages[idx - 1] : null;
         const isConsecutiveAssistant = message.role === "assistant" && prev?.role === "assistant";
         const isActiveStreamingMessage = isStreaming && message.id === streamingMessageId;
+        const branch = branchInfo?.[message.id];
         return (
           <div
             key={message.id}
@@ -84,7 +110,20 @@ export function MessageList({
               isConsecutiveAssistant={isConsecutiveAssistant}
               onEdit={onEditMessage}
               onRegenerate={onRegenerateMessage}
+              onSpeak={onSpeak}
+              onStopSpeaking={onStopSpeaking}
+              speakingMessageId={speakingMessageId}
+              animate={!isBulkChange && newIds.has(message.id)}
             />
+            {branch && branch.siblings.length > 1 && onSwitchBranch && (
+              <div className="flex justify-end mt-1">
+                <BranchNavigator
+                  siblings={branch.siblings}
+                  activeIndex={branch.activeIndex}
+                  onSwitchBranch={onSwitchBranch}
+                />
+              </div>
+            )}
           </div>
         );
       })}
