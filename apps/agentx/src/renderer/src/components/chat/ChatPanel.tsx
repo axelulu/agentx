@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { loadConversations, setInputValue } from "@/slices/chatSlice";
@@ -20,6 +20,8 @@ export function ChatPanel() {
   const { currentConversationId, messages, isStreaming, streamingMessageId } = useSelector(
     (state: RootState) => state.chat,
   );
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Register the IPC event listener exactly once here
   useAgentEventListener();
@@ -63,11 +65,12 @@ export function ChatPanel() {
     <div className="flex flex-col h-full">
       {currentConversationId ? (
         <>
-          <div className="flex-1 overflow-y-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
             <MessageList
               messages={messages}
               isStreaming={isStreaming}
               streamingMessageId={streamingMessageId}
+              scrollContainerRef={scrollContainerRef}
               onEditMessage={handleEdit}
               onRegenerateMessage={handleRegenerate}
             />

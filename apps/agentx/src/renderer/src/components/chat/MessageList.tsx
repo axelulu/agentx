@@ -1,14 +1,17 @@
 import type { Message } from "@/slices/chatSlice";
 import { l10n } from "@workspace/l10n";
 import { MessageBubble } from "./MessageBubble";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback, type RefObject } from "react";
 import { BotIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const NEAR_BOTTOM_THRESHOLD = 300;
 
 interface MessageListProps {
   messages: Message[];
   isStreaming?: boolean;
   streamingMessageId?: string | null;
+  scrollContainerRef?: RefObject<HTMLDivElement | null>;
   onEditMessage?: (content: string) => void;
   onRegenerateMessage?: (messageId: string) => void;
 }
@@ -17,13 +20,38 @@ export function MessageList({
   messages,
   isStreaming,
   streamingMessageId,
+  scrollContainerRef,
   onEditMessage,
   onRegenerateMessage,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
 
+  /** Check if the scroll container is within NEAR_BOTTOM_THRESHOLD of the bottom. */
+  const checkNearBottom = useCallback(() => {
+    const el = scrollContainerRef?.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_THRESHOLD;
+  }, [scrollContainerRef]);
+
+  // Track scroll position to update isNearBottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef?.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      isNearBottomRef.current = checkNearBottom();
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [scrollContainerRef, checkNearBottom]);
+
+  // Auto-scroll only when near bottom
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, isStreaming]);
 
   if (messages.length === 0) {

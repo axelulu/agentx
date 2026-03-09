@@ -50,6 +50,8 @@ export interface ChatState {
   error: string | null;
   /** Tool approval request waiting for user response */
   pendingApproval: PendingApproval | null;
+  /** Conversation IDs with running agent sessions */
+  runningSessions: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -85,20 +87,37 @@ export const switchConversation = createAsyncThunk(
   "chat/switchConversation",
   async (conversationId: string) => {
     const msgs = await window.api.conversation.messages(conversationId);
+    const status = await window.api.agent.status(conversationId);
+    const isRunning =
+      status &&
+      (status as { status: string }).status !== "completed" &&
+      (status as { status: string }).status !== "error" &&
+      (status as { status: string }).status !== "aborted";
+    if (isRunning) {
+      await window.api.agent.subscribe(conversationId);
+    }
     return {
       conversationId,
       messages: (msgs as Array<Omit<Message, "id">>).map((m) => ({
         ...m,
         id: uuidv4(),
       })) as Message[],
+      isRunning: !!isRunning,
     };
   },
 );
 
 export const removeConversation = createAsyncThunk(
   "chat/removeConversation",
-  async (id: string, { getState }) => {
+  async (id: string, { getState, dispatch }) => {
     await window.api.conversation.delete(id);
+    const state = (getState() as { chat: ChatState }).chat;
+    if (state.currentConversationId === id) {
+      const remaining = state.conversations.filter((c) => c.id !== id);
+      if (remaining.length > 0) {
+        dispatch(switchConversation(remaining[0].id));
+      }
+    }
     return id;
   },
 );
@@ -110,6 +129,11 @@ export const updateConversationTitle = createAsyncThunk(
     return updated as ConversationSummary;
   },
 );
+
+export const initializeSessions = createAsyncThunk("chat/initializeSessions", async () => {
+  const running = (await window.api.agent.runningConversations()) as string[];
+  return running;
+});
 
 // ---------------------------------------------------------------------------
 // Normalize loaded messages: fold tool result messages into assistant toolCalls
@@ -156,6 +180,7 @@ function normalizeMessages(messages: Message[]): Message[] {
 // ---------------------------------------------------------------------------
 
 interface AgentEventBase {
+  conversationId: string;
   timestamp: number;
 }
 
@@ -222,7 +247,11 @@ type AgentEvent =
   | ToolEndEvent
   | ErrorEventData
   | ToolApprovalRequestEvent
-  | { type: "turn_start" | "turn_end" | "tool_update"; [key: string]: unknown };
+  | {
+      type: "turn_start" | "turn_end" | "tool_update";
+      conversationId: string;
+      [key: string]: unknown;
+    };
 
 // ---------------------------------------------------------------------------
 // Slice
@@ -238,6 +267,7 @@ const initialState: ChatState = {
   activeAgentMessageId: null,
   error: null,
   pendingApproval: null,
+  runningSessions: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -295,18 +325,38 @@ const chatSlice = createSlice({
     },
     handleAgentEvent(state, action: PayloadAction<AgentEvent>) {
       const event = action.payload;
+
+      // Route events: skip events for a different conversation
+      if (event.conversationId && event.conversationId !== state.currentConversationId) {
+        // Still track running sessions even if not the current conversation
+        if (event.type === "agent_start") {
+          if (!state.runningSessions.includes(event.conversationId)) {
+            state.runningSessions.push(event.conversationId);
+          }
+        } else if (event.type === "agent_end" || event.type === "error") {
+          state.runningSessions = state.runningSessions.filter((id) => id !== event.conversationId);
+        }
+        return;
+      }
+
       switch (event.type) {
         case "agent_start":
           state.isStreaming = true;
           state.error = null;
           state.activeAgentMessageId = null;
+          if (event.conversationId && !state.runningSessions.includes(event.conversationId)) {
+            state.runningSessions.push(event.conversationId);
+          }
           break;
 
         case "message_start": {
-          // Always create a new message per turn — avoids collapsing tool calls
-          // from separate turns into one message (which caused rendering bugs
-          // where only the last tool call was visible during streaming).
           const msgId = event.messageId;
+          // Replay idempotency: skip if message ID already exists
+          if (findDraftMessage(state.messages, msgId)) {
+            state.streamingMessageId = msgId;
+            state.activeAgentMessageId = msgId;
+            break;
+          }
           state.streamingMessageId = msgId;
           state.activeAgentMessageId = msgId;
           state.messages.push({
@@ -372,6 +422,11 @@ const chatSlice = createSlice({
           state.streamingMessageId = null;
           state.activeAgentMessageId = null;
           state.pendingApproval = null;
+          if (event.conversationId) {
+            state.runningSessions = state.runningSessions.filter(
+              (id) => id !== event.conversationId,
+            );
+          }
           if (event.result.error) {
             state.error = event.result.error;
           }
@@ -392,6 +447,11 @@ const chatSlice = createSlice({
           state.activeAgentMessageId = null;
           state.error = event.error;
           state.pendingApproval = null;
+          if (event.conversationId) {
+            state.runningSessions = state.runningSessions.filter(
+              (id) => id !== event.conversationId,
+            );
+          }
           break;
       }
     },
@@ -408,6 +468,11 @@ const chatSlice = createSlice({
         state.conversations.unshift(action.payload);
         state.currentConversationId = action.payload.id;
         state.messages = [];
+        state.isStreaming = false;
+        state.streamingMessageId = null;
+        state.activeAgentMessageId = null;
+        state.pendingApproval = null;
+        state.error = null;
       })
       .addCase(loadMessages.fulfilled, (state, action) => {
         state.messages = normalizeMessages(action.payload);
@@ -418,6 +483,11 @@ const chatSlice = createSlice({
         if (state.currentConversationId === id) {
           state.currentConversationId = state.conversations[0]?.id ?? null;
           state.messages = [];
+          state.isStreaming = false;
+          state.streamingMessageId = null;
+          state.activeAgentMessageId = null;
+          state.pendingApproval = null;
+          state.error = null;
         }
       })
       .addCase(updateConversationTitle.fulfilled, (state, action) => {
@@ -429,6 +499,15 @@ const chatSlice = createSlice({
       .addCase(switchConversation.fulfilled, (state, action) => {
         state.currentConversationId = action.payload.conversationId;
         state.messages = normalizeMessages(action.payload.messages);
+        // Always reset streaming state, then restore if the target is running
+        state.isStreaming = action.payload.isRunning;
+        state.streamingMessageId = null;
+        state.activeAgentMessageId = null;
+        state.pendingApproval = null;
+        state.error = null;
+      })
+      .addCase(initializeSessions.fulfilled, (state, action) => {
+        state.runningSessions = action.payload;
       });
   },
 });
