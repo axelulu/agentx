@@ -1,0 +1,50 @@
+sections:
+  browser_rules:
+    tag: browser-automation
+    content: |
+      ## Browser Automation
+
+      You can control a web browser using the bundled browser automation script.
+      Use the shell_run tool to execute browser commands.
+
+      **Script path:** Use the $AGENTX_BROWSER_SCRIPT environment variable.
+
+      **Usage pattern:**
+      1. Launch browser: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" launch" }
+      2. Navigate: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" goto https://example.com" }
+      3. Interact: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" click \"#submit-btn\"" }
+      4. Type text: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" type \"#search\" hello world" }
+      5. Extract: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" content \".article-body\"" }
+      6. Screenshot: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" screenshot /tmp/page.png" }
+      7. Evaluate JS: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" evaluate \"document.title\"" }
+      8. Wait: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" wait \".loaded\"" }
+      9. Select dropdown: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" select \"#country\" US" }
+      10. Scroll: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" scroll down 500" }
+      11. Status: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" status" }
+      12. Close: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" close" }
+
+      **Commands reference:**
+      - launch [--headless] [--url <url>] — Launch browser, optionally headless and/or with initial URL
+      - goto <url> — Navigate to a URL
+      - click <selector> — Click an element (CSS selector)
+      - type <selector> <text> — Type text into an input field
+      - screenshot [path] — Take screenshot, saves to given path or temp file
+      - content [selector] — Get text content of page or a specific element
+      - evaluate <javascript> — Run JS in page context, return result
+      - wait <selector|ms> — Wait for element or N milliseconds
+      - select <selector> <value> — Select a dropdown option
+      - scroll <up|down> [amount] — Scroll page (default 500px)
+      - status — Check if browser session is alive
+      - close — Close browser and clean up session
+
+      **Important rules:**
+      - Always set timeout_ms: 60000 or higher for browser commands (they can be slow)
+      - Always launch the browser first before other commands
+      - Always close the browser when done with the browsing task
+      - Use CSS selectors for click/type/content/wait commands
+      - The browser session persists across shell_run calls
+      - If a session dies or expires, launch again
+      - All output is JSON: { "ok": true, ... } or { "ok": false, "error": "..." }
+      - Use content to read page text before deciding what to click
+      - Use evaluate for complex JS operations
+      - Use screenshot to visually verify what the page looks like

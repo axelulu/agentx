@@ -17,8 +17,13 @@ extraResources:
     to: "toolkit"
     filter:
       - "**/*"
+  - from: "resources/browser"
+    to: "browser"
+    filter:
+      - "**/*"
 asarUnpack:
   - "resources/**"
+  - "node_modules/playwright-core/**"
 mac:
   identity: null
   target:

@@ -4,8 +4,23 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { is } from "@electron-toolkit/utils";
 import { DesktopRuntime } from "@workspace/desktop";
 import type { DesktopProviderConfig, ToolPermissions } from "@workspace/desktop";
+import { setGlobalDispatcher, ProxyAgent, Agent } from "undici";
 
 let runtime: DesktopRuntime;
+
+// ---------------------------------------------------------------------------
+// Proxy support — route all main-process fetch() through a proxy
+// ---------------------------------------------------------------------------
+
+function applyProxy(url: string | null): void {
+  if (url) {
+    setGlobalDispatcher(new ProxyAgent(url));
+    console.log("[Proxy] Enabled:", url);
+  } else {
+    setGlobalDispatcher(new Agent());
+    console.log("[Proxy] Disabled (direct connection)");
+  }
+}
 
 // ---------------------------------------------------------------------------
 // JSON file helpers for simple key-value stores
@@ -44,6 +59,28 @@ export async function initDesktopRuntime(): Promise<void> {
     throw err;
   }
 
+  // Browser automation: set paths for child processes
+  const browserScriptPath = is.dev
+    ? join(app.getAppPath(), "resources", "browser", "browser-run.cjs")
+    : join(process.resourcesPath, "browser", "browser-run.cjs");
+  process.env.AGENTX_BROWSER_SCRIPT = browserScriptPath;
+
+  // Ensure child processes can require('playwright-core')
+  const appNodeModules = app.isPackaged
+    ? join(process.resourcesPath, "app.asar.unpacked", "node_modules")
+    : join(app.getAppPath(), "node_modules");
+  const existingNodePath = process.env.NODE_PATH || "";
+  process.env.NODE_PATH = [appNodeModules, existingNodePath]
+    .filter(Boolean)
+    .join(process.platform === "win32" ? ";" : ":");
+
+  // Restore proxy setting from preferences
+  const startupPrefsPath = join(app.getPath("userData"), "preferences.json");
+  const startupPrefs = readJsonFile<Record<string, unknown>>(startupPrefsPath, {});
+  if (typeof startupPrefs.proxyUrl === "string" && startupPrefs.proxyUrl) {
+    applyProxy(startupPrefs.proxyUrl);
+  }
+
   // Restore persisted provider configs into runtime
   const providersPath = join(app.getPath("userData"), "providers.json");
   const savedProviders = readJsonFile<DesktopProviderConfig[]>(providersPath, []);
@@ -68,14 +105,38 @@ export function registerDesktopHandlers(): void {
     runtime.updateConversationTitle(id, title),
   );
 
-  // Agent execution
-  ipcMain.handle("agent:send", async (event, conversationId: string, content: string) => {
+  // ---------------------------------------------------------------------------
+  // Agent execution — fire-and-forget send, subscriber-based events
+  // ---------------------------------------------------------------------------
+
+  ipcMain.handle("agent:send", async (_event, conversationId: string, content: string) => {
+    await runtime.sendMessage(conversationId, content);
+  });
+
+  ipcMain.on("agent:abort", (_event, conversationId: string) => runtime.abort(conversationId));
+
+  ipcMain.handle("agent:subscribe", (event, conversationId: string) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    await runtime.sendMessage(conversationId, content, (evt) => {
-      win?.webContents.send("agent:event", evt);
+    if (!win) return;
+
+    runtime.subscribe(conversationId, (evt) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send("agent:event", evt);
+      }
     });
   });
-  ipcMain.on("agent:abort", (_event, conversationId: string) => runtime.abort(conversationId));
+
+  ipcMain.on("agent:unsubscribe", (_event, conversationId: string) => {
+    runtime.unsubscribe(conversationId);
+  });
+
+  ipcMain.handle("agent:status", (_event, conversationId?: string) => {
+    return runtime.getSessionStatus(conversationId);
+  });
+
+  ipcMain.handle("agent:runningConversations", () => {
+    return runtime.getRunningConversations();
+  });
 
   // ---------------------------------------------------------------------------
   // Provider management (JSON file persistence)
@@ -216,17 +277,32 @@ export function registerDesktopHandlers(): void {
   ipcMain.handle("preferences:set", (_event, prefs: Record<string, unknown>) => {
     const current = readJsonFile(prefsPath, defaultPrefs);
     writeJsonFile(prefsPath, { ...current, ...prefs });
+    // Apply proxy when proxyUrl preference changes
+    if ("proxyUrl" in prefs) {
+      applyProxy((prefs.proxyUrl as string) || null);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Proxy (runtime application)
+  // ---------------------------------------------------------------------------
+
+  ipcMain.handle("proxy:apply", (_event, url: string | null) => {
+    applyProxy(url || null);
   });
 
   // ---------------------------------------------------------------------------
   // Tool Approval (renderer responds to approval requests)
   // ---------------------------------------------------------------------------
 
-  ipcMain.handle("tool:respondApproval", (_event, approvalId: string, approved: boolean) => {
-    try {
-      runtime?.resolveToolApproval(approvalId, approved);
-    } catch (err) {
-      console.error("[Desktop] respondApproval failed:", err);
-    }
-  });
+  ipcMain.handle(
+    "tool:respondApproval",
+    (_event, conversationId: string, approvalId: string, approved: boolean) => {
+      try {
+        runtime?.resolveToolApproval(conversationId, approvalId, approved);
+      } catch (err) {
+        console.error("[Desktop] respondApproval failed:", err);
+      }
+    },
+  );
 }
