@@ -68,11 +68,11 @@ export async function initDesktopRuntime(): Promise<void> {
   // Use Electron's own embedded Node.js to run child scripts.
   // In packaged apps, system `node` is often not in PATH (macOS GUI apps
   // don't inherit the user's shell env). ELECTRON_RUN_AS_NODE=1 makes the
-  // Electron binary behave as plain Node.js. This env var is checked at
-  // process startup, so setting it here only affects child processes —
-  // the current Electron main process is already running and unaffected.
+  // Electron binary behave as plain Node.js — but it MUST NOT be set
+  // globally in process.env because Electron forks renderer helper
+  // processes that inherit env vars and would break. Instead, the agent's
+  // shell commands prefix each invocation with the env var inline.
   process.env.AGENTX_NODE = process.execPath;
-  process.env.ELECTRON_RUN_AS_NODE = "1";
 
   // Ensure child processes can require('playwright-core')
   const appNodeModules = app.isPackaged

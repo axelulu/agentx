@@ -239,10 +239,12 @@ async function cmdLaunch(args) {
 
   // Spawn detached server process — it will call chromium.launch() and
   // start an HTTP server, then write the session file when ready.
+  // ELECTRON_RUN_AS_NODE=1 ensures the Electron binary acts as plain
+  // Node.js for this child process (must NOT be set globally).
   const child = spawn(process.execPath, [__filename, ...serverArgs], {
     detached: true,
     stdio: "ignore",
-    env: process.env,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
   });
   child.unref();
 
