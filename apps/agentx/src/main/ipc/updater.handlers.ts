@@ -3,6 +3,7 @@ import { is } from "@electron-toolkit/utils";
 import { spawn } from "child_process";
 import { existsSync, readdirSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 
 export type UpdateStatus =
   | { state: "checking" }
@@ -17,6 +18,9 @@ export type UpdateStatus =
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 const INITIAL_DELAY_MS = 10 * 1000; // 10 seconds after launch
+
+// Stores the downloaded file path from electron-updater's update-downloaded event
+let downloadedFilePath: string | null = null;
 
 function sendStatus(status: UpdateStatus): void {
   const win = BrowserWindow.getAllWindows()[0];
@@ -34,27 +38,38 @@ function sendStatus(status: UpdateStatus): void {
 // ---------------------------------------------------------------------------
 
 function findDownloadedZip(): string | null {
-  // electron-updater stores downloaded files in:
-  //   ~/Library/Caches/{appName}-updater/pending/
-  const cacheDir = join(
-    app.getPath("userData"),
-    "..",
-    "Caches",
-    `${app.getName()}-updater`,
-    "pending",
-  );
+  // electron-updater stores downloads in ~/Library/Caches/{appName}/
+  const cacheDir = join(homedir(), "Library", "Caches", app.getName());
   if (!existsSync(cacheDir)) return null;
-  const files = readdirSync(cacheDir).filter((f) => f.endsWith(".zip"));
-  if (files.length === 0) return null;
-  return join(cacheDir, files[0]!);
+  // Search recursively — the ZIP may be in a subdirectory
+  const searchDirs = [cacheDir];
+  for (const dir of searchDirs) {
+    if (!existsSync(dir)) continue;
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".zip")) {
+        return join(dir, entry.name);
+      }
+      if (entry.isDirectory()) {
+        searchDirs.push(join(dir, entry.name));
+      }
+    }
+  }
+  return null;
 }
 
 function macManualInstall(): void {
-  const zipPath = findDownloadedZip();
-  if (!zipPath) {
-    console.error("[Updater] No downloaded ZIP found for manual install");
+  // Prefer the path captured from electron-updater's event, fall back to searching
+  const zipPath = downloadedFilePath || findDownloadedZip();
+  if (!zipPath || !existsSync(zipPath)) {
+    console.error(
+      "[Updater] No downloaded ZIP found for manual install. downloadedFilePath:",
+      downloadedFilePath,
+    );
+    sendStatus({ state: "error", error: "Update file not found. Please try downloading again." });
     return;
   }
+  console.log("[Updater] macOS manual install from:", zipPath);
 
   const currentAppPath = app.getAppPath();
   // app.getAppPath() returns something like /Applications/AgentX.app/Contents/Resources/app.asar
@@ -157,7 +172,12 @@ export function registerUpdaterHandlers(): void {
     },
   );
 
-  autoUpdater.on("update-downloaded", (info: { version: string }) => {
+  autoUpdater.on("update-downloaded", (info: { version: string; downloadedFile?: string }) => {
+    // Capture the downloaded file path for macOS manual install
+    if (info.downloadedFile) {
+      downloadedFilePath = info.downloadedFile;
+      console.log("[Updater] Downloaded file:", downloadedFilePath);
+    }
     sendStatus({ state: "downloaded", version: info.version });
   });
 
