@@ -46,6 +46,12 @@ export function registerUpdaterHandlers(): void {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  // Skip macOS code signature verification — app is not signed with an Apple Developer certificate.
+  // Without this, electron-updater calls `codesign --verify` which rejects unsigned/ad-hoc-signed apps.
+  if (process.platform === "darwin") {
+    autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null);
+  }
+
   // ---- Event forwarding ----
   autoUpdater.on("checking-for-update", () => {
     sendStatus({ state: "checking" });
