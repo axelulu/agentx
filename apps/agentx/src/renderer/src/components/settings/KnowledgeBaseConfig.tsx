@@ -11,7 +11,7 @@ import { l10n } from "@workspace/l10n";
 import { InputBox } from "@/components/ui/InputBox";
 import { v4 as uuidv4 } from "uuid";
 import { FileTextIcon, TypeIcon } from "lucide-react";
-import { AccordionCard, FieldRow, AddButton } from "./SettingsAccordion";
+import { AccordionSection, AccordionCard, FieldRow } from "./SettingsAccordion";
 
 export function KnowledgeBaseConfig() {
   const dispatch = useDispatch<AppDispatch>();
@@ -65,79 +65,77 @@ export function KnowledgeBaseConfig() {
   };
 
   return (
-    <div>
-      {knowledgeBase.length > 0 && (
-        <div className="space-y-1.5 mb-4">
-          {knowledgeBase.map((item) => (
-            <AccordionCard
-              key={item.id}
-              expanded={expandedId === item.id}
-              onToggle={() => toggle(item.id)}
-              onRemove={() => {
-                dispatch(deleteKBItem(item.id));
-                if (expandedId === item.id) setExpandedId(null);
-              }}
-              title={item.name || l10n.t("Untitled")}
-              subtitle={item.type === "file" ? l10n.t("File") : l10n.t("Text")}
-              enabled={item.enabled}
-              titlePrefix={
-                item.type === "file" ? (
-                  <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                ) : (
-                  <TypeIcon className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                )
-              }
-            >
-              <FieldRow label={l10n.t("Name")}>
-                <InputBox
-                  value={item.name}
-                  onChange={(e) => handleSave({ ...item, name: e.target.value })}
-                  placeholder={l10n.t("Entry name")}
-                  className="h-7 text-[12px] rounded-md"
-                />
-              </FieldRow>
+    <AccordionSection
+      hasItems={knowledgeBase.length > 0}
+      emptyMessage={l10n.t("No knowledge base entries")}
+      addActions={[
+        { label: l10n.t("Add File"), onClick: handleAddFile },
+        { label: l10n.t("Add Text"), onClick: handleAddText },
+      ]}
+    >
+      {knowledgeBase.map((item) => (
+        <AccordionCard
+          key={item.id}
+          expanded={expandedId === item.id}
+          onToggle={() => toggle(item.id)}
+          onRemove={() => {
+            dispatch(deleteKBItem(item.id));
+            if (expandedId === item.id) setExpandedId(null);
+          }}
+          title={item.name || l10n.t("Untitled")}
+          subtitle={item.type === "file" ? l10n.t("File") : l10n.t("Text")}
+          enabled={item.enabled}
+          titlePrefix={
+            item.type === "file" ? (
+              <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+            ) : (
+              <TypeIcon className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+            )
+          }
+        >
+          <FieldRow label={l10n.t("Name")}>
+            <InputBox
+              value={item.name}
+              onChange={(e) => handleSave({ ...item, name: e.target.value })}
+              placeholder={l10n.t("Entry name")}
+              className="h-7 text-[12px] rounded-md"
+            />
+          </FieldRow>
 
-              {item.type === "file" && (
-                <FieldRow label={l10n.t("Path")}>
-                  <span className="text-[12px] text-muted-foreground truncate block py-1">
-                    {item.filePath}
-                  </span>
-                </FieldRow>
-              )}
+          {item.type === "file" && (
+            <FieldRow label={l10n.t("Path")}>
+              <span className="text-[12px] text-muted-foreground truncate block py-1">
+                {item.filePath}
+              </span>
+            </FieldRow>
+          )}
 
-              {item.type === "text" && (
-                <FieldRow label={l10n.t("Content")} align="start">
-                  <textarea
-                    value={item.content ?? ""}
-                    onChange={(e) => handleSave({ ...item, content: e.target.value })}
-                    placeholder={l10n.t("Enter text content...")}
-                    rows={4}
-                    className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-[12px] outline-none focus:ring-1 focus:ring-ring resize-y"
-                  />
-                </FieldRow>
-              )}
+          {item.type === "text" && (
+            <FieldRow label={l10n.t("Content")} align="start">
+              <textarea
+                value={item.content ?? ""}
+                onChange={(e) => handleSave({ ...item, content: e.target.value })}
+                placeholder={l10n.t("Enter text content...")}
+                rows={4}
+                className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-[12px] outline-none focus:ring-1 focus:ring-ring resize-y"
+              />
+            </FieldRow>
+          )}
 
-              {/* Enabled toggle */}
-              <div className="flex items-center pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={item.enabled}
-                    onChange={(e) => handleSave({ ...item, enabled: e.target.checked })}
-                    className="rounded border-border"
-                  />
-                  <span className="text-[11px] text-muted-foreground">{l10n.t("Enabled")}</span>
-                </label>
-              </div>
-            </AccordionCard>
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-center gap-2">
-        <AddButton label={l10n.t("Add File")} onClick={handleAddFile} />
-        <AddButton label={l10n.t("Add Text")} onClick={handleAddText} />
-      </div>
-    </div>
+          {/* Enabled toggle */}
+          <div className="flex items-center pt-1">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={item.enabled}
+                onChange={(e) => handleSave({ ...item, enabled: e.target.checked })}
+                className="rounded border-border"
+              />
+              <span className="text-[11px] text-muted-foreground">{l10n.t("Enabled")}</span>
+            </label>
+          </div>
+        </AccordionCard>
+      ))}
+    </AccordionSection>
   );
 }

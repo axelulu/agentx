@@ -11,7 +11,7 @@ import { l10n } from "@workspace/l10n";
 import { InputBox } from "@/components/ui/InputBox";
 import { v4 as uuidv4 } from "uuid";
 import { PlusIcon, XIcon } from "lucide-react";
-import { AccordionCard, FieldRow, AddButton } from "./SettingsAccordion";
+import { AccordionSection, AccordionCard, FieldRow } from "./SettingsAccordion";
 
 export function MCPConfig() {
   const dispatch = useDispatch<AppDispatch>();
@@ -46,95 +46,90 @@ export function MCPConfig() {
   };
 
   return (
-    <div>
-      {mcpServers.length > 0 && (
-        <div className="space-y-1.5 mb-4">
-          {mcpServers.map((server) => (
-            <AccordionCard
-              key={server.id}
-              expanded={expandedId === server.id}
-              onToggle={() => toggle(server.id)}
-              onRemove={() => {
-                dispatch(deleteMCPServer(server.id));
-                if (expandedId === server.id) setExpandedId(null);
-              }}
-              title={server.name || l10n.t("Untitled")}
-              subtitle={server.transport}
-              enabled={server.enabled}
-            >
-              <FieldRow label={l10n.t("Name")}>
+    <AccordionSection
+      hasItems={mcpServers.length > 0}
+      emptyMessage={l10n.t("No MCP servers configured")}
+      addActions={[
+        { label: l10n.t("Stdio"), onClick: () => handleAdd("stdio") },
+        { label: l10n.t("SSE"), onClick: () => handleAdd("sse") },
+      ]}
+    >
+      {mcpServers.map((server) => (
+        <AccordionCard
+          key={server.id}
+          expanded={expandedId === server.id}
+          onToggle={() => toggle(server.id)}
+          onRemove={() => {
+            dispatch(deleteMCPServer(server.id));
+            if (expandedId === server.id) setExpandedId(null);
+          }}
+          title={server.name || l10n.t("Untitled")}
+          subtitle={server.transport}
+          enabled={server.enabled}
+        >
+          <FieldRow label={l10n.t("Name")}>
+            <InputBox
+              value={server.name}
+              onChange={(e) => handleSave({ ...server, name: e.target.value })}
+              placeholder={l10n.t("Server name")}
+              className="h-7 text-[12px] rounded-md"
+            />
+          </FieldRow>
+
+          {server.transport === "stdio" && (
+            <>
+              <FieldRow label={l10n.t("Command")}>
                 <InputBox
-                  value={server.name}
-                  onChange={(e) => handleSave({ ...server, name: e.target.value })}
-                  placeholder={l10n.t("Server name")}
+                  value={server.command ?? ""}
+                  onChange={(e) => handleSave({ ...server, command: e.target.value })}
+                  placeholder="npx"
                   className="h-7 text-[12px] rounded-md"
                 />
               </FieldRow>
+              <FieldRow label={l10n.t("Args")}>
+                <InputBox
+                  value={(server.args ?? []).join(" ")}
+                  onChange={(e) =>
+                    handleSave({
+                      ...server,
+                      args: e.target.value ? e.target.value.split(" ") : [],
+                    })
+                  }
+                  placeholder="-y @mcp/server-fs /path"
+                  className="h-7 text-[12px] rounded-md"
+                />
+              </FieldRow>
+            </>
+          )}
 
-              {server.transport === "stdio" && (
-                <>
-                  <FieldRow label={l10n.t("Command")}>
-                    <InputBox
-                      value={server.command ?? ""}
-                      onChange={(e) => handleSave({ ...server, command: e.target.value })}
-                      placeholder="npx"
-                      className="h-7 text-[12px] rounded-md"
-                    />
-                  </FieldRow>
-                  <FieldRow label={l10n.t("Args")}>
-                    <InputBox
-                      value={(server.args ?? []).join(" ")}
-                      onChange={(e) =>
-                        handleSave({
-                          ...server,
-                          args: e.target.value ? e.target.value.split(" ") : [],
-                        })
-                      }
-                      placeholder="-y @mcp/server-fs /path"
-                      className="h-7 text-[12px] rounded-md"
-                    />
-                  </FieldRow>
-                </>
-              )}
-
-              {server.transport === "sse" && (
-                <FieldRow label={l10n.t("URL")}>
-                  <InputBox
-                    value={server.url ?? ""}
-                    onChange={(e) => handleSave({ ...server, url: e.target.value })}
-                    placeholder="http://localhost:3001/sse"
-                    className="h-7 text-[12px] rounded-md"
-                  />
-                </FieldRow>
-              )}
-
-              <EnvEditor
-                env={server.env ?? {}}
-                onChange={(env) => handleSave({ ...server, env })}
+          {server.transport === "sse" && (
+            <FieldRow label={l10n.t("URL")}>
+              <InputBox
+                value={server.url ?? ""}
+                onChange={(e) => handleSave({ ...server, url: e.target.value })}
+                placeholder="http://localhost:3001/sse"
+                className="h-7 text-[12px] rounded-md"
               />
+            </FieldRow>
+          )}
 
-              {/* Enabled toggle */}
-              <div className="flex items-center pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={server.enabled}
-                    onChange={(e) => handleSave({ ...server, enabled: e.target.checked })}
-                    className="rounded border-border"
-                  />
-                  <span className="text-[11px] text-muted-foreground">{l10n.t("Enabled")}</span>
-                </label>
-              </div>
-            </AccordionCard>
-          ))}
-        </div>
-      )}
+          <EnvEditor env={server.env ?? {}} onChange={(env) => handleSave({ ...server, env })} />
 
-      <div className="flex items-center gap-2">
-        <AddButton label={l10n.t("Stdio")} onClick={() => handleAdd("stdio")} />
-        <AddButton label={l10n.t("SSE")} onClick={() => handleAdd("sse")} />
-      </div>
-    </div>
+          {/* Enabled toggle */}
+          <div className="flex items-center pt-1">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={server.enabled}
+                onChange={(e) => handleSave({ ...server, enabled: e.target.checked })}
+                className="rounded border-border"
+              />
+              <span className="text-[11px] text-muted-foreground">{l10n.t("Enabled")}</span>
+            </label>
+          </div>
+        </AccordionCard>
+      ))}
+    </AccordionSection>
   );
 }
 

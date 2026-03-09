@@ -3,6 +3,47 @@ import { l10n } from "@workspace/l10n";
 import { ChevronDownIcon, Trash2Icon, CheckIcon, PlusIcon } from "lucide-react";
 
 // ---------------------------------------------------------------------------
+// AccordionSection — list of cards + add buttons + empty state
+// ---------------------------------------------------------------------------
+
+interface AccordionSectionProps {
+  /** Whether there are items to show */
+  hasItems: boolean;
+  /** The rendered AccordionCards */
+  children: React.ReactNode;
+  /** Add-button definitions */
+  addActions: { label: string; onClick: () => void }[];
+  /** Shown when the list is empty */
+  emptyMessage?: string;
+}
+
+export function AccordionSection({
+  hasItems,
+  children,
+  addActions,
+  emptyMessage,
+}: AccordionSectionProps) {
+  return (
+    <div>
+      {hasItems ? (
+        <div className="space-y-1.5 mb-3">{children}</div>
+      ) : (
+        emptyMessage && (
+          <div className="flex items-center justify-center py-8 mb-3 rounded-lg border border-dashed border-border/60 text-[12px] text-muted-foreground/40">
+            {emptyMessage}
+          </div>
+        )
+      )}
+      <div className="flex items-center gap-2">
+        {addActions.map((action) => (
+          <AddButton key={action.label} label={action.label} onClick={action.onClick} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // AccordionCard — a single expandable settings card
 // ---------------------------------------------------------------------------
 
@@ -127,7 +168,7 @@ export function FieldRow({ label, align = "center", children }: FieldRowProps) {
 }
 
 // ---------------------------------------------------------------------------
-// AddButton — small bordered button for adding new items
+// AddButton — dashed-border button for adding new items
 // ---------------------------------------------------------------------------
 
 interface AddButtonProps {
@@ -140,7 +181,7 @@ export function AddButton({ label, onClick }: AddButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-[12px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border/70 text-[12px] text-muted-foreground/60 hover:text-foreground hover:border-foreground/20 hover:bg-foreground/[0.02] transition-colors"
     >
       <PlusIcon className="w-3 h-3" />
       {label}
