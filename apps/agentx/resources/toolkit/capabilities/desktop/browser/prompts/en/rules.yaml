@@ -7,21 +7,21 @@ sections:
       You can control a web browser using the bundled browser automation script.
       Use the shell_run tool to execute browser commands.
 
-      **Script path:** Use the $AGENTX_BROWSER_SCRIPT environment variable.
+      **Runtime:** Use $AGENTX_NODE as the Node.js binary and $AGENTX_BROWSER_SCRIPT as the script path.
 
       **Usage pattern:**
-      1. Launch browser: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" launch" }
-      2. Navigate: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" goto https://example.com" }
-      3. Interact: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" click \"#submit-btn\"" }
-      4. Type text: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" type \"#search\" hello world" }
-      5. Extract: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" content \".article-body\"" }
-      6. Screenshot: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" screenshot /tmp/page.png" }
-      7. Evaluate JS: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" evaluate \"document.title\"" }
-      8. Wait: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" wait \".loaded\"" }
-      9. Select dropdown: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" select \"#country\" US" }
-      10. Scroll: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" scroll down 500" }
-      11. Status: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" status" }
-      12. Close: shell_run { command: "node \"$AGENTX_BROWSER_SCRIPT\" close" }
+      1. Launch browser: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" launch" }
+      2. Navigate: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" goto https://example.com" }
+      3. Interact: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" click \"#submit-btn\"" }
+      4. Type text: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" type \"#search\" hello world" }
+      5. Extract: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" content \".article-body\"" }
+      6. Screenshot: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" screenshot /tmp/page.png" }
+      7. Evaluate JS: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" evaluate \"document.title\"" }
+      8. Wait: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" wait \".loaded\"" }
+      9. Select dropdown: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" select \"#country\" US" }
+      10. Scroll: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" scroll down 500" }
+      11. Status: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" status" }
+      12. Close: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" close" }
 
       **Commands reference:**
       - launch [--headless] [--url <url>] — Launch browser, optionally headless and/or with initial URL
