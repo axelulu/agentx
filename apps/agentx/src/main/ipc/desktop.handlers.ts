@@ -74,10 +74,13 @@ export async function initDesktopRuntime(): Promise<void> {
   // shell commands prefix each invocation with the env var inline.
   process.env.AGENTX_NODE = process.execPath;
 
-  // Ensure child processes can require('playwright-core')
+  // Ensure child processes can require('playwright-core').
+  // NODE_PATH alone is unreliable under ELECTRON_RUN_AS_NODE — browser-run.cjs
+  // reads AGENTX_NODE_MODULES and calls module.paths.unshift() explicitly.
   const appNodeModules = app.isPackaged
     ? join(process.resourcesPath, "app.asar.unpacked", "node_modules")
     : join(app.getAppPath(), "node_modules");
+  process.env.AGENTX_NODE_MODULES = appNodeModules;
   const existingNodePath = process.env.NODE_PATH || "";
   process.env.NODE_PATH = [appNodeModules, existingNodePath]
     .filter(Boolean)
