@@ -21,9 +21,12 @@ extraResources:
     to: "browser"
     filter:
       - "**/*"
+  - from: "node_modules/playwright-core"
+    to: "browser/node_modules/playwright-core"
+    filter:
+      - "**/*"
 asarUnpack:
   - "resources/**"
-  - "node_modules/playwright-core/**"
 mac:
   identity: null
   target:

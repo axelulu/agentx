@@ -20,14 +20,6 @@
  *   browser via Playwright and exits. Falls back to SIGTERM if HTTP fails.
  */
 
-// In packaged Electron apps running with ELECTRON_RUN_AS_NODE=1, NODE_PATH
-// is not always respected by the module system. Explicitly inject the app's
-// node_modules into this module's search paths so require() can resolve
-// dependencies like playwright-core that are bundled inside the asar.
-if (process.env.AGENTX_NODE_MODULES) {
-  module.paths.unshift(process.env.AGENTX_NODE_MODULES);
-}
-
 const { chromium } = require("playwright-core");
 const { spawn } = require("child_process");
 const http = require("http");
