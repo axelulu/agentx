@@ -122,6 +122,25 @@ export const removeConversation = createAsyncThunk(
   },
 );
 
+export const removeConversations = createAsyncThunk(
+  "chat/removeConversations",
+  async (ids: string[], { getState, dispatch }) => {
+    const results = await Promise.allSettled(ids.map((id) => window.api.conversation.delete(id)));
+    const deleted: string[] = [];
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") deleted.push(ids[i]);
+    });
+    const state = (getState() as { chat: ChatState }).chat;
+    if (state.currentConversationId && deleted.includes(state.currentConversationId)) {
+      const remaining = state.conversations.filter((c) => !deleted.includes(c.id));
+      if (remaining.length > 0) {
+        dispatch(switchConversation(remaining[0].id));
+      }
+    }
+    return deleted;
+  },
+);
+
 export const updateConversationTitle = createAsyncThunk(
   "chat/updateConversationTitle",
   async ({ id, title }: { id: string; title: string }) => {
@@ -505,6 +524,19 @@ const chatSlice = createSlice({
         state.activeAgentMessageId = null;
         state.pendingApproval = null;
         state.error = null;
+      })
+      .addCase(removeConversations.fulfilled, (state, action) => {
+        const deleted = new Set(action.payload);
+        state.conversations = state.conversations.filter((c) => !deleted.has(c.id));
+        if (state.currentConversationId && deleted.has(state.currentConversationId)) {
+          state.currentConversationId = state.conversations[0]?.id ?? null;
+          state.messages = [];
+          state.isStreaming = false;
+          state.streamingMessageId = null;
+          state.activeAgentMessageId = null;
+          state.pendingApproval = null;
+          state.error = null;
+        }
       })
       .addCase(initializeSessions.fulfilled, (state, action) => {
         state.runningSessions = action.payload;

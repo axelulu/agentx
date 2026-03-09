@@ -135,5 +135,10 @@
   "Checking...": "Wird geprüft...",
   "Up to date": "Aktuell",
   "Check failed": "Prüfung fehlgeschlagen",
-  "Updates": "Updates"
+  "Updates": "Updates",
+  "Select": "Auswählen",
+  "selected": "ausgewählt",
+  "Select All": "Alle auswählen",
+  "Delete conversations": "Unterhaltungen löschen",
+  "conversations? This action cannot be undone.": "Unterhaltungen? Diese Aktion kann nicht rückgängig gemacht werden."
 }

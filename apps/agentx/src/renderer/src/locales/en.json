@@ -135,5 +135,10 @@
   "Checking...": "Checking...",
   "Up to date": "Up to date",
   "Check failed": "Check failed",
-  "Updates": "Updates"
+  "Updates": "Updates",
+  "Select": "Select",
+  "selected": "selected",
+  "Select All": "Select All",
+  "Delete conversations": "Delete conversations",
+  "conversations? This action cannot be undone.": "conversations? This action cannot be undone."
 }

@@ -135,5 +135,10 @@
   "Checking...": "جارٍ التحقق...",
   "Up to date": "محدّث",
   "Check failed": "فشل التحقق",
-  "Updates": "التحديثات"
+  "Updates": "التحديثات",
+  "Select": "تحديد",
+  "selected": "محدد",
+  "Select All": "تحديد الكل",
+  "Delete conversations": "حذف المحادثات",
+  "conversations? This action cannot be undone.": "محادثات؟ لا يمكن التراجع عن هذا الإجراء."
 }

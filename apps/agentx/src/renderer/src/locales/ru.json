@@ -135,5 +135,10 @@
   "Checking...": "Проверка...",
   "Up to date": "Актуальная версия",
   "Check failed": "Проверка не удалась",
-  "Updates": "Обновления"
+  "Updates": "Обновления",
+  "Select": "Выбрать",
+  "selected": "выбрано",
+  "Select All": "Выбрать все",
+  "Delete conversations": "Удалить беседы",
+  "conversations? This action cannot be undone.": "бесед? Это действие нельзя отменить."
 }

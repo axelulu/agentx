@@ -135,5 +135,10 @@
   "Checking...": "检查中...",
   "Up to date": "已是最新版本",
   "Check failed": "检查失败",
-  "Updates": "更新"
+  "Updates": "更新",
+  "Select": "选择",
+  "selected": "已选择",
+  "Select All": "全选",
+  "Delete conversations": "删除对话",
+  "conversations? This action cannot be undone.": "个对话？此操作无法撤销。"
 }

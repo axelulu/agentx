@@ -135,5 +135,10 @@
   "Checking...": "확인 중...",
   "Up to date": "최신 버전입니다",
   "Check failed": "확인 실패",
-  "Updates": "업데이트"
+  "Updates": "업데이트",
+  "Select": "선택",
+  "selected": "개 선택됨",
+  "Select All": "모두 선택",
+  "Delete conversations": "대화 삭제",
+  "conversations? This action cannot be undone.": "개의 대화를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
 }

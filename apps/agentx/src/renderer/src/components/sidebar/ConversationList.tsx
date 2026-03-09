@@ -4,6 +4,7 @@ import type { RootState, AppDispatch } from "@/slices/store";
 import {
   switchConversation,
   removeConversation,
+  removeConversations,
   updateConversationTitle,
 } from "@/slices/chatSlice";
 import { l10n } from "@workspace/l10n";
@@ -25,8 +26,10 @@ import {
   ZapIcon,
   BookOpenIcon,
   LayersIcon,
+  CheckIcon,
   type LucideIcon,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -89,13 +92,39 @@ function formatRelativeTime(timestamp: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function ConversationList() {
+interface ConversationListProps {
+  selectMode: boolean;
+  onExitSelectMode: () => void;
+}
+
+export function ConversationList({ selectMode, onExitSelectMode }: ConversationListProps) {
   const dispatch = useDispatch<AppDispatch>();
   const { conversations, currentConversationId } = useSelector((state: RootState) => state.chat);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Batch selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
+
+  // Reset selection when exiting select mode
+  useEffect(() => {
+    if (!selectMode) {
+      setSelectedIds(new Set());
+    }
+  }, [selectMode]);
+
+  // Escape key exits select mode
+  useEffect(() => {
+    if (!selectMode) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onExitSelectMode();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectMode, onExitSelectMode]);
 
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -116,6 +145,27 @@ export function ConversationList() {
   const cancelEdit = useCallback(() => {
     setEditingId(null);
   }, []);
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(conversations.map((c) => c.id)));
+  }, [conversations]);
+
+  const handleBatchDelete = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    dispatch(removeConversations(Array.from(selectedIds)));
+    setSelectedIds(new Set());
+    setBatchDeleteConfirm(false);
+    onExitSelectMode();
+  }, [selectedIds, dispatch, onExitSelectMode]);
 
   if (conversations.length === 0) {
     return (
@@ -141,34 +191,76 @@ export function ConversationList() {
       <div className="flex flex-col gap-0.5 px-2">
         {conversations.map((conversation) => {
           const isActive = conversation.id === currentConversationId;
-          const isEditing = editingId === conversation.id;
+          const isEditing = !selectMode && editingId === conversation.id;
+          const isSelected = selectedIds.has(conversation.id);
           const Icon = getConversationIcon(conversation.title);
           return (
             <div
               key={conversation.id}
               className={cn(
                 "group flex items-start gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer text-[13px]",
-                isActive
-                  ? "bg-foreground/[0.08] text-foreground"
-                  : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+                selectMode
+                  ? isSelected
+                    ? "bg-foreground/[0.05] text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+                  : isActive
+                    ? "bg-foreground/[0.08] text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
               )}
-              onClick={() => !isEditing && dispatch(switchConversation(conversation.id))}
+              onClick={() => {
+                if (selectMode) {
+                  toggleSelection(conversation.id);
+                } else if (!isEditing) {
+                  dispatch(switchConversation(conversation.id));
+                }
+              }}
               onDoubleClick={(e) => {
+                if (selectMode) return;
                 e.stopPropagation();
                 setEditingId(conversation.id);
                 setEditValue(conversation.title);
               }}
             >
-              {/* Icon */}
+              {/* Icon / Checkbox */}
               <div
                 className={cn(
                   "shrink-0 mt-0.5 flex items-center justify-center w-6 h-6 rounded-md transition-colors",
-                  isActive
-                    ? "bg-primary/15 text-primary"
-                    : "bg-foreground/[0.05] text-muted-foreground group-hover:bg-foreground/[0.08] group-hover:text-foreground",
+                  selectMode
+                    ? ""
+                    : isActive
+                      ? "bg-primary/15 text-primary"
+                      : "bg-foreground/[0.05] text-muted-foreground group-hover:bg-foreground/[0.08] group-hover:text-foreground",
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <AnimatePresence mode="wait" initial={false}>
+                  {selectMode ? (
+                    <motion.div
+                      key="checkbox"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className={cn(
+                        "w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-colors",
+                        isSelected ? "bg-primary border-primary" : "border-muted-foreground/30",
+                      )}
+                    >
+                      {isSelected && (
+                        <CheckIcon className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="icon"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Title + meta */}
@@ -194,7 +286,7 @@ export function ConversationList() {
                   <p
                     className={cn(
                       "truncate leading-snug",
-                      isActive ? "font-medium" : "font-normal",
+                      isActive && !selectMode ? "font-medium" : "font-normal",
                     )}
                   >
                     {conversation.title}
@@ -211,8 +303,8 @@ export function ConversationList() {
                 </p>
               </div>
 
-              {/* Delete button */}
-              {!isEditing && (
+              {/* Delete button — hidden in select mode */}
+              {!isEditing && !selectMode && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -233,7 +325,43 @@ export function ConversationList() {
         })}
       </div>
 
-      {/* Delete confirmation dialog */}
+      {/* Batch action bar */}
+      <AnimatePresence>
+        {selectMode && (
+          <motion.div
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "100%", opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="sticky bottom-2 mx-2 mt-1.5 px-3 py-2 rounded-lg bg-sidebar-accent/80 backdrop-blur-sm border border-sidebar-border flex items-center gap-2"
+          >
+            <span className="text-[12px] text-muted-foreground tabular-nums">
+              {selectedIds.size} {l10n.t("selected")}
+            </span>
+            <button
+              onClick={selectAll}
+              className="text-[12px] text-primary hover:text-primary/80 font-medium transition-colors"
+            >
+              {l10n.t("Select All")}
+            </button>
+            <div className="flex-1" />
+            <button
+              disabled={selectedIds.size === 0}
+              onClick={() => setBatchDeleteConfirm(true)}
+              className={cn(
+                "px-2.5 py-1 text-[12px] font-medium rounded-md transition-colors",
+                selectedIds.size > 0
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : "bg-muted text-muted-foreground cursor-not-allowed",
+              )}
+            >
+              {l10n.t("Delete")}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Single delete confirmation dialog */}
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
@@ -246,6 +374,22 @@ export function ConversationList() {
           {l10n.t("Are you sure you want to delete")}{" "}
           <span className="font-medium text-foreground">&ldquo;{deleteTarget?.title}&rdquo;</span>?{" "}
           {l10n.t("This action cannot be undone.")}
+        </p>
+      </ConfirmDialog>
+
+      {/* Batch delete confirmation dialog */}
+      <ConfirmDialog
+        open={batchDeleteConfirm}
+        onOpenChange={(open) => !open && setBatchDeleteConfirm(false)}
+        title={l10n.t("Delete conversations")}
+        confirmLabel={l10n.t("Delete")}
+        variant="destructive"
+        onConfirm={handleBatchDelete}
+      >
+        <p className="text-sm text-muted-foreground">
+          {l10n.t("Are you sure you want to delete")}{" "}
+          <span className="font-medium text-foreground">{selectedIds.size}</span>{" "}
+          {l10n.t("conversations? This action cannot be undone.")}
         </p>
       </ConfirmDialog>
     </>

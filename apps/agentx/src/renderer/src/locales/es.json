@@ -135,5 +135,10 @@
   "Checking...": "Verificando...",
   "Up to date": "Actualizado",
   "Check failed": "Verificación fallida",
-  "Updates": "Actualizaciones"
+  "Updates": "Actualizaciones",
+  "Select": "Seleccionar",
+  "selected": "seleccionados",
+  "Select All": "Seleccionar todo",
+  "Delete conversations": "Eliminar conversaciones",
+  "conversations? This action cannot be undone.": "conversaciones? Esta acción no se puede deshacer."
 }
