@@ -10,11 +10,13 @@ import type { AgentEvent } from "@workspace/agent";
 // Event Bridge tests
 // ---------------------------------------------------------------------------
 
+const TEST_CONV_ID = "test-conv-123";
+
 describe("toSerializableEvent", () => {
   it("converts agent_start event", () => {
     const event: AgentEvent = { type: "agent_start", timestamp: 1000 };
-    const result = toSerializableEvent(event);
-    expect(result).toEqual({ type: "agent_start", timestamp: 1000 });
+    const result = toSerializableEvent(event, TEST_CONV_ID);
+    expect(result).toEqual({ type: "agent_start", conversationId: TEST_CONV_ID, timestamp: 1000 });
   });
 
   it("converts error event with Error object to string", () => {
@@ -24,9 +26,10 @@ describe("toSerializableEvent", () => {
       error: new Error("something failed"),
       fatal: true,
     };
-    const result = toSerializableEvent(event);
+    const result = toSerializableEvent(event, TEST_CONV_ID);
     expect(result).toEqual({
       type: "error",
+      conversationId: TEST_CONV_ID,
       timestamp: 1000,
       error: "something failed",
       fatal: true,
@@ -44,9 +47,10 @@ describe("toSerializableEvent", () => {
         error: new Error("limit reached"),
       },
     };
-    const result = toSerializableEvent(event);
+    const result = toSerializableEvent(event, TEST_CONV_ID);
     expect(result).toEqual({
       type: "agent_end",
+      conversationId: TEST_CONV_ID,
       timestamp: 1000,
       result: {
         turns: 3,
@@ -64,9 +68,10 @@ describe("toSerializableEvent", () => {
       toolName: "file_read",
       result: { content: "file content", isError: false },
     };
-    const result = toSerializableEvent(event);
+    const result = toSerializableEvent(event, TEST_CONV_ID);
     expect(result).toEqual({
       type: "tool_end",
+      conversationId: TEST_CONV_ID,
       timestamp: 1000,
       toolCallId: "call_1",
       toolName: "file_read",

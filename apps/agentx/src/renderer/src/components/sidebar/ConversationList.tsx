@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
-import { switchConversation, removeConversation } from "@/slices/chatSlice";
+import {
+  switchConversation,
+  removeConversation,
+  updateConversationTitle,
+} from "@/slices/chatSlice";
 import { l10n } from "@workspace/l10n";
 import { cn } from "@/lib/utils";
 import {
@@ -89,6 +93,29 @@ export function ConversationList() {
   const dispatch = useDispatch<AppDispatch>();
   const { conversations, currentConversationId } = useSelector((state: RootState) => state.chat);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
+
+  const commitEdit = useCallback(() => {
+    if (!editingId) return;
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== conversations.find((c) => c.id === editingId)?.title) {
+      dispatch(updateConversationTitle({ id: editingId, title: trimmed }));
+    }
+    setEditingId(null);
+  }, [editingId, editValue, conversations, dispatch]);
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+  }, []);
 
   if (conversations.length === 0) {
     return (
@@ -114,6 +141,7 @@ export function ConversationList() {
       <div className="flex flex-col gap-0.5 px-2">
         {conversations.map((conversation) => {
           const isActive = conversation.id === currentConversationId;
+          const isEditing = editingId === conversation.id;
           const Icon = getConversationIcon(conversation.title);
           return (
             <div
@@ -124,7 +152,12 @@ export function ConversationList() {
                   ? "bg-foreground/[0.08] text-foreground"
                   : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
               )}
-              onClick={() => dispatch(switchConversation(conversation.id))}
+              onClick={() => !isEditing && dispatch(switchConversation(conversation.id))}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setEditingId(conversation.id);
+                setEditValue(conversation.title);
+              }}
             >
               {/* Icon */}
               <div
@@ -140,11 +173,33 @@ export function ConversationList() {
 
               {/* Title + meta */}
               <div className="flex-1 min-w-0">
-                <p
-                  className={cn("truncate leading-snug", isActive ? "font-medium" : "font-normal")}
-                >
-                  {conversation.title}
-                </p>
+                {isEditing ? (
+                  <input
+                    ref={editInputRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitEdit();
+                      } else if (e.key === "Escape") {
+                        cancelEdit();
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full bg-transparent outline-none text-[13px] leading-snug font-medium border-b border-primary/50 py-0"
+                  />
+                ) : (
+                  <p
+                    className={cn(
+                      "truncate leading-snug",
+                      isActive ? "font-medium" : "font-normal",
+                    )}
+                  >
+                    {conversation.title}
+                  </p>
+                )}
                 <p className="text-[11px] text-muted-foreground/50 mt-0.5 leading-tight">
                   {formatRelativeTime(conversation.updatedAt)}
                   {conversation.messageCount > 0 && (
@@ -157,20 +212,22 @@ export function ConversationList() {
               </div>
 
               {/* Delete button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteTarget({ id: conversation.id, title: conversation.title });
-                    }}
-                    className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-destructive/15 hover:text-destructive transition-all text-muted-foreground/60"
-                  >
-                    <TrashIcon className="w-3.5 h-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>{l10n.t("Delete")}</TooltipContent>
-              </Tooltip>
+              {!isEditing && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget({ id: conversation.id, title: conversation.title });
+                      }}
+                      className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-destructive/15 hover:text-destructive transition-all text-muted-foreground/60"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{l10n.t("Delete")}</TooltipContent>
+                </Tooltip>
+              )}
             </div>
           );
         })}

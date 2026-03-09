@@ -57,6 +57,10 @@ const api = {
         ipcRenderer.removeListener("agent:event", listener);
       };
     },
+    subscribe: (conversationId: string) => ipcRenderer.invoke("agent:subscribe", conversationId),
+    unsubscribe: (conversationId: string) => ipcRenderer.send("agent:unsubscribe", conversationId),
+    status: (conversationId?: string) => ipcRenderer.invoke("agent:status", conversationId),
+    runningConversations: () => ipcRenderer.invoke("agent:runningConversations"),
   },
   provider: {
     list: () => ipcRenderer.invoke("provider:list"),
@@ -71,6 +75,12 @@ const api = {
       ipcRenderer.invoke("fs:selectFile", options),
     selectDirectory: () => ipcRenderer.invoke("fs:selectDirectory"),
     stat: (path: string) => ipcRenderer.invoke("fs:stat", path),
+    openPath: (path: string) =>
+      ipcRenderer.invoke("fs:openPath", path) as Promise<{
+        success: boolean;
+        error: string | null;
+      }>,
+    showItemInFolder: (path: string) => ipcRenderer.invoke("fs:showItemInFolder", path),
     getDroppedPaths: () => _droppedPaths,
   },
   knowledgeBase: {
@@ -88,18 +98,26 @@ const api = {
     check: (type: string) => ipcRenderer.invoke("permissions:check", type),
     request: (type: string) => ipcRenderer.invoke("permissions:request", type),
     openSettings: (type: string) => ipcRenderer.invoke("permissions:openSettings", type),
+    reset: (type: string) =>
+      ipcRenderer.invoke("permissions:reset", type) as Promise<{
+        success: boolean;
+        requiresManual: boolean;
+      }>,
   },
   toolPermissions: {
     get: () => ipcRenderer.invoke("toolPermissions:get"),
     set: (permissions: unknown) => ipcRenderer.invoke("toolPermissions:set", permissions),
   },
   tool: {
-    respondApproval: (approvalId: string, approved: boolean) =>
-      ipcRenderer.invoke("tool:respondApproval", approvalId, approved),
+    respondApproval: (conversationId: string, approvalId: string, approved: boolean) =>
+      ipcRenderer.invoke("tool:respondApproval", conversationId, approvalId, approved),
   },
   preferences: {
     get: () => ipcRenderer.invoke("preferences:get"),
     set: (prefs: Record<string, unknown>) => ipcRenderer.invoke("preferences:set", prefs),
+  },
+  proxy: {
+    apply: (url: string | null) => ipcRenderer.invoke("proxy:apply", url),
   },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke("updater:checkForUpdates"),

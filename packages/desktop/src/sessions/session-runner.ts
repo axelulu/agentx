@@ -31,6 +31,7 @@ export class SessionRunner {
   async run(
     messages: AgentMessage[],
     config: SessionRunnerConfig,
+    conversationId: string,
     onEvent: (event: SerializableAgentEvent) => void,
   ): Promise<AgentMessage[]> {
     this.abortController = new AbortController();
@@ -50,7 +51,7 @@ export class SessionRunner {
 
     // Consume events and bridge to serializable format
     for await (const event of stream) {
-      onEvent(toSerializableEvent(event));
+      onEvent(toSerializableEvent(event, conversationId));
     }
 
     // Get the final result

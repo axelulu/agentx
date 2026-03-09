@@ -8,7 +8,6 @@ import {
   HardDriveIcon,
   BotIcon,
   BellIcon,
-  ExternalLinkIcon,
   Loader2Icon,
   CheckCircle2Icon,
   XCircleIcon,
@@ -168,30 +167,18 @@ export function PermissionsConfig() {
   // then fall back to opening System Settings if not possible
   const handleGrant = useCallback(
     async (perm: PermissionInfo) => {
-      console.log(`[PermissionsConfig] handleGrant called for: ${perm.type}`);
-      if (requesting) {
-        console.log(`[PermissionsConfig] Already requesting, skipping`);
-        return;
-      }
+      if (requesting) return;
       setRequesting(perm.type);
       try {
-        // Step 1: Try to request the permission programmatically
-        // This triggers the native system dialog and auto-adds the app to the permissions list
-        console.log(`[PermissionsConfig] Calling window.api.permissions.request(${perm.type})`);
         const result = await window.api.permissions.request(perm.type);
-        console.log(`[PermissionsConfig] request result:`, result);
 
         if (result?.status === "granted") {
-          // Permission granted via system dialog — refresh and we're done
           showFeedback(l10n.t("Permission granted!"));
           await refresh();
           return;
         }
 
-        // Step 2: If the permission was denied or can't be requested programmatically,
-        // open System Settings so the user can toggle it manually
         if (result?.canRequestDirectly) {
-          // The system dialog was shown but user denied — they need to enable it in Settings
           showFeedback(
             l10n.t(
               "Permission was denied. Opening System Settings — please enable it manually and switch back.",
@@ -205,20 +192,52 @@ export function PermissionsConfig() {
           );
         }
 
-        console.log(
-          `[PermissionsConfig] Calling window.api.permissions.openSettings(${perm.type})`,
-        );
         await window.api.permissions.openSettings(perm.type);
-        console.log(`[PermissionsConfig] openSettings resolved successfully`);
         setTimeout(refresh, 2000);
-      } catch (err) {
-        console.error(`[PermissionsConfig] handleGrant(${perm.type}) failed:`, err);
+      } catch {
         showFeedback(l10n.t("Could not open System Settings. Please open manually."));
       } finally {
         setRequesting(null);
       }
     },
     [requesting, refresh, showFeedback],
+  );
+
+  // Click "Revoke" → try tccutil reset, fall back to opening System Settings
+  // IMPORTANT: After a successful reset, do NOT call refresh() because
+  // checkAllPermissions() would re-trigger macOS permission dialogs
+  // (e.g. checkAutomation runs osascript which prompts for permission).
+  // Instead, update local state directly to "not-determined".
+  const handleRevoke = useCallback(
+    async (perm: PermissionInfo) => {
+      if (requesting) return;
+      setRequesting(perm.type);
+      try {
+        const result = await window.api.permissions.reset(perm.type);
+
+        if (result.success) {
+          showFeedback(l10n.t("Permission revoked successfully."));
+          // Update only this permission's status locally — avoid re-checking all
+          setStatuses((prev) =>
+            prev ? { ...prev, [perm.type]: "not-determined" as PermissionStatus } : prev,
+          );
+          return;
+        }
+
+        // tccutil failed or not supported — open System Settings
+        showFeedback(
+          l10n.t(
+            "Opening System Settings — please find AgentX in the list and disable the permission.",
+          ),
+        );
+        await window.api.permissions.openSettings(perm.type);
+      } catch {
+        showFeedback(l10n.t("Could not revoke permission. Please disable it in System Settings."));
+      } finally {
+        setRequesting(null);
+      }
+    },
+    [requesting, showFeedback],
   );
 
   const grantedCount = statuses ? Object.values(statuses).filter((s) => s === "granted").length : 0;
@@ -289,26 +308,41 @@ export function PermissionsConfig() {
 
               {/* Action button */}
               <div className="shrink-0">
-                <button
-                  onClick={() => handleGrant(perm)}
-                  disabled={isRequesting}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-                    isGranted
-                      ? "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                      : "bg-foreground text-background hover:bg-foreground/90",
-                    "disabled:opacity-50 disabled:cursor-not-allowed",
-                  )}
-                  title={isGranted ? l10n.t("Open System Settings") : l10n.t("Grant permission")}
-                >
-                  {isRequesting ? (
-                    <Loader2Icon className="w-3 h-3 animate-spin" />
-                  ) : isGranted ? (
-                    <ExternalLinkIcon className="w-3 h-3" />
-                  ) : (
-                    l10n.t("Grant")
-                  )}
-                </button>
+                {isGranted ? (
+                  <button
+                    onClick={() => handleRevoke(perm)}
+                    disabled={isRequesting}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
+                      "text-red-400 hover:text-red-300 hover:bg-red-500/10",
+                      "disabled:opacity-50 disabled:cursor-not-allowed",
+                    )}
+                    title={l10n.t("Revoke permission")}
+                  >
+                    {isRequesting ? (
+                      <Loader2Icon className="w-3 h-3 animate-spin" />
+                    ) : (
+                      l10n.t("Revoke")
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleGrant(perm)}
+                    disabled={isRequesting}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
+                      "bg-foreground text-background hover:bg-foreground/90",
+                      "disabled:opacity-50 disabled:cursor-not-allowed",
+                    )}
+                    title={l10n.t("Grant permission")}
+                  >
+                    {isRequesting ? (
+                      <Loader2Icon className="w-3 h-3 animate-spin" />
+                    ) : (
+                      l10n.t("Grant")
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           );

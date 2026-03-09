@@ -45,23 +45,24 @@ function formatArgs(toolName: string, args: Record<string, unknown>): string {
 export function ToolApprovalBanner() {
   const dispatch = useDispatch();
   const pendingApproval = useSelector((state: RootState) => state.chat.pendingApproval);
+  const currentConversationId = useSelector((state: RootState) => state.chat.currentConversationId);
 
   const handleRespond = useCallback(
     (approved: boolean) => {
-      if (!pendingApproval) return;
-      window.api.tool.respondApproval(pendingApproval.approvalId, approved);
+      if (!pendingApproval || !currentConversationId) return;
+      window.api.tool.respondApproval(currentConversationId, pendingApproval.approvalId, approved);
       dispatch(clearPendingApproval());
     },
-    [pendingApproval, dispatch],
+    [pendingApproval, currentConversationId, dispatch],
   );
 
   const handleAlwaysAllow = useCallback(async () => {
-    if (!pendingApproval) return;
-    window.api.tool.respondApproval(pendingApproval.approvalId, true);
+    if (!pendingApproval || !currentConversationId) return;
+    window.api.tool.respondApproval(currentConversationId, pendingApproval.approvalId, true);
     dispatch(clearPendingApproval());
     const permissions = await window.api.toolPermissions.get();
     await window.api.toolPermissions.set({ ...permissions, approvalMode: "auto" });
-  }, [pendingApproval, dispatch]);
+  }, [pendingApproval, currentConversationId, dispatch]);
 
   if (!pendingApproval) return null;
 

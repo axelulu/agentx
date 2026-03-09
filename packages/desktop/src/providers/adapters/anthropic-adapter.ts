@@ -26,8 +26,12 @@ export function createAnthropicStreamFn(config: AnthropicAdapterConfig): StreamF
 
     const nonSystemMessages = messages.filter((m) => m.role !== "system");
 
-    // Convert messages to Anthropic format
-    const anthropicMessages = nonSystemMessages.map((msg) => convertMessage(msg));
+    // Convert messages to Anthropic format and merge consecutive same-role messages
+    // (e.g. multiple tool results each become {role:"user"} — must be merged to
+    // satisfy Anthropic's alternating-role requirement)
+    const anthropicMessages = mergeConsecutiveMessages(
+      nonSystemMessages.map((msg) => convertMessage(msg)),
+    );
 
     // Convert tools to Anthropic format
     const tools = options.tools?.map((t) => ({
@@ -69,6 +73,21 @@ export function createAnthropicStreamFn(config: AnthropicAdapterConfig): StreamF
 
     if (!response.ok) {
       const text = await response.text();
+      console.error(
+        `[Anthropic] API error ${response.status}:`,
+        text,
+        "\n[Anthropic] Messages sent:",
+        JSON.stringify(
+          anthropicMessages.map((m: Record<string, unknown>) => ({
+            role: m.role,
+            contentType: Array.isArray(m.content)
+              ? (m.content as unknown[]).map((c: unknown) => (c as Record<string, unknown>).type)
+              : typeof m.content,
+          })),
+          null,
+          2,
+        ),
+      );
       throw new Error(`Anthropic API error ${response.status}: ${text}`);
     }
 
@@ -152,6 +171,32 @@ function convertMessage(msg: LLMMessage): Record<string, unknown> {
 
   // User messages
   return { role: msg.role, content: msg.content };
+}
+
+/**
+ * Merge consecutive messages with the same role.
+ * Anthropic requires strictly alternating user/assistant roles.
+ * Multiple tool results each become {role:"user"} and must be merged
+ * into a single user message with multiple content blocks.
+ */
+function mergeConsecutiveMessages(messages: Record<string, unknown>[]): Record<string, unknown>[] {
+  const result: Record<string, unknown>[] = [];
+  for (const msg of messages) {
+    const prev = result[result.length - 1];
+    if (prev && prev.role === msg.role) {
+      // Normalize both sides to arrays and merge
+      const prevContent = Array.isArray(prev.content)
+        ? prev.content
+        : [{ type: "text", text: prev.content }];
+      const msgContent = Array.isArray(msg.content)
+        ? msg.content
+        : [{ type: "text", text: msg.content }];
+      prev.content = [...prevContent, ...msgContent];
+    } else {
+      result.push({ ...msg });
+    }
+  }
+  return result;
 }
 
 function convertToolChoice(choice: "auto" | "required" | "none"): Record<string, unknown> {

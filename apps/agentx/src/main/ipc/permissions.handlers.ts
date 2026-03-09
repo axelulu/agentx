@@ -282,6 +282,54 @@ async function requestPermission(
 }
 
 // ---------------------------------------------------------------------------
+// tccutil service names for resetting permissions
+// ---------------------------------------------------------------------------
+
+const TCCUTIL_SERVICE_MAP: Partial<Record<PermissionType, string>> = {
+  accessibility: "Accessibility",
+  screen: "ScreenCapture",
+  microphone: "Microphone",
+  camera: "Camera",
+  "full-disk-access": "SystemPolicyAllFiles",
+  automation: "AppleEvents",
+  // notifications: no tccutil service — must be toggled in System Settings
+};
+
+const APP_BUNDLE_ID = "com.agentx.desktop";
+
+// ---------------------------------------------------------------------------
+// Reset (revoke) a permission via tccutil
+// ---------------------------------------------------------------------------
+
+async function resetPermission(
+  type: PermissionType,
+): Promise<{ success: boolean; requiresManual: boolean }> {
+  if (process.platform !== "darwin") {
+    return { success: false, requiresManual: false };
+  }
+
+  const service = TCCUTIL_SERVICE_MAP[type];
+  if (!service) {
+    // No tccutil support (e.g. notifications) — user must toggle manually
+    return { success: false, requiresManual: true };
+  }
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      exec(`tccutil reset ${service} ${APP_BUNDLE_ID}`, { timeout: 5000 }, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log(`[Permissions] tccutil reset ${service} succeeded`);
+    return { success: true, requiresManual: false };
+  } catch (err) {
+    console.warn(`[Permissions] tccutil reset ${service} failed:`, err);
+    return { success: false, requiresManual: true };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Open System Preferences to a specific permission pane
 // ---------------------------------------------------------------------------
 
@@ -373,6 +421,16 @@ export function registerPermissionsHandlers(): void {
     } catch (err) {
       console.error(`[Permissions] openSettings handler failed for ${type}:`, err);
       throw err; // Propagate to renderer so user sees error
+    }
+  });
+
+  ipcMain.handle("permissions:reset", async (_event, type: PermissionType) => {
+    console.log(`[Permissions] IPC permissions:reset called with type: ${type}`);
+    try {
+      return await resetPermission(type);
+    } catch (err) {
+      console.error(`[Permissions] reset(${type}) failed:`, err);
+      return { success: false, requiresManual: true };
     }
   });
 }

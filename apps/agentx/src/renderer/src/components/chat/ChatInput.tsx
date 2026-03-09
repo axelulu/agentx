@@ -4,16 +4,7 @@ import { setInputValue, setError } from "@/slices/chatSlice";
 import { setSettingsOpen } from "@/slices/uiSlice";
 import { useAgent } from "@/hooks/useAgent";
 import { l10n } from "@workspace/l10n";
-import {
-  ArrowUpIcon,
-  SquareIcon,
-  PaperclipIcon,
-  GlobeIcon,
-  ImageIcon,
-  FileIcon,
-  FolderIcon,
-  XIcon,
-} from "lucide-react";
+import { ArrowUpIcon, SquareIcon, PaperclipIcon, FileIcon, FolderIcon, XIcon } from "lucide-react";
 import {
   useCallback,
   useRef,
@@ -210,7 +201,7 @@ export function ChatInput() {
             onKeyDown={handleKeyDown}
             placeholder={l10n.t("Message AgentX...")}
             rows={1}
-            className="w-full bg-transparent resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-4 pt-3 pb-2"
+            className="w-full bg-transparent resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-4 pt-3 pb-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isStreaming}
           />
 
@@ -218,12 +209,6 @@ export function ChatInput() {
           <div className="flex items-center gap-0.5 px-2.5 pb-2.5">
             <ToolbarButton title={l10n.t("Attach file")} onClick={handleAttachClick}>
               <PaperclipIcon className="w-4 h-4" />
-            </ToolbarButton>
-            <ToolbarButton title={l10n.t("Web search")}>
-              <GlobeIcon className="w-4 h-4" />
-            </ToolbarButton>
-            <ToolbarButton title={l10n.t("Generate image")}>
-              <ImageIcon className="w-4 h-4" />
             </ToolbarButton>
 
             {/* Model label */}

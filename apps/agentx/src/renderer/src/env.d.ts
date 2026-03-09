@@ -39,6 +39,10 @@ interface ElectronAPI {
     send: (conversationId: string, content: string) => Promise<void>;
     abort: (conversationId: string) => void;
     onEvent: (callback: (event: unknown) => void) => () => void;
+    subscribe: (conversationId: string) => Promise<void>;
+    unsubscribe: (conversationId: string) => void;
+    status: (conversationId?: string) => Promise<unknown>;
+    runningConversations: () => Promise<string[]>;
   };
   provider: {
     list: () => Promise<unknown[]>;
@@ -63,13 +67,18 @@ interface ElectronAPI {
       type: SystemPermissionType,
     ) => Promise<{ status: SystemPermissionStatus; canRequestDirectly: boolean }>;
     openSettings: (type: SystemPermissionType) => Promise<void>;
+    reset: (type: SystemPermissionType) => Promise<{ success: boolean; requiresManual: boolean }>;
   };
   toolPermissions: {
     get: () => Promise<ToolPermissions>;
     set: (permissions: ToolPermissions) => Promise<void>;
   };
   tool: {
-    respondApproval: (approvalId: string, approved: boolean) => Promise<void>;
+    respondApproval: (
+      conversationId: string,
+      approvalId: string,
+      approved: boolean,
+    ) => Promise<void>;
   };
   fs: {
     readFile: (path: string) => Promise<string>;
@@ -77,11 +86,16 @@ interface ElectronAPI {
     selectFile: (options?: { filters?: unknown[]; multi?: boolean }) => Promise<string[] | null>;
     selectDirectory: () => Promise<string | null>;
     stat: (path: string) => Promise<{ size: number; isDirectory: boolean; isFile: boolean } | null>;
+    openPath: (path: string) => Promise<{ success: boolean; error: string | null }>;
+    showItemInFolder: (path: string) => Promise<boolean>;
     getDroppedPaths: () => string[];
   };
   preferences: {
     get: () => Promise<Record<string, unknown>>;
     set: (prefs: Record<string, unknown>) => Promise<void>;
+  };
+  proxy: {
+    apply: (url: string | null) => Promise<void>;
   };
   updater: {
     checkForUpdates: () => Promise<void>;

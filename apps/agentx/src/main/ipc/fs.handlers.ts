@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from "electron";
+import { ipcMain, dialog, shell } from "electron";
 import { readFile, writeFile, stat } from "fs/promises";
 
 export function registerFSHandlers(): void {
@@ -45,5 +45,19 @@ export function registerFSHandlers(): void {
 
     if (result.canceled) return null;
     return result.filePaths[0];
+  });
+
+  ipcMain.handle("fs:openPath", async (_event, filePath: string) => {
+    try {
+      const errorMessage = await shell.openPath(filePath);
+      return { success: !errorMessage, error: errorMessage || null };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  });
+
+  ipcMain.handle("fs:showItemInFolder", (_event, filePath: string) => {
+    shell.showItemInFolder(filePath);
+    return true;
   });
 }

@@ -10,11 +10,13 @@
 
 export interface SerializableAgentStart {
   type: "agent_start";
+  conversationId: string;
   timestamp: number;
 }
 
 export interface SerializableAgentEnd {
   type: "agent_end";
+  conversationId: string;
   timestamp: number;
   result: {
     turns: number;
@@ -25,12 +27,14 @@ export interface SerializableAgentEnd {
 
 export interface SerializableTurnStart {
   type: "turn_start";
+  conversationId: string;
   timestamp: number;
   turn: number;
 }
 
 export interface SerializableTurnEnd {
   type: "turn_end";
+  conversationId: string;
   timestamp: number;
   turn: number;
   continueLoop: boolean;
@@ -38,12 +42,14 @@ export interface SerializableTurnEnd {
 
 export interface SerializableMessageStart {
   type: "message_start";
+  conversationId: string;
   timestamp: number;
   messageId: string;
 }
 
 export interface SerializableMessageDelta {
   type: "message_delta";
+  conversationId: string;
   timestamp: number;
   messageId: string;
   delta: string;
@@ -51,6 +57,7 @@ export interface SerializableMessageDelta {
 
 export interface SerializableMessageEnd {
   type: "message_end";
+  conversationId: string;
   timestamp: number;
   messageId: string;
   content: string;
@@ -58,6 +65,7 @@ export interface SerializableMessageEnd {
 
 export interface SerializableToolStart {
   type: "tool_start";
+  conversationId: string;
   timestamp: number;
   toolCallId: string;
   toolName: string;
@@ -66,6 +74,7 @@ export interface SerializableToolStart {
 
 export interface SerializableToolUpdate {
   type: "tool_update";
+  conversationId: string;
   timestamp: number;
   toolCallId: string;
   update: string;
@@ -73,6 +82,7 @@ export interface SerializableToolUpdate {
 
 export interface SerializableToolEnd {
   type: "tool_end";
+  conversationId: string;
   timestamp: number;
   toolCallId: string;
   toolName: string;
@@ -84,6 +94,7 @@ export interface SerializableToolEnd {
 
 export interface SerializableError {
   type: "error";
+  conversationId: string;
   timestamp: number;
   error: string;
   fatal: boolean;
@@ -102,6 +113,20 @@ export type SerializableAgentEvent =
   | SerializableToolEnd
   | SerializableError
   | SerializableToolApprovalRequest;
+
+// ---------------------------------------------------------------------------
+// Session status
+// ---------------------------------------------------------------------------
+
+export type SessionStatus = "running" | "awaiting_approval" | "completed" | "aborted" | "error";
+
+export interface SessionStatusInfo {
+  conversationId: string;
+  status: SessionStatus;
+  startedAt: number;
+  eventCount: number;
+  pendingApproval?: SerializableToolApprovalRequest;
+}
 
 // ---------------------------------------------------------------------------
 // Conversation data
@@ -198,6 +223,7 @@ export function isWriteOrExecuteTool(toolName: string): boolean {
 
 export interface SerializableToolApprovalRequest {
   type: "tool_approval_request";
+  conversationId: string;
   timestamp: number;
   approvalId: string;
   toolName: string;

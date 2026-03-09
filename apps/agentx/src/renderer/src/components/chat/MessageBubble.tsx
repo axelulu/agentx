@@ -174,14 +174,10 @@ function AssistantBubble({
 
   return (
     <div className={cn("group/msg flex gap-3", !isConsecutiveAssistant && "animate-slide-up")}>
-      {/* Avatar — hidden for consecutive assistant messages in the same turn sequence */}
-      {isConsecutiveAssistant ? (
-        <div className="w-6 shrink-0" />
-      ) : (
-        <div className="flex items-center justify-center w-6 h-6 rounded-full shrink-0 mt-0.5 bg-foreground text-background">
-          <BotIcon className="w-3 h-3" />
-        </div>
-      )}
+      {/* Avatar */}
+      <div className="flex items-center justify-center w-6 h-6 rounded-full shrink-0 mt-0.5 bg-foreground text-background">
+        <BotIcon className="w-3 h-3" />
+      </div>
 
       {/* Content + actions */}
       <div className="flex-1 min-w-0 pt-0.5">
@@ -373,8 +369,10 @@ function ToolResultBubble({ message }: { message: Message }) {
 
   return (
     <div className="flex gap-3 animate-slide-up">
-      {/* Avatar spacer */}
-      <div className="w-6 shrink-0" />
+      {/* Avatar */}
+      <div className="flex items-center justify-center w-6 h-6 rounded-full shrink-0 mt-0.5 bg-foreground text-background">
+        <BotIcon className="w-3 h-3" />
+      </div>
 
       <div
         className={cn(

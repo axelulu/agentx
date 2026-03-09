@@ -22,6 +22,8 @@ export type {
   DesktopRuntimeConfig,
   ToolPermissions,
   ToolApprovalMode,
+  SessionStatusInfo,
+  SessionStatus,
 } from "./types.js";
 
 export {

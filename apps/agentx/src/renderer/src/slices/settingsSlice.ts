@@ -48,6 +48,7 @@ export interface ToolPermissionsState {
 export interface SettingsState {
   theme: "light" | "dark" | "system";
   language: string;
+  proxyUrl: string;
   providers: ProviderConfig[];
   knowledgeBase: KnowledgeBaseItem[];
   mcpServers: MCPServerConfig[];
@@ -64,7 +65,7 @@ export interface SettingsState {
 
 export const loadPreferences = createAsyncThunk("settings/loadPreferences", async () => {
   const prefs = await window.api.preferences.get();
-  return prefs as { theme?: string; language?: string; sidebarOpen?: boolean };
+  return prefs as { theme?: string; language?: string; sidebarOpen?: boolean; proxyUrl?: string };
 });
 
 export const loadProviders = createAsyncThunk("settings/loadProviders", async () => {
@@ -167,6 +168,7 @@ function persistToolPermissions(perms: ToolPermissionsState): void {
 const initialState: SettingsState = {
   theme: (localStorage.getItem("agentx-theme") as SettingsState["theme"]) || "system",
   language: localStorage.getItem("agentx-language") || "en",
+  proxyUrl: "",
   providers: [],
   knowledgeBase: [],
   mcpServers: [],
@@ -192,6 +194,10 @@ const settingsSlice = createSlice({
       state.language = action.payload;
       localStorage.setItem("agentx-language", action.payload);
       persistPreferences({ language: action.payload });
+    },
+    setProxyUrl(state, action: PayloadAction<string>) {
+      state.proxyUrl = action.payload;
+      persistPreferences({ proxyUrl: action.payload });
     },
 
     // Knowledge Base — synchronous reducers for instant UI updates
@@ -244,6 +250,9 @@ const settingsSlice = createSlice({
           state.language = prefs.language;
           localStorage.setItem("agentx-language", prefs.language);
         }
+        if (typeof prefs.proxyUrl === "string") {
+          state.proxyUrl = prefs.proxyUrl;
+        }
       })
       .addCase(loadProviders.fulfilled, (state, action) => {
         state.providers = action.payload;
@@ -286,6 +295,7 @@ const settingsSlice = createSlice({
 export const {
   setTheme,
   setLanguage,
+  setProxyUrl,
   upsertKBItem,
   deleteKBItem,
   upsertMCPServer,

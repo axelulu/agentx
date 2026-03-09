@@ -1,9 +1,79 @@
-import { memo, useState, type ComponentPropsWithoutRef } from "react";
+import { memo, useState, useCallback, type ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { l10n } from "@workspace/l10n";
 import { cn } from "@/lib/utils";
-import { CheckIcon, CopyIcon, ChevronRightIcon, BrainIcon, LoaderIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CopyIcon,
+  ChevronRightIcon,
+  BrainIcon,
+  LoaderIcon,
+  FileIcon,
+  FolderOpenIcon,
+} from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Local path detection & clickable path component
+// ---------------------------------------------------------------------------
+
+/** Matches absolute paths, ~/ paths, and file_path:line_number patterns */
+const LOCAL_PATH_RE = /^(\/[\w.\-@][^\s:]*|~\/[\w.\-@][^\s:]*)(?::(\d+))?$/;
+
+function isLocalPath(text: string): boolean {
+  return LOCAL_PATH_RE.test(text.trim());
+}
+
+/** Extract path and optional line number */
+function parsePath(text: string): { path: string; line?: number } {
+  const m = LOCAL_PATH_RE.exec(text.trim());
+  if (!m) return { path: text.trim() };
+  return { path: m[1], line: m[2] ? parseInt(m[2], 10) : undefined };
+}
+
+function ClickablePath({ text }: { text: string }) {
+  const { path, line } = parsePath(text);
+  const [hover, setHover] = useState(false);
+
+  const handleClick = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        // Check if it's a file or directory
+        const info = await window.api.fs.stat(path);
+        if (info?.isDirectory) {
+          await window.api.fs.openPath(path);
+        } else {
+          // Show the file in its folder (highlights it in Finder)
+          await window.api.fs.showItemInFolder(path);
+        }
+      } catch {
+        // Fallback: try opening directly
+        await window.api.fs.openPath(path);
+      }
+    },
+    [path],
+  );
+
+  const Icon = path.includes(".") && !path.endsWith("/") ? FileIcon : FolderOpenIcon;
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      className={cn(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] text-[12px] font-mono transition-colors cursor-pointer",
+        "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300",
+      )}
+      title={line ? `${path} (line ${line})` : path}
+    >
+      <Icon className="w-3 h-3 shrink-0" />
+      <span className={cn(hover && "underline underline-offset-2")}>{text}</span>
+    </button>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Code block with copy button
@@ -23,6 +93,12 @@ function CodeBlock({
   // Detect inline code: react-markdown wraps block code in <pre><code>, inline is just <code>
   const isBlock = node?.parentNode?.tagName === "pre" || !!className;
   if (!isBlock) {
+    // Check if inline code contains a local file path
+    const text = String(children);
+    if (isLocalPath(text)) {
+      return <ClickablePath text={text} />;
+    }
+
     return (
       <code
         className="px-1.5 py-0.5 rounded-[4px] bg-foreground/[0.07] text-[12px] font-mono text-foreground/90"
