@@ -1,6 +1,6 @@
 {
   "name": "agentx",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "description": "AgentX AI Desktop Assistant",
   "author": "AgentX",
   "repository": {
@@ -45,6 +45,8 @@
     "remark-math": "^6.0.0",
     "tailwind-merge": "^2.6.0",
     "tw-animate-css": "^1.2.5",
+    "playwright-core": "^1.52",
+    "undici": "^7",
     "uuid": "^11.0.5"
   },
   "devDependencies": {
