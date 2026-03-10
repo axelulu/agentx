@@ -26,7 +26,14 @@ export function ConfirmDialog({
   variant = "default",
   onConfirm,
 }: ConfirmDialogProps) {
-  // Snapshot props while open so content stays stable during close animation
+  // Keep onConfirm in a ref so the click handler always calls the latest version,
+  // even if a re-render occurs between pointer-down and click.
+  const onConfirmRef = useRef(onConfirm);
+  useEffect(() => {
+    onConfirmRef.current = onConfirm;
+  });
+
+  // Snapshot visual props while open so content stays stable during close animation
   const snapshot = useRef({ title, description, children, confirmLabel, cancelLabel, variant });
   useEffect(() => {
     if (open) {
@@ -39,7 +46,7 @@ export function ConfirmDialog({
     : snapshot.current;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} closeOnClickOutside={false}>
       <DialogContent
         title={s.title}
         description={s.description}
@@ -49,12 +56,24 @@ export function ConfirmDialog({
         {s.children}
         <div className="flex items-center justify-end gap-2 mt-2">
           <DialogClose asChild>
-            <button className="px-3 py-1.5 text-sm rounded-lg hover:bg-foreground/[0.06] transition-colors text-muted-foreground">
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm rounded-lg hover:bg-foreground/[0.06] transition-colors text-muted-foreground"
+            >
               {s.cancelLabel ?? l10n.t("Cancel")}
             </button>
           </DialogClose>
           <button
-            onClick={onConfirm}
+            type="button"
+            onPointerDown={(e) => {
+              // Prevent Radix DismissableLayer from seeing this as an "outside" click
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirmRef.current();
+              onOpenChange(false);
+            }}
             className={cn(
               "px-3 py-1.5 text-sm rounded-lg font-medium transition-colors",
               s.variant === "destructive"

@@ -1,8 +1,21 @@
-import { app, BrowserWindow, shell, ipcMain, Menu, protocol, net, globalShortcut } from "electron";
+import {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  Menu,
+  Tray,
+  protocol,
+  net,
+  globalShortcut,
+  dialog,
+  nativeImage,
+} from "electron";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { is } from "@electron-toolkit/utils";
 import { initAndRegisterHandlers } from "./ipc/handlers";
+import { shutdownDesktopRuntime } from "./ipc/desktop.handlers";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +31,110 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
+let isShowingQuitDialog = false;
+
+// ---------------------------------------------------------------------------
+// Tray icon – keeps the app accessible when the window is hidden.
+// ---------------------------------------------------------------------------
+function getTrayIconPath(): string {
+  if (is.dev) {
+    return join(__dirname, "../../resources/icon.png");
+  }
+  return join(process.resourcesPath, "icon.png");
+}
+
+function showAndFocus(): void {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function showAndSend(channel: string): void {
+  showAndFocus();
+  mainWindow?.webContents.send(channel);
+}
+
+function createTray(): void {
+  const icon = nativeImage.createFromPath(getTrayIconPath()).resize({ width: 18, height: 18 });
+  if (process.platform === "darwin") {
+    icon.setTemplateImage(true);
+  }
+
+  tray = new Tray(icon);
+  tray.setToolTip("AgentX");
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "显示 AgentX",
+      click: () => showAndFocus(),
+    },
+    { type: "separator" },
+    {
+      label: "新建对话",
+      accelerator: "CmdOrCtrl+N",
+      click: () => showAndSend("shortcut:new-conversation"),
+    },
+    {
+      label: "搜索",
+      accelerator: "CmdOrCtrl+K",
+      click: () => showAndSend("shortcut:search"),
+    },
+    { type: "separator" },
+    {
+      label: "设置...",
+      accelerator: "CmdOrCtrl+,",
+      click: () => showAndSend("shortcut:settings"),
+    },
+    { type: "separator" },
+    {
+      label: "退出 AgentX",
+      accelerator: "CmdOrCtrl+Q",
+      click: () => confirmQuit(),
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
+
+  // Double-click tray icon to show window (Windows/Linux)
+  tray.on("double-click", () => showAndFocus());
+}
+
+// ---------------------------------------------------------------------------
+// Quit confirmation – warns the user that scheduled tasks will stop.
+// ---------------------------------------------------------------------------
+async function confirmQuit(): Promise<void> {
+  if (isShowingQuitDialog) return;
+  isShowingQuitDialog = true;
+
+  try {
+    // Show window if hidden so the dialog is visible
+    if (mainWindow && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+
+    const { response } = await dialog.showMessageBox(
+      mainWindow ?? (undefined as unknown as BrowserWindow),
+      {
+        type: "warning",
+        buttons: ["取消", "退出"],
+        defaultId: 0,
+        cancelId: 0,
+        title: "确认退出",
+        message: "确定要退出 AgentX 吗？",
+        detail: "退出后，所有定时任务将会停止运行。",
+      },
+    );
+
+    if (response === 1) {
+      isQuitting = true;
+      app.quit();
+    }
+  } finally {
+    isShowingQuitDialog = false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Application menu – replaces Electron's default menu to remove browser-
@@ -42,7 +159,11 @@ function createAppMenu(): void {
               { role: "hideOthers" as const },
               { role: "unhide" as const },
               { type: "separator" as const },
-              { role: "quit" as const },
+              {
+                label: "Quit AgentX",
+                accelerator: "CmdOrCtrl+Q",
+                click: () => confirmQuit(),
+              },
             ],
           },
         ]
@@ -135,6 +256,15 @@ function createWindow(): void {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
+  });
+
+  // Hide to tray instead of closing – the app keeps running in the background.
+  // Only actually close when the user confirms quit via Ctrl+Q / Cmd+Q.
+  mainWindow.on("close", (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
   });
 
   // Open external links in the system browser
@@ -247,30 +377,40 @@ app.whenReady().then(async () => {
   await initAndRegisterHandlers();
 
   createAppMenu();
+  createTray();
   createWindow();
 
   // Global shortcut: Option+Space (macOS) / Alt+Space (others) to show/focus window
   const globalKey = process.platform === "darwin" ? "Alt+Space" : "Alt+Space";
-  globalShortcut.register(globalKey, () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    if (!mainWindow.isVisible()) mainWindow.show();
-    mainWindow.focus();
-  });
+  globalShortcut.register(globalKey, () => showAndFocus());
 
+  // Show existing hidden window on macOS dock click
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (mainWindow) {
+      showAndFocus();
+    } else {
       createWindow();
     }
   });
 });
 
-app.on("will-quit", () => {
-  globalShortcut.unregisterAll();
+// Intercept quit from external sources (e.g. dock right-click → Quit on macOS)
+app.on("before-quit", (event) => {
+  if (!isQuitting) {
+    event.preventDefault();
+    confirmQuit();
+  }
 });
 
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+  tray?.destroy();
+  shutdownDesktopRuntime().catch((err) => {
+    console.error("[App] Shutdown error:", err);
+  });
+});
+
+// App lives in the tray – never quit on window close.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  // no-op: keep the app running in the background
 });

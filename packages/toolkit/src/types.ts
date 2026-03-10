@@ -187,6 +187,8 @@ export interface AgentToolResult {
   content: string;
   isError?: boolean;
   metadata?: Record<string, unknown>;
+  /** Image results — included as vision content in the next model call */
+  images?: Array<{ data: string; mimeType: string }>;
 }
 
 // ============================================================

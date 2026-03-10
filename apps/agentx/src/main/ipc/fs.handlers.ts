@@ -86,6 +86,28 @@ export function registerFSHandlers(): void {
     return true;
   });
 
+  ipcMain.handle("fs:readFileBase64", async (_event, filePath: string) => {
+    try {
+      const buffer = await readFile(filePath);
+      const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+      const mimeMap: Record<string, string> = {
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        gif: "image/gif",
+        webp: "image/webp",
+        svg: "image/svg+xml",
+        bmp: "image/bmp",
+      };
+      return {
+        data: buffer.toString("base64"),
+        mimeType: mimeMap[ext] ?? "image/png",
+      };
+    } catch {
+      return null;
+    }
+  });
+
   ipcMain.handle("export:printToPDF", async (_event, html: string) => {
     const win = new BrowserWindow({
       show: false,

@@ -62,6 +62,8 @@ export interface ToolResultMessage {
   toolCallId: string;
   content: string;
   isError?: boolean;
+  /** Image results from tool execution — sent as vision content to the model */
+  images?: Array<{ data: string; mimeType: string }>;
 }
 
 export type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
@@ -201,6 +203,8 @@ export interface AgentConfig {
   maxTokens?: number; // default: 8192
   temperature?: number; // default: 0.7
   toolChoice?: "auto" | "required" | "none";
+  /** Max retries for retryable LLM errors (429/5xx/network). Default: 3 */
+  maxRetries?: number;
 }
 
 // ---------------------------------------------------------------------------

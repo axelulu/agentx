@@ -1,8 +1,9 @@
-import { exec } from "node:child_process";
+import { spawn } from "node:child_process";
 import type { NamedToolHandler } from "../types";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_OUTPUT_LENGTH = 50_000;
+const PROGRESS_INTERVAL_MS = 150;
 
 /** Blocked commands that could be destructive */
 const BLOCKED_PATTERNS = [
@@ -52,47 +53,91 @@ function shellRun(workspaceRoot: string): NamedToolHandler {
       }
 
       return new Promise((resolve) => {
-        const child = exec(
-          command,
-          {
-            cwd: workspaceRoot,
-            timeout: timeoutMs,
-            maxBuffer: 5 * 1024 * 1024, // 5MB
-            env: { ...process.env, FORCE_COLOR: "0" },
-          },
-          (error, stdout, stderr) => {
-            let output = stdout || "";
-            if (stderr) {
-              output += (output ? "\n" : "") + stderr;
-            }
+        const child = spawn(command, {
+          shell: true,
+          stdio: ["ignore", "pipe", "pipe"],
+          cwd: workspaceRoot,
+          env: { ...process.env, FORCE_COLOR: "0" },
+        });
 
-            // Truncate large output
-            if (output.length > MAX_OUTPUT_LENGTH) {
-              const head = output.substring(0, MAX_OUTPUT_LENGTH / 2);
-              const tail = output.substring(output.length - MAX_OUTPUT_LENGTH / 2);
-              output = `${head}\n...[${output.length - MAX_OUTPUT_LENGTH} chars truncated]...\n${tail}`;
-            }
+        let output = "";
+        let pendingDelta = "";
+        let timedOut = false;
 
-            if (error) {
-              resolve({
-                content: JSON.stringify({
-                  exitCode: error.code ?? 1,
-                  output,
-                  error: error.message,
-                }),
-                isError: true,
-              });
-              return;
-            }
+        // Flush pending delta via emitProgress
+        const flushProgress = () => {
+          if (pendingDelta && ctx.emitProgress) {
+            ctx.emitProgress(pendingDelta);
+            pendingDelta = "";
+          }
+        };
 
+        // Periodic flush timer
+        const flushTimer = setInterval(flushProgress, PROGRESS_INTERVAL_MS);
+
+        // Manual timeout (spawn doesn't support timeout option)
+        const timeoutTimer = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGTERM");
+        }, timeoutMs);
+
+        child.stdout?.on("data", (chunk: Buffer) => {
+          const text = chunk.toString();
+          output += text;
+          pendingDelta += text;
+        });
+
+        child.stderr?.on("data", (chunk: Buffer) => {
+          const text = chunk.toString();
+          output += text;
+          pendingDelta += text;
+        });
+
+        child.on("close", (code) => {
+          clearTimeout(timeoutTimer);
+          clearInterval(flushTimer);
+          flushProgress(); // flush any remaining delta
+
+          // Truncate large output
+          if (output.length > MAX_OUTPUT_LENGTH) {
+            const head = output.substring(0, MAX_OUTPUT_LENGTH / 2);
+            const tail = output.substring(output.length - MAX_OUTPUT_LENGTH / 2);
+            output = `${head}\n...[${output.length - MAX_OUTPUT_LENGTH} chars truncated]...\n${tail}`;
+          }
+
+          const exitCode = code ?? 0;
+          if (timedOut || exitCode !== 0) {
             resolve({
               content: JSON.stringify({
-                exitCode: 0,
+                exitCode: exitCode || 1,
                 output,
+                error: timedOut ? `Command timed out after ${timeoutMs}ms` : undefined,
               }),
+              isError: true,
             });
-          },
-        );
+            return;
+          }
+
+          resolve({
+            content: JSON.stringify({
+              exitCode: 0,
+              output,
+            }),
+          });
+        });
+
+        child.on("error", (err) => {
+          clearTimeout(timeoutTimer);
+          clearInterval(flushTimer);
+          resolve({
+            content: JSON.stringify({
+              exitCode: 1,
+              output,
+              error: err.message,
+            }),
+            isError: true,
+          });
+        });
 
         // Handle abort signal
         ctx.signal.addEventListener("abort", () => {

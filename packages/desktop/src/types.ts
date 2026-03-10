@@ -108,6 +108,22 @@ export interface SerializableUsage {
   outputTokens: number;
 }
 
+export interface SerializableSubAgentProgress {
+  type: "sub_agent_progress";
+  conversationId: string;
+  timestamp: number;
+  batchId: string;
+  agents: Array<{
+    agentId: string;
+    label: string;
+    status: "pending" | "running" | "completed" | "error" | "cancelled";
+    currentTurn: number;
+    maxTurns: number;
+    activeTool?: string;
+    lastMessage?: string;
+  }>;
+}
+
 export type SerializableAgentEvent =
   | SerializableAgentStart
   | SerializableAgentEnd
@@ -121,7 +137,8 @@ export type SerializableAgentEvent =
   | SerializableToolEnd
   | SerializableError
   | SerializableToolApprovalRequest
-  | SerializableUsage;
+  | SerializableUsage
+  | SerializableSubAgentProgress;
 
 // ---------------------------------------------------------------------------
 // Session status
@@ -178,6 +195,8 @@ export interface MessageData {
   toolCallId?: string;
   isError?: boolean;
   timestamp: number;
+  /** Image attachments — base64 stored in separate files, references stored here */
+  images?: Array<{ path: string; mimeType: string }>;
 }
 
 /**
@@ -237,12 +256,20 @@ export function getToolPermissionCategory(
   if (toolName.startsWith("mcp_")) return "mcpCall";
   switch (toolName) {
     case "file_read":
+    case "grep":
+    case "glob":
+    case "list_directory":
       return "fileRead";
     case "file_create":
     case "file_rewrite":
       return "fileWrite";
     case "shell_run":
+    case "manage_scheduled_task":
+    case "screen_capture":
       return "shellExecute";
+    case "sub_agent":
+    case "orchestrate_sub_agents":
+      return "none";
     default:
       return "none";
   }
@@ -327,6 +354,17 @@ export interface MCPServerState {
   toolCount: number;
   error?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Scheduled Tasks (re-exported from scheduler module)
+// ---------------------------------------------------------------------------
+
+export type {
+  ScheduledTask,
+  ScheduledTaskSchedule,
+  ScheduledTaskAction,
+  ScheduledTaskStatusUpdate,
+} from "./scheduler/types.js";
 
 // ---------------------------------------------------------------------------
 // Runtime config

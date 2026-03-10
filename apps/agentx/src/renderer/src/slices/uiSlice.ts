@@ -10,6 +10,8 @@ export type SettingsSection =
   | "knowledgeBase"
   | "mcp"
   | "skills"
+  | "scheduledTasks"
+  | "memory"
   | "permissions"
   | "about";
 

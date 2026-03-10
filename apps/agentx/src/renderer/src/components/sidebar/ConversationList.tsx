@@ -10,7 +10,7 @@ import {
   toggleConversationFavorite,
 } from "@/slices/chatSlice";
 import { openTab, toggleFolderCollapsed } from "@/slices/uiSlice";
-import { renameFolder, deleteFolder } from "@/slices/settingsSlice";
+import { renameFolder, deleteFolder, clearLastCreatedFolderId } from "@/slices/settingsSlice";
 import type { Folder } from "@/slices/settingsSlice";
 import { l10n } from "@workspace/l10n";
 import { cn } from "@/lib/utils";
@@ -177,11 +177,7 @@ export function ConversationList({
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [folderEditValue, setFolderEditValue] = useState("");
   const folderEditRef = useRef<HTMLInputElement>(null);
-  const prevFolderCountRef = useRef(folders.length);
-  // Folder delete confirmation
-  const [deleteFolderTarget, setDeleteFolderTarget] = useState<{ id: string; name: string } | null>(
-    null,
-  );
+  const lastCreatedFolderId = useSelector((state: RootState) => state.settings.lastCreatedFolderId);
 
   // Section collapse state (for Favorites and Ungrouped)
   const [favoritesCollapsed, setFavoritesCollapsed] = useState(false);
@@ -226,17 +222,17 @@ export function ConversationList({
     }
   }, [editingFolderId]);
 
-  // Auto-enter edit mode when a new folder is created
+  // Auto-enter edit mode when a new folder is created (not when loaded from preferences)
   useEffect(() => {
-    if (folders.length > prevFolderCountRef.current) {
-      const newFolder = folders[folders.length - 1];
+    if (lastCreatedFolderId) {
+      const newFolder = folders.find((f) => f.id === lastCreatedFolderId);
       if (newFolder) {
         setEditingFolderId(newFolder.id);
         setFolderEditValue(newFolder.name);
       }
+      dispatch(clearLastCreatedFolderId());
     }
-    prevFolderCountRef.current = folders.length;
-  }, [folders]);
+  }, [lastCreatedFolderId, folders, dispatch]);
 
   const commitEdit = useCallback(() => {
     if (!editingId) return;
@@ -304,19 +300,15 @@ export function ConversationList({
     }
   };
 
-  const handleFolderDelete = () => {
-    if (!deleteFolderTarget) return;
-    const folderId = deleteFolderTarget.id;
-    // Delete the folder first (synchronous — instant UI update)
-    dispatch(deleteFolder(folderId));
-    // Close the dialog
-    setDeleteFolderTarget(null);
-    // Clean up conversations in background (fire-and-forget)
+  // Direct folder delete — no dialog, immediate action
+  const handleFolderDelete = (folderId: string) => {
+    // Unassign conversations from this folder first
     for (const conv of conversations) {
       if (conv.folderId === folderId) {
         dispatch(updateConversationFolder({ id: conv.id, folderId: null }));
       }
     }
+    dispatch(deleteFolder(folderId));
   };
 
   // Build context menu items for a conversation
@@ -460,18 +452,7 @@ export function ConversationList({
 
   const isDragging = activeId !== null;
 
-  // Empty state — rendered after all hooks to satisfy Rules of Hooks
-  if (conversations.length === 0 && folders.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-        <MessageSquareIcon className="w-8 h-8 text-muted-foreground/20 mb-3" />
-        <p className="text-[13px] text-muted-foreground/50">{l10n.t("No conversations yet")}</p>
-        <p className="text-[11px] text-muted-foreground/30 mt-1">
-          {l10n.t("Start a new chat to begin")}
-        </p>
-      </div>
-    );
-  }
+  const isEmpty = conversations.length === 0 && folders.length === 0;
 
   const draggedConversation =
     activeType === "conversation" ? conversations.find((c) => c.id === activeId) : null;
@@ -696,6 +677,58 @@ export function ConversationList({
   // Folder sortable IDs for folder reordering
   const folderSortableIds = sortedFolders.map((f) => `folder::${f.id}`);
 
+  // Shared confirmation dialogs — always rendered so they survive the empty‐state branch
+  const confirmDialogs = (
+    <>
+      {/* Single delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={l10n.t("Delete conversation")}
+        confirmLabel={l10n.t("Delete")}
+        variant="destructive"
+        onConfirm={handleDelete}
+      >
+        <p className="text-sm text-muted-foreground">
+          {l10n.t("Are you sure you want to delete")}{" "}
+          <span className="font-medium text-foreground">&ldquo;{deleteTarget?.title}&rdquo;</span>?{" "}
+          {l10n.t("This action cannot be undone.")}
+        </p>
+      </ConfirmDialog>
+
+      {/* Batch delete confirmation dialog */}
+      <ConfirmDialog
+        open={batchDeleteConfirm}
+        onOpenChange={(open) => !open && setBatchDeleteConfirm(false)}
+        title={l10n.t("Delete conversations")}
+        confirmLabel={l10n.t("Delete")}
+        variant="destructive"
+        onConfirm={handleBatchDelete}
+      >
+        <p className="text-sm text-muted-foreground">
+          {l10n.t("Are you sure you want to delete")}{" "}
+          <span className="font-medium text-foreground">{selectedIds.size}</span>{" "}
+          {l10n.t("conversations? This action cannot be undone.")}
+        </p>
+      </ConfirmDialog>
+    </>
+  );
+
+  if (isEmpty) {
+    return (
+      <>
+        <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+          <MessageSquareIcon className="w-8 h-8 text-muted-foreground/20 mb-3" />
+          <p className="text-[13px] text-muted-foreground/50">{l10n.t("No conversations yet")}</p>
+          <p className="text-[11px] text-muted-foreground/30 mt-1">
+            {l10n.t("Start a new chat to begin")}
+          </p>
+        </div>
+        {confirmDialogs}
+      </>
+    );
+  }
+
   return (
     <DndContext
       sensors={isDndEnabled ? sensors : undefined}
@@ -765,7 +798,11 @@ export function ConversationList({
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        setFolderContextMenu({ x: e.clientX, y: e.clientY, targetId: folder.id });
+                        setFolderContextMenu({
+                          x: e.clientX,
+                          y: e.clientY,
+                          targetId: folder.id,
+                        });
                       }}
                     >
                       <ChevronRightIcon
@@ -805,12 +842,17 @@ export function ConversationList({
                           {folderConvs.length}
                         </span>
                       )}
-                      {/* Delete folder button — visible on hover */}
-                      {!isFolderEditing && !selectMode && (
+                      {/* Original delete folder button (hover visible) */}
+                      {!selectMode && (
                         <button
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDeleteFolderTarget({ id: folder.id, name: folder.name });
+                            e.preventDefault();
+                            handleFolderDelete(folder.id);
                           }}
                           className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/15 hover:text-destructive transition-all text-muted-foreground/40"
                         >
@@ -982,7 +1024,7 @@ export function ConversationList({
                 onClick: () => {
                   const folder = folders.find((f) => f.id === folderContextMenu.targetId);
                   if (folder) {
-                    setDeleteFolderTarget({ id: folder.id, name: folder.name });
+                    handleFolderDelete(folder.id);
                   }
                 },
               },
@@ -990,55 +1032,7 @@ export function ConversationList({
           />
         )}
 
-        {/* Single delete confirmation dialog */}
-        <ConfirmDialog
-          open={!!deleteTarget}
-          onOpenChange={(open) => !open && setDeleteTarget(null)}
-          title={l10n.t("Delete conversation")}
-          confirmLabel={l10n.t("Delete")}
-          variant="destructive"
-          onConfirm={handleDelete}
-        >
-          <p className="text-sm text-muted-foreground">
-            {l10n.t("Are you sure you want to delete")}{" "}
-            <span className="font-medium text-foreground">&ldquo;{deleteTarget?.title}&rdquo;</span>
-            ? {l10n.t("This action cannot be undone.")}
-          </p>
-        </ConfirmDialog>
-
-        {/* Folder delete confirmation dialog */}
-        <ConfirmDialog
-          open={!!deleteFolderTarget}
-          onOpenChange={(open) => !open && setDeleteFolderTarget(null)}
-          title={l10n.t("Delete group")}
-          confirmLabel={l10n.t("Delete")}
-          variant="destructive"
-          onConfirm={handleFolderDelete}
-        >
-          <p className="text-sm text-muted-foreground">
-            {l10n.t("Are you sure you want to delete group")}{" "}
-            <span className="font-medium text-foreground">
-              &ldquo;{deleteFolderTarget?.name}&rdquo;
-            </span>
-            ? {l10n.t("Conversations in this group will be moved to Ungrouped.")}
-          </p>
-        </ConfirmDialog>
-
-        {/* Batch delete confirmation dialog */}
-        <ConfirmDialog
-          open={batchDeleteConfirm}
-          onOpenChange={(open) => !open && setBatchDeleteConfirm(false)}
-          title={l10n.t("Delete conversations")}
-          confirmLabel={l10n.t("Delete")}
-          variant="destructive"
-          onConfirm={handleBatchDelete}
-        >
-          <p className="text-sm text-muted-foreground">
-            {l10n.t("Are you sure you want to delete")}{" "}
-            <span className="font-medium text-foreground">{selectedIds.size}</span>{" "}
-            {l10n.t("conversations? This action cannot be undone.")}
-          </p>
-        </ConfirmDialog>
+        {confirmDialogs}
       </div>
     </DndContext>
   );

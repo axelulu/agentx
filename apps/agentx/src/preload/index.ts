@@ -58,7 +58,7 @@ const api = {
       ipcRenderer.invoke("conversation:switchBranch", id, targetMessageId),
   },
   agent: {
-    send: (conversationId: string, content: string) =>
+    send: (conversationId: string, content: string | unknown[]) =>
       ipcRenderer.invoke("agent:send", conversationId, content),
     regenerate: (conversationId: string, assistantMessageId: string) =>
       ipcRenderer.invoke("agent:regenerate", conversationId, assistantMessageId),
@@ -99,6 +99,11 @@ const api = {
       ipcRenderer.invoke("fs:showSaveDialog", options) as Promise<string | null>,
     writeFileBinary: (path: string, base64Data: string) =>
       ipcRenderer.invoke("fs:writeFileBinary", path, base64Data) as Promise<boolean>,
+    readFileBase64: (path: string) =>
+      ipcRenderer.invoke("fs:readFileBase64", path) as Promise<{
+        data: string;
+        mimeType: string;
+      } | null>,
   },
   export: {
     printToPDF: (html: string) => ipcRenderer.invoke("export:printToPDF", html) as Promise<string>,
@@ -155,6 +160,19 @@ const api = {
       };
     },
   },
+  scheduler: {
+    list: () => ipcRenderer.invoke("scheduler:list"),
+    set: (task: unknown) => ipcRenderer.invoke("scheduler:set", task),
+    remove: (id: string) => ipcRenderer.send("scheduler:remove", id),
+    runNow: (id: string) => ipcRenderer.invoke("scheduler:runNow", id),
+    onStatusUpdate: (callback: (tasks: unknown[]) => void) => {
+      const listener = (_: unknown, tasks: unknown[]) => callback(tasks);
+      ipcRenderer.on("scheduler:statusUpdate", listener);
+      return () => {
+        ipcRenderer.removeListener("scheduler:statusUpdate", listener);
+      };
+    },
+  },
   permissions: {
     checkAll: () => ipcRenderer.invoke("permissions:checkAll"),
     check: (type: string) => ipcRenderer.invoke("permissions:check", type),
@@ -170,6 +188,16 @@ const api = {
     get: () => ipcRenderer.invoke("toolPermissions:get"),
     set: (permissions: unknown) => ipcRenderer.invoke("toolPermissions:set", permissions),
   },
+  memory: {
+    getConfig: () => ipcRenderer.invoke("memory:getConfig"),
+    setConfig: (config: unknown) => ipcRenderer.invoke("memory:setConfig", config),
+    getSummaries: () => ipcRenderer.invoke("memory:getSummaries"),
+    deleteSummary: (id: string) => ipcRenderer.invoke("memory:deleteSummary", id),
+    getFacts: () => ipcRenderer.invoke("memory:getFacts"),
+    deleteFact: (id: string) => ipcRenderer.invoke("memory:deleteFact", id),
+    updateFact: (id: string, content: string) =>
+      ipcRenderer.invoke("memory:updateFact", id, content),
+  },
   tool: {
     respondApproval: (conversationId: string, approvalId: string, approved: boolean) =>
       ipcRenderer.invoke("tool:respondApproval", conversationId, approvalId, approved),
@@ -184,6 +212,19 @@ const api = {
   voice: {
     transcribe: (audioBuffer: ArrayBuffer, language?: string) =>
       ipcRenderer.invoke("voice:transcribe", audioBuffer, language),
+  },
+  screen: {
+    capture: () =>
+      ipcRenderer.invoke("screen:capture") as Promise<{ data: string; mimeType: string } | null>,
+  },
+  notifications: {
+    onNavigateToConversation: (callback: (conversationId: string) => void) => {
+      const listener = (_: unknown, conversationId: string) => callback(conversationId);
+      ipcRenderer.on("notification:navigateToConversation", listener);
+      return () => {
+        ipcRenderer.removeListener("notification:navigateToConversation", listener);
+      };
+    },
   },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke("updater:checkForUpdates"),

@@ -1,6 +1,8 @@
 import { ipcMain, BrowserWindow, app, net } from "electron";
 import { join } from "path";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from "fs";
+import { execFile } from "child_process";
+import { tmpdir } from "os";
 import { is } from "@electron-toolkit/utils";
 import { DesktopRuntime } from "@workspace/desktop";
 import type {
@@ -9,9 +11,16 @@ import type {
   MCPServerConfig,
   SkillDefinition,
   ToolPermissions,
+  ScheduledTask,
 } from "@workspace/desktop";
 import { searchSkills, getSkill } from "@workspace/desktop";
 import { setGlobalDispatcher, ProxyAgent, Agent } from "undici";
+import {
+  loadNotificationPreferences,
+  updateNotificationPreferences,
+  notifyScheduledTaskCompleted,
+  notifyAgentCompleted,
+} from "../notifications";
 
 let runtime: DesktopRuntime;
 
@@ -144,6 +153,50 @@ export async function initDesktopRuntime(): Promise<void> {
       }
     }
   });
+
+  // Load notification preferences
+  loadNotificationPreferences(prefsPath);
+
+  // Restore scheduled tasks and start scheduler
+  const schedulerPath = join(resolvedDataDir, "scheduled-tasks.json");
+  const savedTasks = readJsonFile<ScheduledTask[]>(schedulerPath, []);
+  runtime.setSchedulerPersistFn((tasks) => {
+    writeJsonFile(schedulerPath, tasks);
+  });
+  runtime.setScheduledTasks(savedTasks);
+
+  // Track lastRunAt per task to detect new completions
+  const taskLastRunAt = new Map<string, number>();
+  for (const t of savedTasks) {
+    if (t.lastRunAt) taskLastRunAt.set(t.id, t.lastRunAt);
+  }
+
+  runtime.setSchedulerStatusHandler((update) => {
+    // Persist on every status change (includes lastRunAt, results, etc.)
+    writeJsonFile(schedulerPath, update.tasks);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send("scheduler:statusUpdate", update.tasks);
+      }
+    }
+
+    // Detect newly completed tasks and fire notifications
+    for (const task of update.tasks) {
+      if (task.lastRunAt) {
+        const prev = taskLastRunAt.get(task.id);
+        if (prev !== undefined && prev !== task.lastRunAt) {
+          notifyScheduledTaskCompleted(task);
+        }
+        taskLastRunAt.set(task.id, task.lastRunAt);
+      }
+    }
+  });
+  runtime.startScheduler();
+
+  // Wire agent session completion notifications
+  runtime.setSessionCompletionHandler((conversationId) => {
+    notifyAgentCompleted(conversationId);
+  });
 }
 
 export function registerDesktopHandlers(): void {
@@ -200,9 +253,13 @@ export function registerDesktopHandlers(): void {
   // Agent execution — fire-and-forget send, subscriber-based events
   // ---------------------------------------------------------------------------
 
-  ipcMain.handle("agent:send", async (_event, conversationId: string, content: string) => {
-    await runtime.sendMessage(conversationId, content);
-  });
+  ipcMain.handle(
+    "agent:send",
+    async (_event, conversationId: string, content: string | unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await runtime.sendMessage(conversationId, content as any);
+    },
+  );
 
   ipcMain.handle(
     "agent:regenerate",
@@ -403,6 +460,16 @@ export function registerDesktopHandlers(): void {
         // runtime may not be initialized
       }
     }
+    // Sync notification preferences
+    if ("notifications" in prefs && typeof prefs.notifications === "object") {
+      updateNotificationPreferences(
+        prefs.notifications as Partial<{
+          enabled: boolean;
+          scheduledTasks: boolean;
+          agentCompletion: boolean;
+        }>,
+      );
+    }
   });
 
   // ---------------------------------------------------------------------------
@@ -591,4 +658,147 @@ export function registerDesktopHandlers(): void {
       }
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Screen Capture — macOS interactive screenshot
+  // ---------------------------------------------------------------------------
+
+  ipcMain.handle("screen:capture", async (event) => {
+    if (process.platform !== "darwin") return null;
+
+    const win = BrowserWindow.fromWebContents(event.sender);
+
+    // Hide the app window so the user can see the full screen
+    if (win && !win.isDestroyed()) {
+      win.hide();
+    }
+
+    const tmpFile = join(tmpdir(), `agentx-screenshot-${Date.now()}.png`);
+
+    try {
+      // Small delay to let the window fully hide
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      await new Promise<void>((resolve, reject) => {
+        execFile("screencapture", ["-i", "-x", "-t", "png", tmpFile], (error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+
+      // If user cancelled, the file won't exist
+      if (!existsSync(tmpFile)) return null;
+
+      const imageBuffer = readFileSync(tmpFile);
+      const base64 = imageBuffer.toString("base64");
+
+      try {
+        unlinkSync(tmpFile);
+      } catch {
+        // ignore cleanup errors
+      }
+
+      return { data: base64, mimeType: "image/png" };
+    } catch {
+      // User cancelled (Escape) or error — clean up
+      try {
+        unlinkSync(tmpFile);
+      } catch {
+        // ignore
+      }
+      return null;
+    } finally {
+      // Always restore the window
+      if (win && !win.isDestroyed()) {
+        win.show();
+        win.focus();
+      }
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Scheduled Tasks (JSON file persistence + runtime)
+  // ---------------------------------------------------------------------------
+
+  const schedulerPath = join(resolvedDataDir, "scheduled-tasks.json");
+
+  ipcMain.handle("scheduler:list", () => {
+    return readJsonFile<ScheduledTask[]>(schedulerPath, []);
+  });
+
+  ipcMain.handle("scheduler:set", (_event, task: { id: string }) => {
+    const tasks = readJsonFile<ScheduledTask[]>(schedulerPath, []);
+    const idx = tasks.findIndex((t) => t.id === task.id);
+    if (idx >= 0) {
+      tasks[idx] = task as ScheduledTask;
+    } else {
+      tasks.push(task as ScheduledTask);
+    }
+    writeJsonFile(schedulerPath, tasks);
+    runtime?.setScheduledTasks(tasks);
+  });
+
+  ipcMain.on("scheduler:remove", (_event, id: string) => {
+    const tasks = readJsonFile<ScheduledTask[]>(schedulerPath, []);
+    const remaining = tasks.filter((t) => t.id !== id);
+    writeJsonFile(schedulerPath, remaining);
+    runtime?.setScheduledTasks(remaining);
+  });
+
+  ipcMain.handle("scheduler:runNow", async (_event, id: string) => {
+    const manager = runtime?.getScheduledTaskManager();
+    if (manager) {
+      await manager.runNow(id);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cross-session Memory
+  // ---------------------------------------------------------------------------
+
+  ipcMain.handle("memory:getConfig", () => {
+    return (
+      runtime?.getMemoryConfig() ?? {
+        enabled: true,
+        maxSummaries: 50,
+        maxFacts: 100,
+        autoExtract: true,
+      }
+    );
+  });
+
+  ipcMain.handle("memory:setConfig", async (_event, config: unknown) => {
+    await runtime?.setMemoryConfig(config as Parameters<typeof runtime.setMemoryConfig>[0]);
+  });
+
+  ipcMain.handle("memory:getSummaries", async () => {
+    return (await runtime?.getMemorySummaries()) ?? [];
+  });
+
+  ipcMain.handle("memory:deleteSummary", async (_event, id: string) => {
+    await runtime?.deleteMemorySummary(id);
+  });
+
+  ipcMain.handle("memory:getFacts", async () => {
+    return (await runtime?.getMemoryFacts()) ?? [];
+  });
+
+  ipcMain.handle("memory:deleteFact", async (_event, id: string) => {
+    await runtime?.deleteMemoryFact(id);
+  });
+
+  ipcMain.handle("memory:updateFact", async (_event, id: string, content: string) => {
+    return await runtime?.updateMemoryFact(id, content);
+  });
+}
+
+/**
+ * Gracefully shut down the desktop runtime (scheduler, MCP, etc.)
+ */
+export async function shutdownDesktopRuntime(): Promise<void> {
+  try {
+    await runtime?.shutdown();
+  } catch (err) {
+    console.error("[Desktop] Shutdown error:", err);
+  }
 }

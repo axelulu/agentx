@@ -614,6 +614,79 @@
 }
 
 /* ===========================================
+   🎨 Accent Color System (oklch + --accent-hue)
+   Override accent-dependent variables to follow --accent-hue
+   ========================================== */
+:root {
+  --message-user-bg: oklch(0.65 0.19 var(--accent-hue));
+  --theme-accent-secondary: oklch(0.55 0.24 calc(var(--accent-hue) + 20));
+  --theme-accent-tertiary: oklch(0.62 0.21 var(--accent-hue));
+  --decoration-blue: oklch(0.62 0.21 var(--accent-hue));
+  --decoration-purple: oklch(0.65 0.19 calc(var(--accent-hue) + 25));
+  --theme-border-focus: oklch(0.6 0.2 var(--accent-hue) / 0.3);
+  --theme-shadow-glow: 0 0 24px oklch(0.55 0.2 var(--accent-hue) / 0.1);
+  --theme-shadow-focus: 0 0 0 2px oklch(0.55 0.2 var(--accent-hue) / 0.25);
+  --highlight-badge: oklch(0.5 0.22 calc(var(--accent-hue) + 15));
+  --theme-selected-overlay: oklch(0.6 0.2 var(--accent-hue) / 0.12);
+  --mode-agent-bg-from: oklch(0.62 0.21 var(--accent-hue) / 0.1);
+  --mode-agent-bg-to: oklch(0.55 0.24 calc(var(--accent-hue) + 20) / 0.1);
+  --mode-agent-border: oklch(0.62 0.21 var(--accent-hue) / 0.3);
+  --mode-agent-icon: oklch(0.62 0.21 var(--accent-hue));
+  --mode-agent-text: oklch(0.7 0.18 var(--accent-hue));
+  --drag-active-bg: oklch(0.55 0.2 var(--accent-hue) / 0.1);
+  --drag-active-border: oklch(0.55 0.2 var(--accent-hue) / 0.3);
+  --drag-active-text: oklch(0.62 0.19 var(--accent-hue));
+  --shadow-info-glow: 0 0 12px oklch(0.62 0.21 var(--accent-hue) / 0.2);
+  --shadow-purple-glow: 0 0 12px oklch(0.55 0.24 calc(var(--accent-hue) + 20) / 0.1);
+}
+
+:root:not(.dark) {
+  --message-user-bg: oklch(0.52 0.24 var(--accent-hue));
+  --theme-accent-secondary: oklch(0.45 0.25 calc(var(--accent-hue) + 20));
+  --theme-accent-tertiary: oklch(0.52 0.24 var(--accent-hue));
+  --decoration-blue: oklch(0.52 0.24 var(--accent-hue));
+  --decoration-purple: oklch(0.55 0.24 calc(var(--accent-hue) + 20));
+  --theme-border-focus: oklch(0.65 0.12 var(--accent-hue) / 0.7);
+  --theme-shadow-glow: 0 0 20px oklch(0.55 0.24 calc(var(--accent-hue) + 20) / 0.15);
+  --theme-shadow-focus:
+    0 0 0 3px oklch(0.65 0.12 var(--accent-hue) / 0.2),
+    0 4px 16px oklch(0.65 0.12 var(--accent-hue) / 0.12);
+  --highlight-badge: oklch(0.4 0.25 calc(var(--accent-hue) + 15));
+  --theme-selected-overlay: oklch(0.55 0.24 calc(var(--accent-hue) + 20) / 0.12);
+  --mode-agent-bg-from: oklch(0.52 0.24 var(--accent-hue) / 0.08);
+  --mode-agent-bg-to: oklch(0.55 0.24 calc(var(--accent-hue) + 20) / 0.08);
+  --mode-agent-border: oklch(0.52 0.24 var(--accent-hue) / 0.25);
+  --mode-agent-icon: oklch(0.52 0.24 var(--accent-hue));
+  --mode-agent-text: oklch(0.4 0.22 var(--accent-hue));
+  --drag-active-bg: oklch(0.52 0.24 var(--accent-hue) / 0.08);
+  --drag-active-border: oklch(0.52 0.24 var(--accent-hue) / 0.25);
+  --drag-active-text: oklch(0.52 0.24 var(--accent-hue));
+  --shadow-info-glow: 0 0 12px oklch(0.52 0.24 var(--accent-hue) / 0.2);
+  --shadow-purple-glow: 0 0 12px oklch(0.55 0.24 calc(var(--accent-hue) + 20) / 0.15);
+}
+
+/* ===========================================
+   📐 Layout Density
+   ========================================== */
+html[data-density="compact"] {
+  --space-3: 0.5rem;
+  --space-4: 0.75rem;
+  --space-6: 1.25rem;
+  --gap-xs: 0.375rem;
+  --gap-sm: 0.5rem;
+  line-height: 1.35;
+}
+
+html[data-density="spacious"] {
+  --space-3: 1rem;
+  --space-4: 1.25rem;
+  --space-6: 2rem;
+  --gap-xs: 0.75rem;
+  --gap-sm: 1rem;
+  line-height: 1.7;
+}
+
+/* ===========================================
    ♿ 无障碍支持
    ========================================== */
 @media (prefers-contrast: high) {

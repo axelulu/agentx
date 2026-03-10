@@ -11,12 +11,16 @@ export interface ToolCallData {
   arguments: Record<string, unknown>;
   status?: "running" | "done" | "error" | "cancelled";
   result?: { content: string; isError?: boolean };
+  /** Live streaming output from long-running tools (delta-accumulated) */
+  streamingOutput?: string;
 }
 
 export interface Message {
   id: string;
   role: "user" | "assistant" | "tool";
   content: string | null;
+  /** Structured content parts (images + text) for vision messages */
+  contentParts?: ContentPart[];
   toolCalls?: ToolCallData[];
   toolCallId?: string;
   isError?: boolean;
@@ -75,6 +79,31 @@ export interface ChatState {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+type RawMessage = Omit<Message, "id"> & {
+  id?: string;
+  images?: Array<{ path: string; mimeType: string }>;
+};
+
+function mapRawMessages(msgs: unknown[]): Message[] {
+  return (msgs as RawMessage[]).map((m) => {
+    const msg: Message = { ...m, id: m.id || uuidv4() };
+    if (m.images && m.images.length > 0) {
+      msg.contentParts = [];
+      if (m.content) {
+        msg.contentParts.push({ type: "text", text: m.content });
+      }
+      for (const img of m.images) {
+        msg.contentParts.push({ type: "image", data: img.path, mimeType: img.mimeType });
+      }
+    }
+    return msg;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Async thunks
 // ---------------------------------------------------------------------------
 
@@ -95,11 +124,7 @@ export const loadMessages = createAsyncThunk(
   "chat/loadMessages",
   async (conversationId: string) => {
     const msgs = await window.api.conversation.messages(conversationId);
-    // Use backend-assigned id if present, fall back to uuidv4()
-    return (msgs as Array<Omit<Message, "id"> & { id?: string }>).map((m) => ({
-      ...m,
-      id: m.id || uuidv4(),
-    })) as Message[];
+    return mapRawMessages(msgs);
   },
 );
 
@@ -122,10 +147,7 @@ export const switchConversation = createAsyncThunk(
     }
     return {
       conversationId,
-      messages: (msgs as Array<Omit<Message, "id"> & { id?: string }>).map((m) => ({
-        ...m,
-        id: m.id || uuidv4(),
-      })) as Message[],
+      messages: mapRawMessages(msgs),
       isRunning: !!isRunning,
       enabledSkills: enabledSkills as string[],
       branchInfo: (branchInfo ?? {}) as Record<string, BranchInfoEntry>,
@@ -145,6 +167,16 @@ export const removeConversation = createAsyncThunk(
       }
     }
     return id;
+  },
+);
+
+export const clearAllConversations = createAsyncThunk(
+  "chat/clearAllConversations",
+  async (_, { getState }) => {
+    const state = (getState() as { chat: ChatState }).chat;
+    const ids = state.conversations.map((c) => c.id);
+    await Promise.allSettled(ids.map((id) => window.api.conversation.delete(id)));
+    return ids;
   },
 );
 
@@ -211,10 +243,7 @@ export const switchBranch = createAsyncThunk(
       window.api.conversation.branchInfo(conversationId),
     ]);
     return {
-      messages: (msgs as Array<Omit<Message, "id"> & { id?: string }>).map((m) => ({
-        ...m,
-        id: m.id || uuidv4(),
-      })) as Message[],
+      messages: mapRawMessages(msgs),
       branchInfo: (branchInfo ?? {}) as Record<string, BranchInfoEntry>,
     };
   },
@@ -349,6 +378,12 @@ interface UsageEventData extends AgentEventBase {
   outputTokens: number;
 }
 
+interface ToolUpdateEvent extends AgentEventBase {
+  type: "tool_update";
+  toolCallId: string;
+  update: string;
+}
+
 type AgentEvent =
   | AgentStartEvent
   | AgentEndEvent
@@ -357,11 +392,12 @@ type AgentEvent =
   | MessageEndEvent
   | ToolStartEvent
   | ToolEndEvent
+  | ToolUpdateEvent
   | ErrorEventData
   | ToolApprovalRequestEvent
   | UsageEventData
   | {
-      type: "turn_start" | "turn_end" | "tool_update";
+      type: "turn_start" | "turn_end";
       conversationId: string;
       [key: string]: unknown;
     };
@@ -465,13 +501,29 @@ const chatSlice = createSlice({
     setError(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
     },
-    addUserMessage(state, action: PayloadAction<{ conversationId: string; content: string }>) {
-      state.messages.push({
-        id: uuidv4(),
-        role: "user",
-        content: action.payload.content,
-        timestamp: Date.now(),
-      });
+    addUserMessage(
+      state,
+      action: PayloadAction<{ conversationId: string; content: string | ContentPart[] }>,
+    ) {
+      const { content } = action.payload;
+      if (typeof content === "string") {
+        state.messages.push({
+          id: uuidv4(),
+          role: "user",
+          content,
+          timestamp: Date.now(),
+        });
+      } else {
+        // ContentPart[] — extract text for display, store full parts
+        const textParts = content.filter((p) => p.type === "text").map((p) => p.text ?? "");
+        state.messages.push({
+          id: uuidv4(),
+          role: "user",
+          content: textParts.join("\n") || null,
+          contentParts: content,
+          timestamp: Date.now(),
+        });
+      }
     },
     handleAgentEvent(state, action: PayloadAction<AgentEvent>) {
       const event = action.payload;
@@ -555,6 +607,22 @@ const chatSlice = createSlice({
           break;
         }
 
+        case "tool_update": {
+          const msg = findToolTargetMessage(state.messages, state.activeAgentMessageId);
+          if (msg?.toolCalls) {
+            const idx = msg.toolCalls.findIndex((t) => t.id === event.toolCallId);
+            if (idx !== -1) {
+              const current = msg.toolCalls[idx].streamingOutput ?? "";
+              // Cap at 50KB to avoid memory bloat
+              const maxLen = 50 * 1024;
+              const combined = current + event.update;
+              msg.toolCalls[idx].streamingOutput =
+                combined.length > maxLen ? combined.slice(combined.length - maxLen) : combined;
+            }
+          }
+          break;
+        }
+
         case "tool_end": {
           const msg = findToolTargetMessage(state.messages, state.activeAgentMessageId);
           if (msg?.toolCalls) {
@@ -563,6 +631,7 @@ const chatSlice = createSlice({
               // Mutate the specific element in the draft array directly
               msg.toolCalls[idx].result = event.result;
               msg.toolCalls[idx].status = event.result.isError ? "error" : "done";
+              msg.toolCalls[idx].streamingOutput = undefined;
             }
           }
           break;
@@ -703,6 +772,20 @@ const chatSlice = createSlice({
           state.pendingApproval = null;
           state.error = null;
         }
+      })
+      .addCase(clearAllConversations.fulfilled, (state) => {
+        state.conversations = [];
+        state.currentConversationId = null;
+        state.messages = [];
+        state.isStreaming = false;
+        state.streamingMessageId = null;
+        state.activeAgentMessageId = null;
+        state.pendingApproval = null;
+        state.error = null;
+        state.sessionUsage = { ...EMPTY_USAGE };
+        state.conversationUsage = { ...EMPTY_USAGE };
+        state.enabledSkills = [];
+        state.branchInfo = {};
       })
       .addCase(initializeSessions.fulfilled, (state, action) => {
         state.runningSessions = action.payload;

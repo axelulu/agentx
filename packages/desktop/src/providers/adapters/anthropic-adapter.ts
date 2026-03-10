@@ -137,6 +137,30 @@ export function createAnthropicStreamFn(config: AnthropicAdapterConfig): StreamF
   };
 }
 
+/**
+ * Convert OpenAI-format content (string or array with image_url blocks)
+ * to Anthropic-compatible content (string or array with image blocks).
+ */
+function convertContentForAnthropic(content: string | unknown[] | null): string | unknown[] | null {
+  if (typeof content === "string" || content === null) return content;
+  if (!Array.isArray(content)) return content;
+
+  return content.map((part: unknown) => {
+    const p = part as Record<string, unknown>;
+    if (p.type === "image_url") {
+      const imageUrl = (p.image_url as { url: string }).url;
+      const match = imageUrl.match(/^data:(.+);base64,(.+)$/);
+      if (match) {
+        return {
+          type: "image",
+          source: { type: "base64", media_type: match[1], data: match[2] },
+        };
+      }
+    }
+    return part;
+  });
+}
+
 function convertMessage(msg: LLMMessage): Record<string, unknown> {
   if (msg.role === "assistant") {
     const content: unknown[] = [];
@@ -157,20 +181,22 @@ function convertMessage(msg: LLMMessage): Record<string, unknown> {
   }
 
   if (msg.role === "tool") {
+    // Tool results may contain image content (vision tool results)
+    const toolResultContent = convertContentForAnthropic(msg.content);
     return {
       role: "user",
       content: [
         {
           type: "tool_result",
           tool_use_id: msg.tool_call_id,
-          content: msg.content,
+          content: toolResultContent,
         },
       ],
     };
   }
 
-  // User messages
-  return { role: msg.role, content: msg.content };
+  // User messages — convert image_url blocks to Anthropic's image format
+  return { role: msg.role, content: convertContentForAnthropic(msg.content) };
 }
 
 /**

@@ -80,8 +80,20 @@ export function useConversationDnd(
 
       // --- Folder reorder ---
       if (activeType === "folder") {
-        const activeFolder = String(active.id).replace("folder::", "");
-        const overFolder = String(over.id).replace("folder::", "");
+        const activeFolder = parseSortableId(String(active.id)).itemId;
+
+        // The over target could be a sortable (folder::id) or a droppable (drop::id)
+        // since SortableFolderHeader registers both on the same node.
+        const overRaw = String(over.id);
+        let overFolder: string;
+        if (overRaw.startsWith("folder::")) {
+          overFolder = overRaw.slice(8);
+        } else if (overRaw.startsWith("drop::")) {
+          overFolder = overRaw.slice(6);
+        } else {
+          return; // Not over a valid folder target
+        }
+
         if (activeFolder === overFolder) return;
 
         const oldIndex = sortedFolders.findIndex((f) => f.id === activeFolder);

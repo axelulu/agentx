@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { Message, ToolCallData } from "@/slices/chatSlice";
 import { l10n } from "@workspace/l10n";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,9 @@ import {
   SquareIcon,
   DownloadIcon,
   FileJsonIcon,
+  UsersIcon,
+  SearchIcon,
+  FolderTreeIcon,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -238,6 +241,7 @@ function UserBubble({
   const { copied, copy } = useCopy();
   const { text, files } = parseAttachments(message.content ?? "");
   const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const handleFileClick = (file: { path: string; isDirectory: boolean }) => {
     const pt = file.isDirectory ? null : getPreviewType(file.path);
@@ -250,10 +254,39 @@ function UserBubble({
 
   const hasAttachments = files.length > 0;
 
+  // Extract images from contentParts
+  const imageParts = message.contentParts?.filter((p) => p.type === "image") ?? [];
+  const hasImages = imageParts.length > 0;
+
   return (
     <div className={cn("group/msg flex flex-col items-end", animate && "animate-slide-up")}>
       {/* Bubble */}
       <div className="text-[13px] leading-relaxed bg-foreground/[0.05] rounded-2xl rounded-tr-md px-4 py-2.5 max-w-[75%]">
+        {/* Inline image thumbnails */}
+        {hasImages && (
+          <div className={cn("flex flex-wrap gap-2", (text || hasAttachments) && "mb-2")}>
+            {imageParts.map((img, i) => {
+              // img.data may be a file path (loaded from persistence) or base64 data
+              const src = img.data?.startsWith("/")
+                ? fileUrl(img.data)
+                : `data:${img.mimeType ?? "image/png"};base64,${img.data}`;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setExpandedImage(src)}
+                  className="rounded-md overflow-hidden hover:opacity-90 transition-opacity"
+                >
+                  <img
+                    src={src}
+                    alt={`Image ${i + 1}`}
+                    className="max-w-[200px] max-h-[150px] object-cover rounded-md"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* File chips — all in one horizontal row */}
         {hasAttachments && (
           <div className={cn("flex flex-wrap gap-1.5", text && "mb-2")}>
@@ -316,6 +349,20 @@ function UserBubble({
 
       {hasAttachments && (
         <FilePreviewDialog path={previewPath} onClose={() => setPreviewPath(null)} />
+      )}
+
+      {/* Full-size image preview modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setExpandedImage(null)}
+        >
+          <img
+            src={expandedImage}
+            alt="Full size preview"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+          />
+        </div>
       )}
     </div>
   );
@@ -429,6 +476,15 @@ function TypingIndicator() {
 }
 
 // ---------------------------------------------------------------------------
+// stripAnsi — remove ANSI escape sequences and carriage returns
+// ---------------------------------------------------------------------------
+
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\r/g, "");
+}
+
+// ---------------------------------------------------------------------------
 // Tool call block — prominent step display within the assistant response
 // ---------------------------------------------------------------------------
 
@@ -438,6 +494,11 @@ const TOOL_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>>
   file_rewrite: FilePenIcon,
   shell_run: TerminalIcon,
   task_complete: CheckCircleIcon,
+  grep: SearchIcon,
+  glob: SearchIcon,
+  list_directory: FolderTreeIcon,
+  sub_agent: UsersIcon,
+  orchestrate_sub_agents: UsersIcon,
 };
 
 function toolArgsSummary(name: string, args: Record<string, unknown>): string {
@@ -450,6 +511,25 @@ function toolArgsSummary(name: string, args: Record<string, unknown>): string {
       return String(args.command ?? "");
     case "task_complete":
       return String(args.summary ?? "");
+    case "grep": {
+      const pat = String(args.pattern ?? "");
+      const inc = args.include ? ` (${args.include})` : "";
+      const path = args.path ? ` in ${args.path}` : "";
+      return `/${pat}/${inc}${path}`;
+    }
+    case "glob":
+      return String(args.pattern ?? "");
+    case "list_directory":
+      return String(args.path ?? ".");
+    case "sub_agent": {
+      const task = String(args.task ?? "");
+      return task.length > 80 ? task.slice(0, 77) + "..." : task;
+    }
+    case "orchestrate_sub_agents": {
+      const tasks = args.tasks as Array<{ label?: string }> | undefined;
+      if (!tasks || tasks.length === 0) return "";
+      return `${tasks.length} agents: ${tasks.map((t) => t.label ?? "?").join(", ")}`;
+    }
     default: {
       const keys = Object.keys(args);
       if (keys.length === 0) return "";
@@ -458,9 +538,220 @@ function toolArgsSummary(name: string, args: Record<string, unknown>): string {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Sub-agent progress — parses JSON progress lines into a compact activity log
+// ---------------------------------------------------------------------------
+
+function SubAgentProgress({ streamingOutput }: { streamingOutput: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const entries = parseSubAgentProgress(streamingOutput);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [streamingOutput]);
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="px-3 py-1.5 max-h-48 overflow-auto border-t border-foreground/[0.05] text-[11px] leading-relaxed text-muted-foreground/80 space-y-0.5"
+    >
+      {entries.map((entry, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          {entry.type === "turn_start" && (
+            <>
+              <span className="text-muted-foreground/50">&#9656;</span>
+              <span>Turn {entry.turn}</span>
+            </>
+          )}
+          {entry.type === "tool_start" && (
+            <>
+              <LoaderIcon className="w-2.5 h-2.5 animate-spin shrink-0" />
+              <span className="font-medium">{entry.tool}</span>
+              {entry.args && (
+                <span className="text-muted-foreground/60 truncate">{entry.args}</span>
+              )}
+            </>
+          )}
+          {entry.type === "tool_end" && (
+            <>
+              {entry.isError ? (
+                <AlertCircleIcon className="w-2.5 h-2.5 text-destructive shrink-0" />
+              ) : (
+                <CheckIcon className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+              )}
+              <span>{entry.tool}</span>
+            </>
+          )}
+          {entry.type === "error" && (
+            <>
+              <AlertCircleIcon className="w-2.5 h-2.5 text-destructive shrink-0" />
+              <span className="text-destructive">{entry.message}</span>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface SubAgentEntry {
+  type: string;
+  turn?: number;
+  tool?: string;
+  args?: string;
+  isError?: boolean;
+  message?: string;
+  // Enhanced fields for orchestrator progress
+  agentId?: string;
+  status?: string;
+}
+
+function parseSubAgentProgress(raw: string): SubAgentEntry[] {
+  const entries: SubAgentEntry[] = [];
+  const lines = raw.split("\n").filter(Boolean);
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line) as SubAgentEntry;
+      if (parsed.type) entries.push(parsed);
+    } catch {
+      // skip non-JSON lines
+    }
+  }
+  return entries;
+}
+
+// ---------------------------------------------------------------------------
+// Orchestrator progress — multi-agent progress visualization
+// ---------------------------------------------------------------------------
+
+interface OrchestratorAgent {
+  agentId: string;
+  label: string;
+  status: "pending" | "running" | "completed" | "error" | "cancelled";
+  currentTurn: number;
+  maxTurns: number;
+  activeTool?: string;
+  lastMessage?: string;
+}
+
+interface OrchestratorProgressEvent {
+  type: "sub_agent_progress";
+  batchId: string;
+  agents: OrchestratorAgent[];
+}
+
+const STATUS_STYLES: Record<string, { bg: string; text: string; icon: string }> = {
+  pending: { bg: "bg-muted-foreground/10", text: "text-muted-foreground/60", icon: "\u25cb" },
+  running: { bg: "bg-blue-500/10", text: "text-blue-500", icon: "\u25cf" },
+  completed: { bg: "bg-emerald-500/10", text: "text-emerald-500", icon: "\u2713" },
+  error: { bg: "bg-destructive/10", text: "text-destructive", icon: "\u2717" },
+  cancelled: { bg: "bg-amber-500/10", text: "text-amber-500", icon: "\u2014" },
+};
+
+function OrchestratorProgress({ streamingOutput }: { streamingOutput: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Parse the latest sub_agent_progress event (last one wins — it's a snapshot)
+  const latestSnapshot = useMemo(() => {
+    const lines = streamingOutput.split("\n").filter(Boolean);
+    let latest: OrchestratorProgressEvent | null = null;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(lines[i]) as OrchestratorProgressEvent;
+        if (parsed.type === "sub_agent_progress") {
+          latest = parsed;
+          break;
+        }
+      } catch {
+        // skip
+      }
+    }
+    return latest;
+  }, [streamingOutput]);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [streamingOutput]);
+
+  if (!latestSnapshot) {
+    // Fall back to simple sub-agent progress for non-orchestrator events
+    return <SubAgentProgress streamingOutput={streamingOutput} />;
+  }
+
+  const { agents } = latestSnapshot;
+
+  return (
+    <div
+      ref={containerRef}
+      className="px-3 py-2 max-h-64 overflow-auto border-t border-foreground/[0.05] text-[11px] space-y-1"
+    >
+      {agents.map((agent) => {
+        const style = STATUS_STYLES[agent.status] ?? STATUS_STYLES.pending;
+        const progress =
+          agent.maxTurns > 0 ? Math.round((agent.currentTurn / agent.maxTurns) * 100) : 0;
+
+        return (
+          <div key={agent.agentId} className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[10px] ${style.text}`}>{style.icon}</span>
+              <span className="font-medium text-foreground/80 truncate">{agent.label}</span>
+              <span className="text-muted-foreground/50 text-[10px] shrink-0">{agent.agentId}</span>
+              {agent.status === "running" && (
+                <span className="text-muted-foreground/50 text-[10px] shrink-0 ml-auto">
+                  {agent.currentTurn}/{agent.maxTurns}
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            {agent.status === "running" && (
+              <div className="h-1 rounded-full bg-muted-foreground/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-blue-500/60 transition-all duration-300"
+                  style={{ width: `${Math.max(progress, 5)}%` }}
+                />
+              </div>
+            )}
+            {agent.status === "completed" && (
+              <div className="h-1 rounded-full bg-emerald-500/30 overflow-hidden">
+                <div className="h-full rounded-full bg-emerald-500/60 w-full" />
+              </div>
+            )}
+            {agent.status === "error" && (
+              <div className="h-1 rounded-full bg-destructive/30 overflow-hidden">
+                <div className="h-full rounded-full bg-destructive/60 w-full" />
+              </div>
+            )}
+
+            {/* Active tool or message */}
+            {agent.activeTool && agent.status === "running" && (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60 pl-3">
+                <LoaderIcon className="w-2 h-2 animate-spin shrink-0" />
+                <span className="truncate">{agent.activeTool}</span>
+              </div>
+            )}
+            {!agent.activeTool && agent.lastMessage && agent.status === "running" && (
+              <div className="text-[10px] text-muted-foreground/50 pl-3 truncate">
+                {agent.lastMessage}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
   // null = auto (no user interaction yet), true/false = user-controlled
   const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+  const streamingRef = useRef<HTMLPreElement>(null);
   const ToolIcon = TOOL_ICON_MAP[toolCall.name] ?? WrenchIcon;
   const summary = toolArgsSummary(toolCall.name, toolCall.arguments);
   const isRunning = toolCall.status === "running";
@@ -470,6 +761,14 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
   const hasResult = !!toolCall.result;
   const resultContent = toolCall.result?.content ?? "";
   const isLongResult = resultContent.length > 300;
+  const hasStreamingOutput = isRunning && !!toolCall.streamingOutput;
+
+  // Auto-scroll streaming output to bottom
+  useEffect(() => {
+    if (streamingRef.current) {
+      streamingRef.current.scrollTop = streamingRef.current.scrollHeight;
+    }
+  }, [toolCall.streamingOutput]);
 
   // Resolve effective expanded state:
   //   - User has explicitly toggled → use their choice
@@ -536,6 +835,20 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
           <CheckIcon className="w-3 h-3 text-emerald-500 shrink-0" />
         )}
       </div>
+
+      {/* Streaming output (live, while running) */}
+      {hasStreamingOutput && toolCall.name === "orchestrate_sub_agents" ? (
+        <OrchestratorProgress streamingOutput={toolCall.streamingOutput!} />
+      ) : hasStreamingOutput && toolCall.name === "sub_agent" ? (
+        <SubAgentProgress streamingOutput={toolCall.streamingOutput!} />
+      ) : hasStreamingOutput ? (
+        <pre
+          ref={streamingRef}
+          className="px-3 pb-2 max-h-48 overflow-auto border-t border-foreground/[0.05] font-mono text-[11px] leading-relaxed text-muted-foreground/80 whitespace-pre-wrap break-words"
+        >
+          {stripAnsi(toolCall.streamingOutput!)}
+        </pre>
+      ) : null}
 
       {/* Result (expandable) */}
       {expanded && (

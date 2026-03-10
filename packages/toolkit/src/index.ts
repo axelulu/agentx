@@ -15,7 +15,12 @@ export type { BuiltTool } from "./tool-service";
 export { CapabilityRegistry } from "./capability-registry";
 
 // Desktop tool handlers
-export { createDesktopHandlers, createFileToolHandlers, createShellToolHandlers } from "./handlers";
+export {
+  createDesktopHandlers,
+  createFileToolHandlers,
+  createSearchToolHandlers,
+  createShellToolHandlers,
+} from "./handlers";
 
 // Utilities
 export { replaceVariables, replaceVariablesInObject, mergeVariables } from "./variable-resolver";

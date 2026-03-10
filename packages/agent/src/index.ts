@@ -105,6 +105,7 @@ export {
   CapabilityRegistry,
   createDesktopHandlers,
   createFileToolHandlers,
+  createSearchToolHandlers,
   createShellToolHandlers,
   replaceVariables,
   replaceVariablesInObject,

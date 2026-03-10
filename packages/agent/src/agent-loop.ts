@@ -19,6 +19,8 @@ import type {
 const DEFAULT_MAX_TURNS = 50;
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 1000;
 
 /**
  * Core agent loop — stateless pure function.
@@ -127,67 +129,102 @@ async function runLoop(
     let contentAccum = "";
     const toolCallAccum = new Map<number, { id: string; name: string; arguments: string }>();
 
-    try {
-      for await (const chunk of streamFn(llmMessages, {
-        model: config.model,
-        tools: toolDefs.length > 0 ? toolDefs : undefined,
-        maxTokens,
-        temperature,
-        toolChoice: config.toolChoice,
-        signal,
-      })) {
-        if (signal?.aborted) break;
+    const maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
+    let succeeded = false;
 
-        switch (chunk.type) {
-          case "content_delta":
-            contentAccum += chunk.delta;
-            emit({
-              type: "message_delta",
-              messageId,
-              delta: chunk.delta,
-              timestamp: Date.now(),
-            });
-            break;
-
-          case "tool_call_delta": {
-            let entry = toolCallAccum.get(chunk.index);
-            if (!entry) {
-              entry = { id: "", name: "", arguments: "" };
-              toolCallAccum.set(chunk.index, entry);
-            }
-            if (chunk.id) entry.id = chunk.id;
-            if (chunk.name) entry.name = chunk.name;
-            entry.arguments += chunk.argumentsDelta;
-            break;
-          }
-
-          case "usage":
-            emit({
-              type: "usage",
-              inputTokens: chunk.inputTokens,
-              outputTokens: chunk.outputTokens,
-              timestamp: Date.now(),
-            });
-            break;
-
-          case "done":
-            break;
-        }
-      }
-    } catch (err) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (signal?.aborted) break;
 
-      const error = err instanceof Error ? err : new Error(String(err));
-      emit({ type: "error", error, fatal: false, timestamp: Date.now() });
+      // Reset accumulators on retry
+      if (attempt > 0) {
+        contentAccum = "";
+        toolCallAccum.clear();
 
-      // Add error as assistant message and break
-      const errorAssistant: AssistantMessage = {
-        role: "assistant",
-        content: `Error calling model: ${error.message}`,
-      };
-      messages.push(errorAssistant);
-      break;
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        emit({
+          type: "error",
+          error: new Error(
+            `Retrying LLM call (attempt ${attempt + 1}/${maxRetries + 1}) after ${delay}ms`,
+          ),
+          fatal: false,
+          timestamp: Date.now(),
+        });
+        await sleep(delay, signal);
+        if (signal?.aborted) break;
+      }
+
+      try {
+        for await (const chunk of streamFn(llmMessages, {
+          model: config.model,
+          tools: toolDefs.length > 0 ? toolDefs : undefined,
+          maxTokens,
+          temperature,
+          toolChoice: config.toolChoice,
+          signal,
+        })) {
+          if (signal?.aborted) break;
+
+          switch (chunk.type) {
+            case "content_delta":
+              contentAccum += chunk.delta;
+              emit({
+                type: "message_delta",
+                messageId,
+                delta: chunk.delta,
+                timestamp: Date.now(),
+              });
+              break;
+
+            case "tool_call_delta": {
+              let entry = toolCallAccum.get(chunk.index);
+              if (!entry) {
+                entry = { id: "", name: "", arguments: "" };
+                toolCallAccum.set(chunk.index, entry);
+              }
+              if (chunk.id) entry.id = chunk.id;
+              if (chunk.name) entry.name = chunk.name;
+              entry.arguments += chunk.argumentsDelta;
+              break;
+            }
+
+            case "usage":
+              emit({
+                type: "usage",
+                inputTokens: chunk.inputTokens,
+                outputTokens: chunk.outputTokens,
+                timestamp: Date.now(),
+              });
+              break;
+
+            case "done":
+              break;
+          }
+        }
+
+        succeeded = true;
+        break; // Stream completed successfully
+      } catch (err) {
+        if (signal?.aborted) break;
+
+        const error = err instanceof Error ? err : new Error(String(err));
+
+        if (!isRetryableError(error) || attempt >= maxRetries) {
+          // Non-retryable or exhausted retries — emit error and break loop
+          emit({ type: "error", error, fatal: false, timestamp: Date.now() });
+          const errorAssistant: AssistantMessage = {
+            role: "assistant",
+            content: `Error calling model: ${error.message}`,
+          };
+          messages.push(errorAssistant);
+          break;
+        }
+
+        // Retryable — will loop back and retry
+        emit({ type: "error", error, fatal: false, timestamp: Date.now() });
+      }
     }
+
+    if (!succeeded) break;
 
     // Build assistant message
     const toolCalls: ToolCall[] = [];
@@ -255,6 +292,7 @@ async function runLoop(
         toolCallId,
         content: result.content,
         isError: result.isError,
+        images: result.images,
       };
       messages.push(toolResultMsg);
     }
@@ -295,4 +333,80 @@ function normalizeInput(
     return input;
   }
   return [input];
+}
+
+/**
+ * HTTP status codes and error patterns that are safe to retry.
+ * - 429: Rate limit
+ * - 500, 502, 503, 504: Server errors
+ * - Network errors: ECONNRESET, ETIMEDOUT, fetch failures, etc.
+ *
+ * Non-retryable (caller error, retrying won't help):
+ * - 400: Bad request
+ * - 401: Invalid API key
+ * - 403: Forbidden
+ * - 404: Model not found
+ */
+function isRetryableError(error: Error): boolean {
+  const msg = error.message.toLowerCase();
+
+  // Check for explicit HTTP status codes
+  const statusMatch = msg.match(/\b(status|code)[:\s]*(\d{3})\b/);
+  if (statusMatch) {
+    const status = parseInt(statusMatch[2]!, 10);
+    return status === 429 || status >= 500;
+  }
+
+  // Check for "status" property on error object (API SDK errors)
+  if ("status" in error) {
+    const status = (error as Error & { status: number }).status;
+    if (typeof status === "number") {
+      return status === 429 || status >= 500;
+    }
+  }
+
+  // Network-level errors
+  const networkPatterns = [
+    "econnreset",
+    "econnrefused",
+    "etimedout",
+    "enotfound",
+    "epipe",
+    "socket hang up",
+    "network",
+    "fetch failed",
+    "aborted",
+    "timeout",
+    "connection",
+    "rate limit",
+    "overloaded",
+    "too many requests",
+    "service unavailable",
+    "internal server error",
+    "bad gateway",
+    "gateway timeout",
+  ];
+
+  return networkPatterns.some((pattern) => msg.includes(pattern));
+}
+
+/**
+ * Abortable sleep for retry delays.
+ */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 }

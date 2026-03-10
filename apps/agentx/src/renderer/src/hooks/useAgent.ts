@@ -106,7 +106,7 @@ export function useAgent() {
   const { currentConversationId, isStreaming } = useSelector((state: RootState) => state.chat);
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string | ContentPart[]) => {
       let convId = currentConversationId;
       if (!convId) {
         const conv = await dispatch(createNewConversation()).unwrap();

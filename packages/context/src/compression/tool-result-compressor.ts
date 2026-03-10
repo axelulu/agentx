@@ -36,6 +36,8 @@ function compressToolMessage(
   tailChars: number,
 ): LLMToolMessage {
   const content = msg.content;
+  // Skip truncation for multipart content (arrays with images)
+  if (typeof content !== "string") return msg;
   if (content.length <= maxChars) return msg;
 
   // Clamp to avoid overlapping substrings when head+tail exceeds content length

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   Toolkit,
@@ -7,12 +7,17 @@ import {
   ContextManager,
   createContextMiddleware,
 } from "@workspace/agent";
-import type { AgentMessage, AgentTool } from "@workspace/agent";
+import type { AgentMessage, AgentTool, ContentPart } from "@workspace/agent";
 import { ProviderManager } from "./providers/provider-manager.js";
 import { ConversationManager } from "./conversations/conversation-manager.js";
 import { JsonFileStore } from "./conversations/json-file-store.js";
 import { SessionRunner } from "./sessions/session-runner.js";
 import { MCPClientManager } from "./mcp/index.js";
+import { ScheduledTaskManager, createSchedulerToolHandlers } from "./scheduler/index.js";
+import type { ScheduledTask, ScheduledTaskStatusUpdate } from "./scheduler/index.js";
+import { MemoryManager } from "./memory/index.js";
+import type { ConversationSummary, LearnedFact, MemoryConfig } from "./memory/index.js";
+import { createSubAgentTool, createOrchestratorTool } from "./sub-agent/index.js";
 import {
   DEFAULT_TOOL_PERMISSIONS,
   getToolPermissionCategory,
@@ -82,6 +87,9 @@ export class DesktopRuntime {
   private mcpManager: MCPClientManager;
   private mcpTools: AgentTool[] = [];
 
+  // --- Memory ---
+  private memoryManager!: MemoryManager;
+
   // --- Knowledge Base ---
   private knowledgeBase: KnowledgeBaseItem[] = [];
 
@@ -95,11 +103,23 @@ export class DesktopRuntime {
   private toolPermissions: ToolPermissions = { ...DEFAULT_TOOL_PERMISSIONS };
   private permissionsFilePath!: string;
 
+  // --- Scheduled Tasks ---
+  private schedulerManager: ScheduledTaskManager;
+  private schedulerTools: AgentTool[] = [];
+  private schedulerPersistFn: ((tasks: ScheduledTask[]) => void) | null = null;
+
+  // --- Session Completion ---
+  private sessionCompletionHandler:
+    | ((conversationId: string, status: SessionStatus) => void)
+    | null = null;
+
   constructor(config: DesktopRuntimeConfig) {
     this.config = config;
     this.providerManager = new ProviderManager();
     this.mcpManager = new MCPClientManager();
     this.mcpManager.setToolsChangedHandler(() => this.rebuildMcpTools());
+    this.schedulerManager = new ScheduledTaskManager();
+    this.schedulerManager.setWorkspacePath(config.workspacePath);
   }
 
   /**
@@ -147,6 +167,17 @@ export class DesktopRuntime {
     // 7. Load tool permissions
     this.permissionsFilePath = join(this.config.dataPath, "..", "tool-permissions.json");
     this.loadToolPermissions();
+
+    // 8. Initialize Memory Manager
+    this.memoryManager = new MemoryManager(join(this.config.dataPath, ".."));
+    await this.memoryManager.initialize();
+
+    // 9. Register scheduler tool handlers and build tools
+    this.rebuildSchedulerTools();
+
+    // Connect scheduler to runtime for prompt-type tasks
+    this.schedulerManager.setSendMessageFn((convId, content) => this.sendMessage(convId, content));
+    this.schedulerManager.setCreateConversationFn((title) => this.createConversation(title));
   }
 
   // ---------------------------------------------------------------------------
@@ -168,7 +199,11 @@ export class DesktopRuntime {
       if (session.cleanupTimer) clearTimeout(session.cleanupTimer);
       this.sessions.delete(id);
     }
-    return this.conversationManager.deleteConversation(id);
+    await this.conversationManager.deleteConversation(id);
+    // Clean up associated memories
+    await this.cleanupMemoriesForConversation(id).catch((err) => {
+      console.error(`[DesktopRuntime] Failed to clean up memories for ${id}:`, err);
+    });
   }
 
   async getMessages(conversationId: string): Promise<MessageData[]> {
@@ -233,7 +268,7 @@ export class DesktopRuntime {
     const model = this.providerManager.getDefaultModel();
 
     const sanitized = sanitizeMessages(truncatedMessages);
-    const agentMessages = sanitized.map(toAgentMessage);
+    const agentMessages = sanitized.map((m) => toAgentMessage(m, this.config.dataPath));
     agentMessages.push({ role: "user", content: userMessage.content });
 
     // The user message already exists in the tree — we just create a new
@@ -242,7 +277,13 @@ export class DesktopRuntime {
 
     // Build system prompt (same logic as sendMessage)
     const capabilities = this.config.capabilities ?? this.toolkit.getAllCapabilityIds();
-    const allTools = [...this.tools, ...this.mcpTools];
+    const regenSubAgentDefs = this.buildSubAgentTools([], streamFn, model);
+    const allTools = [
+      ...this.tools,
+      ...this.mcpTools,
+      ...this.schedulerTools,
+      ...regenSubAgentDefs,
+    ];
     const toolSummary = allTools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
     const promptVars: Record<string, unknown> = {
       tool_names: allTools.map((t) => t.name).join(", "),
@@ -268,6 +309,16 @@ export class DesktopRuntime {
     const skillsContext = this.buildSkillsContext(enabledSkillIds);
     if (skillsContext) {
       systemPrompt += "\n\n" + skillsContext;
+    }
+
+    // Inject cross-session memory context (filtered by current conversation relevance)
+    const regenMemoryCtx = [
+      ...truncatedMessages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: userMessage.content },
+    ];
+    const memoryContext = await this.memoryManager.buildMemoryContext(regenMemoryCtx);
+    if (memoryContext) {
+      systemPrompt += "\n\n" + memoryContext;
     }
 
     // Create session
@@ -297,9 +348,11 @@ export class DesktopRuntime {
 
     this.sessions.set(conversationId, session);
 
-    const sessionTools = [...this.tools, ...this.mcpTools].map((tool) =>
+    const baseTools = [...this.tools, ...this.mcpTools, ...this.schedulerTools].map((tool) =>
       this.wrapToolWithSessionPermissions(tool, session),
     );
+    const subAgentTools = this.buildSubAgentTools(baseTools, streamFn, model);
+    const sessionTools = [...baseTools, ...subAgentTools];
 
     const contextMiddleware = createContextMiddleware(this.contextManager, {
       conversationId,
@@ -378,7 +431,79 @@ export class DesktopRuntime {
   }
 
   async shutdown(): Promise<void> {
+    this.schedulerManager.stop();
     await this.mcpManager.disconnectAll();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scheduled Tasks management
+  // ---------------------------------------------------------------------------
+
+  getScheduledTaskManager(): ScheduledTaskManager {
+    return this.schedulerManager;
+  }
+
+  setSchedulerPersistFn(fn: (tasks: ScheduledTask[]) => void): void {
+    this.schedulerPersistFn = fn;
+    this.rebuildSchedulerTools();
+  }
+
+  setScheduledTasks(tasks: ScheduledTask[]): void {
+    this.schedulerManager.setTasks(tasks);
+  }
+
+  setSchedulerStatusHandler(handler: (update: ScheduledTaskStatusUpdate) => void): void {
+    this.schedulerManager.setStatusHandler(handler);
+  }
+
+  startScheduler(): void {
+    this.schedulerManager.start();
+  }
+
+  setSessionCompletionHandler(
+    handler: (conversationId: string, status: SessionStatus) => void,
+  ): void {
+    this.sessionCompletionHandler = handler;
+  }
+
+  private rebuildSchedulerTools(): void {
+    const persistFn = this.schedulerPersistFn ?? (() => {});
+    const handlers = createSchedulerToolHandlers(this.schedulerManager, persistFn);
+    // Build AgentTool objects from the handler definitions
+    this.schedulerTools = handlers.map((h) => ({
+      name: h.name,
+      description: h.description ?? "",
+      parameters: h.parameters as AgentTool["parameters"],
+      execute: (args: Record<string, unknown>, _ctx: { signal: AbortSignal }) =>
+        h.handler(args) as ReturnType<AgentTool["execute"]>,
+    }));
+    console.log(`[DesktopRuntime] Scheduler tools rebuilt: ${this.schedulerTools.length} tools`);
+  }
+
+  /**
+   * Build sub_agent and orchestrate_sub_agents tools bound to the current session.
+   * Child agents get all base tools except sub_agent/orchestrate_sub_agents (prevents recursion).
+   */
+  private buildSubAgentTools(
+    baseTools: AgentTool[],
+    streamFn: ReturnType<ProviderManager["createStreamFn"]>,
+    model: string,
+  ): AgentTool[] {
+    const childTools = baseTools.filter(
+      (t) => t.name !== "sub_agent" && t.name !== "orchestrate_sub_agents",
+    );
+    const deps = { streamFn, model, tools: childTools };
+
+    const toAgentTool = (handler: ReturnType<typeof createSubAgentTool>): AgentTool => ({
+      name: handler.name,
+      description: handler.description ?? "",
+      parameters: handler.parameters as AgentTool["parameters"],
+      category: handler.options?.category,
+      timeoutMs: handler.options?.timeoutMs,
+      execute: (args, ctx) => handler.handler(args, ctx),
+    });
+
+    return [toAgentTool(createSubAgentTool(deps)), toAgentTool(createOrchestratorTool(deps))];
   }
 
   // ---------------------------------------------------------------------------
@@ -738,19 +863,23 @@ export class DesktopRuntime {
    * Send a user message and start the agent loop in the background.
    * Returns immediately — events are delivered via the subscriber pattern.
    */
-  async sendMessage(conversationId: string, content: string): Promise<void> {
+  async sendMessage(conversationId: string, content: string | ContentPart[]): Promise<void> {
     const streamFn = this.providerManager.createStreamFn();
     const model = this.providerManager.getDefaultModel();
 
     // Load active branch messages and sanitize (fix corrupted persisted data)
     const rawMessages = await this.conversationManager.getActiveMessages(conversationId);
     const existingMessages = sanitizeMessages(rawMessages);
-    const agentMessages = existingMessages.map(toAgentMessage);
+    const agentMessages = existingMessages.map((m) => toAgentMessage(m, this.config.dataPath));
 
     // Append the new user message
     agentMessages.push({ role: "user", content });
 
     // Debug: log message structure for diagnosing 400 errors
+    const contentPreview =
+      typeof content === "string"
+        ? `"${content.slice(0, 50)}..."`
+        : `[${(content as ContentPart[]).length} parts]`;
     console.log(
       `[DesktopRuntime] sendMessage: ${agentMessages.length} messages`,
       agentMessages
@@ -759,24 +888,58 @@ export class DesktopRuntime {
             m.role === "assistant" && m.toolCalls ? ` [${m.toolCalls.length} tool_calls]` : "";
           const tcId =
             m.role === "tool" ? ` (toolCallId=${(m as { toolCallId?: string }).toolCallId})` : "";
-          return `  ${i}: ${m.role}${tc}${tcId} content=${typeof m.content === "string" ? `"${m.content.slice(0, 50)}..."` : m.content}`;
+          return `  ${i}: ${m.role}${tc}${tcId} content=${typeof m.content === "string" ? `"${m.content.slice(0, 50)}..."` : Array.isArray(m.content) ? `[${m.content.length} parts]` : m.content}`;
         })
         .join("\n"),
     );
+
+    // Extract text and images from content for persistence
+    let textContent: string;
+    let imageRefs: Array<{ path: string; mimeType: string }> | undefined;
+    if (typeof content === "string") {
+      textContent = content;
+    } else {
+      const textParts = content.filter((p) => p.type === "text").map((p) => p.text);
+      textContent = textParts.join("\n");
+      const imageParts = content.filter((p) => p.type === "image");
+      if (imageParts.length > 0) {
+        imageRefs = [];
+        const imagesDir = join(this.config.dataPath, "..", "images", conversationId);
+        mkdirSync(imagesDir, { recursive: true });
+        const userMsgIdForImages = randomUUID();
+        for (let i = 0; i < imageParts.length; i++) {
+          const img = imageParts[i]!;
+          const ext =
+            img.mimeType === "image/jpeg" ? "jpg" : (img.mimeType?.split("/")[1] ?? "png");
+          const fileName = `${userMsgIdForImages}_${i}.${ext}`;
+          const filePath = join(imagesDir, fileName);
+          writeFileSync(filePath, Buffer.from(img.data!, "base64"));
+          imageRefs.push({ path: filePath, mimeType: img.mimeType ?? "image/png" });
+        }
+      }
+    }
 
     // Assign ID and parentId to the user message
     const userMsgId = randomUUID();
     const lastExisting = existingMessages[existingMessages.length - 1];
     const parentId = lastExisting?.id ?? undefined;
 
-    // Record user message
+    // Record user message (text content + image references)
     await this.conversationManager.appendMessages(conversationId, [
-      { id: userMsgId, parentId, role: "user", content, timestamp: Date.now() },
+      {
+        id: userMsgId,
+        parentId,
+        role: "user",
+        content: textContent,
+        timestamp: Date.now(),
+        images: imageRefs,
+      },
     ]);
 
     // Build system prompt
     const capabilities = this.config.capabilities ?? this.toolkit.getAllCapabilityIds();
-    const allTools = [...this.tools, ...this.mcpTools];
+    const subAgentToolDefs = this.buildSubAgentTools([], streamFn, model); // lightweight ref for metadata
+    const allTools = [...this.tools, ...this.mcpTools, ...this.schedulerTools, ...subAgentToolDefs];
     const toolSummary = allTools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
     const promptVars: Record<string, unknown> = {
       tool_names: allTools.map((t) => t.name).join(", "),
@@ -807,6 +970,16 @@ export class DesktopRuntime {
       systemPrompt += "\n\n" + skillsContext;
     }
 
+    // Inject cross-session memory context (filtered by current conversation relevance)
+    const memoryConversationCtx = [
+      ...existingMessages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: textContent },
+    ];
+    const memoryContext = await this.memoryManager.buildMemoryContext(memoryConversationCtx);
+    if (memoryContext) {
+      systemPrompt += "\n\n" + memoryContext;
+    }
+
     // Create session state
     const session: SessionState = {
       runner: new SessionRunner(),
@@ -834,10 +1007,12 @@ export class DesktopRuntime {
 
     this.sessions.set(conversationId, session);
 
-    // Wrap tools with per-session permissions
-    const sessionTools = [...this.tools, ...this.mcpTools].map((tool) =>
+    // Wrap tools with per-session permissions, then add sub_agent tool
+    const baseTools = [...this.tools, ...this.mcpTools, ...this.schedulerTools].map((tool) =>
       this.wrapToolWithSessionPermissions(tool, session),
     );
+    const subAgentTools = this.buildSubAgentTools(baseTools, streamFn, model);
+    const sessionTools = [...baseTools, ...subAgentTools];
 
     const contextMiddleware = createContextMiddleware(this.contextManager, {
       conversationId,
@@ -899,6 +1074,12 @@ export class DesktopRuntime {
       }
 
       session.status = "completed";
+      this.sessionCompletionHandler?.(conversationId, "completed");
+
+      // Extract and persist cross-session memories (fire-and-forget)
+      this.extractAndPersistMemories(conversationId, config.model, config.streamFn).catch((err) => {
+        console.error(`[DesktopRuntime] Memory extraction failed for ${conversationId}:`, err);
+      });
     } catch (err) {
       // Flush what we have on error too
       if (session.pendingMessages.length > 0) {
@@ -911,6 +1092,7 @@ export class DesktopRuntime {
       }
 
       session.status = "error";
+      this.sessionCompletionHandler?.(conversationId, "error");
 
       // Emit error event
       const errorEvent: SerializableAgentEvent = {
@@ -1130,6 +1312,82 @@ export class DesktopRuntime {
     if (sections.length === 0) return "";
     return `## Knowledge Base\nThe following knowledge base entries are provided by the user as reference. Use them to inform your responses when relevant.\n\n${sections.join("\n\n")}`;
   }
+
+  // ---------------------------------------------------------------------------
+  // Cross-session memory management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Extract and persist memories after a conversation completes.
+   * Called as fire-and-forget from runSession().
+   */
+  private async extractAndPersistMemories(
+    conversationId: string,
+    model: string,
+    streamFn: ReturnType<ProviderManager["createStreamFn"]>,
+  ): Promise<void> {
+    if (!this.memoryManager.isEnabled()) return;
+
+    const convData = await this.conversationManager.getConversation(conversationId);
+    if (!convData) return;
+
+    const messages = await this.conversationManager.getActiveMessages(conversationId);
+    if (messages.length < 2) return; // need at least a user + assistant exchange
+
+    const simplifiedMessages = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const extraction = await this.memoryManager.extractMemories(
+      conversationId,
+      convData.title,
+      simplifiedMessages,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      streamFn as any,
+      model,
+    );
+
+    if (extraction) {
+      await this.memoryManager.processExtraction(conversationId, convData.title, extraction);
+      console.log(
+        `[DesktopRuntime] Memory extracted for ${conversationId}: ${extraction.facts.length} facts`,
+      );
+    }
+  }
+
+  getMemoryConfig(): MemoryConfig {
+    return this.memoryManager.getConfig();
+  }
+
+  async setMemoryConfig(config: MemoryConfig): Promise<void> {
+    await this.memoryManager.setConfig(config);
+  }
+
+  async getMemorySummaries(): Promise<ConversationSummary[]> {
+    return this.memoryManager.getSummaries();
+  }
+
+  async deleteMemorySummary(id: string): Promise<void> {
+    return this.memoryManager.deleteSummary(id);
+  }
+
+  async getMemoryFacts(): Promise<LearnedFact[]> {
+    return this.memoryManager.getFacts();
+  }
+
+  async deleteMemoryFact(id: string): Promise<void> {
+    return this.memoryManager.deleteFact(id);
+  }
+
+  async updateMemoryFact(id: string, content: string): Promise<LearnedFact | null> {
+    return this.memoryManager.updateFact(id, content);
+  }
+
+  /** Clean up memories when a conversation is deleted */
+  async cleanupMemoriesForConversation(conversationId: string): Promise<void> {
+    await this.memoryManager.removeSummariesForConversation(conversationId);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1251,8 +1509,24 @@ function sanitizeMessages(messages: MessageData[]): MessageData[] {
 // Message conversion helpers
 // ---------------------------------------------------------------------------
 
-function toAgentMessage(msg: MessageData): AgentMessage {
+function toAgentMessage(msg: MessageData, _dataPath?: string): AgentMessage {
   if (msg.role === "user") {
+    // Reconstruct ContentPart[] if message has stored images
+    if (msg.images && msg.images.length > 0) {
+      const parts: ContentPart[] = [];
+      if (msg.content) {
+        parts.push({ type: "text", text: msg.content });
+      }
+      for (const img of msg.images) {
+        try {
+          const data = readFileSync(img.path).toString("base64");
+          parts.push({ type: "image", data, mimeType: img.mimeType });
+        } catch {
+          // Image file missing — skip
+        }
+      }
+      return { role: "user", content: parts.length > 0 ? parts : (msg.content ?? "") };
+    }
     return { role: "user", content: msg.content ?? "" };
   }
   if (msg.role === "tool") {

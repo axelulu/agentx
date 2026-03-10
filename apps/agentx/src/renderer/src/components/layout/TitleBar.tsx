@@ -3,6 +3,7 @@ import { l10n } from "@workspace/l10n";
 import { PanelLeftIcon } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+import { AppLogo } from "@/components/ui/AppLogo";
 
 export function TitleBar() {
   const dispatch = useDispatch();
@@ -16,9 +17,11 @@ export function TitleBar() {
       <div className="w-16 shrink-0" />
 
       <div
-        className="flex items-center gap-1 ml-1"
+        className="flex items-center gap-1.5 ml-1"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
+        <AppLogo size={20} className="shrink-0" />
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button

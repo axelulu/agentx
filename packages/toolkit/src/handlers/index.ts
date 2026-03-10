@@ -1,6 +1,8 @@
 import type { NamedToolHandler } from "../types";
 import { createFileToolHandlers } from "./file-tools";
 import { createShellToolHandlers } from "./shell-tools";
+import { createScreenCaptureHandler } from "./screen-capture";
+import { createSearchToolHandlers } from "./search-tools";
 
 /**
  * task_complete — terminal tool that signals the agent loop to stop.
@@ -35,10 +37,14 @@ function taskComplete(): NamedToolHandler {
 export function createDesktopHandlers(workspaceRoot: string): NamedToolHandler[] {
   return [
     ...createFileToolHandlers(workspaceRoot),
+    ...createSearchToolHandlers(workspaceRoot),
     ...createShellToolHandlers(workspaceRoot),
+    createScreenCaptureHandler(),
     taskComplete(),
   ];
 }
 
 export { createFileToolHandlers } from "./file-tools";
+export { createSearchToolHandlers } from "./search-tools";
 export { createShellToolHandlers } from "./shell-tools";
+export { createScreenCaptureHandler } from "./screen-capture";

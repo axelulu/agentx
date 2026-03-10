@@ -3,6 +3,8 @@ export { ContextManager } from "./context-manager.js";
 
 // Compression utilities
 export { compressToolResults } from "./compression/tool-result-compressor.js";
+export { deduplicateFileReads } from "./compression/file-dedup-compressor.js";
+export { relevanceCompress } from "./compression/relevance-compressor.js";
 export { gradientCompress } from "./compression/gradient-compressor.js";
 export {
   summarizeHistory,
@@ -49,3 +51,4 @@ export type {
 } from "./types.js";
 
 export type { ToolResultCompressionConfig } from "./compression/tool-result-compressor.js";
+export type { RelevanceCompressorConfig } from "./compression/relevance-compressor.js";

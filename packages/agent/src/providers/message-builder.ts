@@ -47,7 +47,7 @@ export function convertToLlmMessages(messages: AgentMessage[]): LLMMessage[] {
         const llmMsg: LLMToolMessage = {
           role: "tool",
           tool_call_id: msg.toolCallId,
-          content: msg.content,
+          content: convertToolResultContent(msg.content, msg.images),
         };
         result.push(llmMsg);
         break;
@@ -72,6 +72,26 @@ function convertUserContent(content: string | ContentPart[]): LLMUserMessage["co
       image_url: { url: `data:${mime};base64,${part.data}` },
     };
   });
+}
+
+function convertToolResultContent(
+  content: string,
+  images?: Array<{ data: string; mimeType: string }>,
+): LLMToolMessage["content"] {
+  if (!images || images.length === 0) return content;
+
+  const parts: Array<
+    { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
+  > = [{ type: "text", text: content }];
+
+  for (const img of images) {
+    parts.push({
+      type: "image_url",
+      image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+    });
+  }
+
+  return parts;
 }
 
 /**

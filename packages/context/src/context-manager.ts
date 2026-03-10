@@ -1,6 +1,8 @@
 import type { LLMMessage, ContextConfig, OptimizeContextOptions, SummaryStore } from "./types.js";
 import { estimateMessagesTokens } from "./utils/token-estimator.js";
 import { compressToolResults } from "./compression/tool-result-compressor.js";
+import { deduplicateFileReads } from "./compression/file-dedup-compressor.js";
+import { relevanceCompress } from "./compression/relevance-compressor.js";
 import { gradientCompress } from "./compression/gradient-compressor.js";
 import {
   summarizeHistory,
@@ -16,10 +18,12 @@ const DEFAULT_SUMMARY_MAX_TOKENS = 2000;
  * Orchestrates context window optimization.
  *
  * Pipeline:
- * 1. Compress tool results (character-level truncation)
- * 2. Check if messages fit within budget → done
- * 3. Apply gradient compression (remove old tool call groups)
- * 4. If still over budget and summarization enabled, generate LLM summary
+ * 1. Deduplicate repeated file reads (keep latest version only)
+ * 2. Compress tool results (character-level truncation)
+ * 3. Check if messages fit within budget → done
+ * 4. Apply relevance-based compression (score turns by relevance to current task)
+ * 5. Fall back to gradient compression (remove old tool call groups)
+ * 6. If still over budget and summarization enabled, generate LLM summary
  */
 export class ContextManager {
   private config: ContextConfig;
@@ -43,8 +47,11 @@ export class ContextManager {
     const systemMsg = messages[0]?.role === "system" ? messages[0] : null;
     const conversationMessages = systemMsg ? messages.slice(1) : messages;
 
-    // Step 1: Compress tool results
-    const compressed = compressToolResults(conversationMessages, {
+    // Step 1: Deduplicate repeated file reads (same file read multiple times → keep latest)
+    const deduped = deduplicateFileReads(conversationMessages);
+
+    // Step 2: Compress tool results (character-level truncation)
+    const compressed = compressToolResults(deduped, {
       maxChars: this.config.toolResultMaxChars,
       headChars: this.config.toolResultHeadChars,
       tailChars: this.config.toolResultTailChars,
@@ -58,19 +65,24 @@ export class ContextManager {
       return withSystem;
     }
 
-    // Step 2: Gradient compression
+    const systemTokens = systemMsg ? estimateMessagesTokens([systemMsg]) : 0;
+    const budget = this.config.maxContextTokens - systemTokens;
+
+    // Step 3: Relevance-based compression (score turns, compress low-relevance ones)
+    const relevanceResult = relevanceCompress(compressed, budget);
+    if (relevanceResult) {
+      return systemMsg ? [systemMsg, ...relevanceResult] : relevanceResult;
+    }
+
+    // Step 4: Gradient compression (fallback — remove old tool call groups)
     const recentTurns = this.config.recentTurnsToKeep ?? DEFAULT_RECENT_TURNS;
-    const gradientResult = gradientCompress(
-      compressed,
-      this.config.maxContextTokens - (systemMsg ? estimateMessagesTokens([systemMsg]) : 0),
-      recentTurns,
-    );
+    const gradientResult = gradientCompress(compressed, budget, recentTurns);
 
     if (gradientResult) {
       return systemMsg ? [systemMsg, ...gradientResult] : gradientResult;
     }
 
-    // Step 3: LLM summarization (if enabled and streamFn provided)
+    // Step 5: LLM summarization (if enabled and streamFn provided)
     if (this.config.enableSummarization && options?.streamFn && options.model) {
       return this.summarizeAndTruncate(compressed, systemMsg, options);
     }

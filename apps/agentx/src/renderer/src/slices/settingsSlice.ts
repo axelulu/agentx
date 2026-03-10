@@ -80,8 +80,15 @@ export interface ConversationOrder {
   folders: Record<string, string[]>;
 }
 
+export type AccentColor = "blue" | "violet" | "rose" | "orange" | "green" | "teal";
+export type FontSize = "small" | "default" | "large";
+export type LayoutDensity = "compact" | "comfortable" | "spacious";
+
 export interface SettingsState {
   theme: "light" | "dark" | "system";
+  accentColor: AccentColor;
+  fontSize: FontSize;
+  layoutDensity: LayoutDensity;
   language: string;
   proxyUrl: string;
   workspacePath: string;
@@ -90,11 +97,14 @@ export interface SettingsState {
   providers: ProviderConfig[];
   knowledgeBase: KnowledgeBaseItem[];
   mcpServers: MCPServerConfig[];
+  scheduledTasks: ScheduledTaskConfig[];
   toolPermissions: ToolPermissionsState;
   voice: VoiceSettings;
   installedSkills: SkillDefinition[];
   folders: Folder[];
   conversationOrder: ConversationOrder;
+  /** Set by createFolder so the UI can auto-enter edit mode for exactly that folder */
+  lastCreatedFolderId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +119,9 @@ export const loadPreferences = createAsyncThunk("settings/loadPreferences", asyn
   const prefs = await window.api.preferences.get();
   return prefs as {
     theme?: string;
+    accentColor?: string;
+    fontSize?: string;
+    layoutDensity?: string;
     language?: string;
     sidebarOpen?: boolean;
     proxyUrl?: string;
@@ -167,6 +180,91 @@ export const searchSkillStore = createAsyncThunk(
   async ({ query, category }: { query: string; category?: string }) => {
     const result = await window.api.skills.search(query, category, 30);
     return result.skills as SkillDefinition[];
+  },
+);
+
+export const loadScheduledTasks = createAsyncThunk("settings/loadScheduledTasks", async () => {
+  const tasks = await window.api.scheduler.list();
+  return tasks as ScheduledTaskConfig[];
+});
+
+export const resetAllSettings = createAsyncThunk(
+  "settings/resetAllSettings",
+  async (_, { getState }) => {
+    const state = (getState() as { settings: SettingsState }).settings;
+
+    // Clear persisted preferences
+    await window.api.preferences.set({
+      theme: "system",
+      accentColor: "blue",
+      fontSize: "default",
+      layoutDensity: "comfortable",
+      language: "en",
+      proxyUrl: "",
+      workspacePath: "",
+      dataPath: "",
+      globalSystemPrompt: "",
+      voice: {
+        sttApiUrl: "",
+        sttApiKey: "",
+        sttLanguage: "",
+        ttsVoice: "",
+        ttsRate: 1.0,
+        ttsPitch: 1.0,
+        autoReadReplies: false,
+      },
+      folders: [],
+      conversationOrder: { favorites: [], ungrouped: [], folders: {} },
+      notifications: { enabled: true, scheduledTasks: true, agentCompletion: true },
+    });
+
+    // Remove all providers
+    for (const p of state.providers) {
+      try {
+        window.api.provider.remove(p.id);
+      } catch {}
+    }
+    // Remove all KB items
+    for (const k of state.knowledgeBase) {
+      try {
+        window.api.knowledgeBase.remove(k.id);
+      } catch {}
+    }
+    // Remove all MCP servers
+    for (const m of state.mcpServers) {
+      try {
+        window.api.mcp.remove(m.id);
+      } catch {}
+    }
+    // Remove all scheduled tasks
+    for (const t of state.scheduledTasks) {
+      try {
+        window.api.scheduler.remove(t.id);
+      } catch {}
+    }
+    // Remove all installed skills
+    for (const s of state.installedSkills) {
+      try {
+        await window.api.skills.uninstall(s.id);
+      } catch {}
+    }
+    // Reset tool permissions
+    const defaultPerms: ToolPermissionsState = {
+      approvalMode: "smart",
+      fileRead: true,
+      fileWrite: true,
+      shellExecute: true,
+      mcpCall: true,
+      allowedPaths: [],
+    };
+    await window.api.toolPermissions.set(defaultPerms);
+
+    // Clear localStorage
+    localStorage.removeItem("agentx-theme");
+    localStorage.removeItem("agentx-accent-color");
+    localStorage.removeItem("agentx-font-size");
+    localStorage.removeItem("agentx-layout-density");
+    localStorage.removeItem("agentx-language");
   },
 );
 
@@ -237,6 +335,20 @@ function persistSkillUninstall(id: string): void {
   });
 }
 
+function persistScheduledTask(task: ScheduledTaskConfig): void {
+  window.api.scheduler.set(task).catch((err: unknown) => {
+    console.error("[Scheduler] Failed to persist task:", err);
+  });
+}
+
+function persistScheduledTaskRemove(id: string): void {
+  try {
+    window.api.scheduler.remove(id);
+  } catch (err) {
+    console.error("[Scheduler] Failed to remove task:", err);
+  }
+}
+
 function persistToolPermissions(perms: ToolPermissionsState): void {
   window.api.toolPermissions.set(perms).catch((err: unknown) => {
     console.error("[ToolPermissions] Failed to persist:", err);
@@ -249,6 +361,9 @@ function persistToolPermissions(perms: ToolPermissionsState): void {
 
 const initialState: SettingsState = {
   theme: (localStorage.getItem("agentx-theme") as SettingsState["theme"]) || "system",
+  accentColor: (localStorage.getItem("agentx-accent-color") as AccentColor) || "blue",
+  fontSize: (localStorage.getItem("agentx-font-size") as FontSize) || "default",
+  layoutDensity: (localStorage.getItem("agentx-layout-density") as LayoutDensity) || "comfortable",
   language: localStorage.getItem("agentx-language") || "en",
   proxyUrl: "",
   workspacePath: "",
@@ -257,6 +372,7 @@ const initialState: SettingsState = {
   providers: [],
   knowledgeBase: [],
   mcpServers: [],
+  scheduledTasks: [],
   toolPermissions: {
     approvalMode: "smart",
     fileRead: true,
@@ -277,6 +393,7 @@ const initialState: SettingsState = {
   installedSkills: [],
   folders: [],
   conversationOrder: { favorites: [], ungrouped: [], folders: {} },
+  lastCreatedFolderId: null,
 };
 
 const settingsSlice = createSlice({
@@ -287,6 +404,21 @@ const settingsSlice = createSlice({
       state.theme = action.payload;
       localStorage.setItem("agentx-theme", action.payload);
       persistPreferences({ theme: action.payload });
+    },
+    setAccentColor(state, action: PayloadAction<AccentColor>) {
+      state.accentColor = action.payload;
+      localStorage.setItem("agentx-accent-color", action.payload);
+      persistPreferences({ accentColor: action.payload });
+    },
+    setFontSize(state, action: PayloadAction<FontSize>) {
+      state.fontSize = action.payload;
+      localStorage.setItem("agentx-font-size", action.payload);
+      persistPreferences({ fontSize: action.payload });
+    },
+    setLayoutDensity(state, action: PayloadAction<LayoutDensity>) {
+      state.layoutDensity = action.payload;
+      localStorage.setItem("agentx-layout-density", action.payload);
+      persistPreferences({ layoutDensity: action.payload });
     },
     setLanguage(state, action: PayloadAction<string>) {
       state.language = action.payload;
@@ -342,6 +474,25 @@ const settingsSlice = createSlice({
       persistMCPRemove(action.payload);
     },
 
+    // Scheduled Tasks — synchronous reducers for instant UI updates
+    upsertScheduledTask(state, action: PayloadAction<ScheduledTaskConfig>) {
+      const task = action.payload;
+      const idx = state.scheduledTasks.findIndex((t) => t.id === task.id);
+      if (idx >= 0) {
+        state.scheduledTasks[idx] = task;
+      } else {
+        state.scheduledTasks.push(task);
+      }
+      persistScheduledTask(task);
+    },
+    deleteScheduledTask(state, action: PayloadAction<string>) {
+      state.scheduledTasks = state.scheduledTasks.filter((t) => t.id !== action.payload);
+      persistScheduledTaskRemove(action.payload);
+    },
+    replaceScheduledTasks(state, action: PayloadAction<ScheduledTaskConfig[]>) {
+      state.scheduledTasks = action.payload;
+    },
+
     // Tool Permissions — synchronous reducer for instant UI updates
     updateToolPermissions(state, action: PayloadAction<Partial<ToolPermissionsState>>) {
       state.toolPermissions = { ...state.toolPermissions, ...action.payload };
@@ -377,7 +528,11 @@ const settingsSlice = createSlice({
         order: state.folders.length,
       };
       state.folders.push(folder);
+      state.lastCreatedFolderId = folder.id;
       persistPreferences({ folders: current(state.folders) });
+    },
+    clearLastCreatedFolderId(state) {
+      state.lastCreatedFolderId = null;
     },
     renameFolder(state, action: PayloadAction<{ id: string; name: string }>) {
       const folder = state.folders.find((f) => f.id === action.payload.id);
@@ -387,12 +542,20 @@ const settingsSlice = createSlice({
       }
     },
     deleteFolder(state, action: PayloadAction<string>) {
-      state.folders = state.folders.filter((f) => f.id !== action.payload);
-      // Clean up ordering for the deleted folder
-      delete state.conversationOrder.folders[action.payload];
+      const folderId = action.payload;
+      // Snapshot plain data BEFORE mutations to avoid Immer current() issues
+      // with reassigned draft fields containing detached draft proxies.
+      const snap = current(state);
+      const updatedFolders = snap.folders.filter((f) => f.id !== folderId);
+      const updatedOrder = { ...snap.conversationOrder };
+      delete updatedOrder.folders[folderId];
+
+      state.folders = updatedFolders;
+      state.conversationOrder = updatedOrder;
+
       persistPreferences({
-        folders: current(state.folders),
-        conversationOrder: current(state.conversationOrder),
+        folders: updatedFolders,
+        conversationOrder: updatedOrder,
       });
     },
 
@@ -414,8 +577,10 @@ const settingsSlice = createSlice({
 
     // Folder ordering — update order fields from sorted array
     reorderFolders(state, action: PayloadAction<Folder[]>) {
-      state.folders = action.payload;
-      persistPreferences({ folders: current(state.folders) });
+      // action.payload is already plain data (from arrayMove result)
+      const plainFolders = action.payload.map((f) => ({ ...f }));
+      state.folders = plainFolders;
+      persistPreferences({ folders: plainFolders });
     },
   },
   extraReducers: (builder) => {
@@ -425,6 +590,24 @@ const settingsSlice = createSlice({
         if (prefs.theme && ["light", "dark", "system"].includes(prefs.theme)) {
           state.theme = prefs.theme as SettingsState["theme"];
           localStorage.setItem("agentx-theme", prefs.theme);
+        }
+        if (
+          prefs.accentColor &&
+          ["blue", "violet", "rose", "orange", "green", "teal"].includes(prefs.accentColor)
+        ) {
+          state.accentColor = prefs.accentColor as AccentColor;
+          localStorage.setItem("agentx-accent-color", prefs.accentColor);
+        }
+        if (prefs.fontSize && ["small", "default", "large"].includes(prefs.fontSize)) {
+          state.fontSize = prefs.fontSize as FontSize;
+          localStorage.setItem("agentx-font-size", prefs.fontSize);
+        }
+        if (
+          prefs.layoutDensity &&
+          ["compact", "comfortable", "spacious"].includes(prefs.layoutDensity)
+        ) {
+          state.layoutDensity = prefs.layoutDensity as LayoutDensity;
+          localStorage.setItem("agentx-layout-density", prefs.layoutDensity);
         }
         if (prefs.language) {
           state.language = prefs.language;
@@ -483,6 +666,10 @@ const settingsSlice = createSlice({
       .addCase(loadMCPServers.fulfilled, (state, action) => {
         state.mcpServers = action.payload;
       })
+      // Scheduled Tasks — load from disk
+      .addCase(loadScheduledTasks.fulfilled, (state, action) => {
+        state.scheduledTasks = action.payload;
+      })
       // Installed Skills
       .addCase(loadInstalledSkills.fulfilled, (state, action) => {
         state.installedSkills = action.payload;
@@ -493,12 +680,52 @@ const settingsSlice = createSlice({
       })
       .addCase(saveToolPermissions.fulfilled, (state, action) => {
         state.toolPermissions = action.payload;
+      })
+      .addCase(resetAllSettings.fulfilled, (state) => {
+        // Reset to defaults
+        state.theme = "system";
+        state.accentColor = "blue";
+        state.fontSize = "default";
+        state.layoutDensity = "comfortable";
+        state.language = "en";
+        state.proxyUrl = "";
+        state.workspacePath = "";
+        state.dataPath = "";
+        state.globalSystemPrompt = "";
+        state.providers = [];
+        state.knowledgeBase = [];
+        state.mcpServers = [];
+        state.scheduledTasks = [];
+        state.installedSkills = [];
+        state.folders = [];
+        state.conversationOrder = { favorites: [], ungrouped: [], folders: {} };
+        state.lastCreatedFolderId = null;
+        state.toolPermissions = {
+          approvalMode: "smart",
+          fileRead: true,
+          fileWrite: true,
+          shellExecute: true,
+          mcpCall: true,
+          allowedPaths: [],
+        };
+        state.voice = {
+          sttApiUrl: "",
+          sttApiKey: "",
+          sttLanguage: "",
+          ttsVoice: "",
+          ttsRate: 1.0,
+          ttsPitch: 1.0,
+          autoReadReplies: false,
+        };
       });
   },
 });
 
 export const {
   setTheme,
+  setAccentColor,
+  setFontSize,
+  setLayoutDensity,
   setLanguage,
   setProxyUrl,
   setWorkspacePath,
@@ -508,6 +735,9 @@ export const {
   deleteKBItem,
   upsertMCPServer,
   deleteMCPServer,
+  upsertScheduledTask,
+  deleteScheduledTask,
+  replaceScheduledTasks,
   addInstalledSkill,
   removeInstalledSkill,
   updateToolPermissions,
@@ -515,6 +745,7 @@ export const {
   createFolder,
   renameFolder,
   deleteFolder,
+  clearLastCreatedFolderId,
   reorderConversations,
   reorderFolders,
 } = settingsSlice.actions;

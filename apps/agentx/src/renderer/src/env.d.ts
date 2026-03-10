@@ -2,6 +2,13 @@
 
 declare const __APP_VERSION__: string;
 
+interface ContentPart {
+  type: "text" | "image";
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
 interface ToolPermissions {
   approvalMode: "auto" | "always-ask" | "smart";
   fileRead: boolean;
@@ -17,6 +24,56 @@ interface MCPServerState {
   status: "disconnected" | "connecting" | "connected" | "error";
   toolCount: number;
   error?: string;
+}
+
+interface ScheduledTaskConfig {
+  id: string;
+  title: string;
+  description: string;
+  schedule: {
+    type: "cron" | "interval" | "once";
+    cron?: string;
+    intervalMs?: number;
+    runAt?: string;
+  };
+  action: {
+    type: "shell" | "prompt";
+    command?: string;
+    prompt?: string;
+    timeoutMs?: number;
+  };
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+  lastRunAt?: number;
+  lastRunResult?: string;
+  lastRunError?: string;
+  nextRunAt?: number;
+}
+
+interface MemoryConfig {
+  enabled: boolean;
+  maxSummaries: number;
+  maxFacts: number;
+  autoExtract: boolean;
+}
+
+interface ConversationSummary {
+  id: string;
+  conversationId: string;
+  title: string;
+  summary: string;
+  topics: string[];
+  createdAt: number;
+}
+
+interface LearnedFact {
+  id: string;
+  category: "preference" | "project" | "pattern" | "instruction";
+  content: string;
+  sourceConversationId: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 type SystemPermissionType =
@@ -54,7 +111,7 @@ interface ElectronAPI {
     switchBranch: (id: string, targetMessageId: string) => Promise<void>;
   };
   agent: {
-    send: (conversationId: string, content: string) => Promise<void>;
+    send: (conversationId: string, content: string | ContentPart[]) => Promise<void>;
     regenerate: (conversationId: string, assistantMessageId: string) => Promise<void>;
     abort: (conversationId: string) => void;
     onEvent: (callback: (event: unknown) => void) => () => void;
@@ -94,6 +151,13 @@ interface ElectronAPI {
     reconnect: (id?: string) => Promise<void>;
     onStatusUpdate: (callback: (states: MCPServerState[]) => void) => () => void;
   };
+  scheduler: {
+    list: () => Promise<ScheduledTaskConfig[]>;
+    set: (task: ScheduledTaskConfig) => Promise<void>;
+    remove: (id: string) => void;
+    runNow: (id: string) => Promise<void>;
+    onStatusUpdate: (callback: (tasks: ScheduledTaskConfig[]) => void) => () => void;
+  };
   permissions: {
     checkAll: () => Promise<Record<SystemPermissionType, SystemPermissionStatus>>;
     check: (type: SystemPermissionType) => Promise<SystemPermissionStatus>;
@@ -106,6 +170,15 @@ interface ElectronAPI {
   toolPermissions: {
     get: () => Promise<ToolPermissions>;
     set: (permissions: ToolPermissions) => Promise<void>;
+  };
+  memory: {
+    getConfig: () => Promise<MemoryConfig>;
+    setConfig: (config: MemoryConfig) => Promise<void>;
+    getSummaries: () => Promise<ConversationSummary[]>;
+    deleteSummary: (id: string) => Promise<void>;
+    getFacts: () => Promise<LearnedFact[]>;
+    deleteFact: (id: string) => Promise<void>;
+    updateFact: (id: string, content: string) => Promise<LearnedFact | null>;
   };
   tool: {
     respondApproval: (
@@ -129,6 +202,7 @@ interface ElectronAPI {
       title?: string;
     }) => Promise<string | null>;
     writeFileBinary: (path: string, base64Data: string) => Promise<boolean>;
+    readFileBase64: (path: string) => Promise<{ data: string; mimeType: string } | null>;
   };
   export: {
     printToPDF: (html: string) => Promise<string>;
@@ -150,6 +224,12 @@ interface ElectronAPI {
       audioBuffer: ArrayBuffer,
       language?: string,
     ) => Promise<{ text: string } | { error: string }>;
+  };
+  screen: {
+    capture: () => Promise<{ data: string; mimeType: string } | null>;
+  };
+  notifications: {
+    onNavigateToConversation: (callback: (conversationId: string) => void) => () => void;
   };
   updater: {
     checkForUpdates: () => Promise<void>;

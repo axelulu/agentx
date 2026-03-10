@@ -8,8 +8,13 @@ import {
   setWorkspacePath,
   setDataPath,
   setGlobalSystemPrompt,
+  resetAllSettings,
+  type AccentColor,
+  type FontSize,
+  type LayoutDensity,
 } from "@/slices/settingsSlice";
-import { checkForUpdates, openUpdateDialog } from "@/slices/updateSlice";
+import { clearAllConversations } from "@/slices/chatSlice";
+import { checkForUpdates, openUpdateDialog, setUpdateStatus } from "@/slices/updateSlice";
 import { l10n, SUPPORTED_LANGUAGE } from "@workspace/l10n";
 import { motion } from "framer-motion";
 import {
@@ -24,6 +29,10 @@ import {
   ScrollTextIcon,
   MicIcon,
   ZapIcon,
+  ClockIcon,
+  BrainIcon,
+  RotateCcwIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { ProviderConfig } from "./ProviderConfig";
 import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
@@ -31,9 +40,12 @@ import { MCPConfig } from "./MCPConfig";
 import { PermissionsConfig } from "./PermissionsConfig";
 import { VoiceConfig } from "./VoiceConfig";
 import { SkillsConfig } from "./SkillsConfig";
+import { ScheduledTasksConfig } from "./ScheduledTasksConfig";
+import { MemoryConfig } from "./MemoryConfig";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export function SettingsPanel() {
   const dispatch = useDispatch();
@@ -48,6 +60,8 @@ export function SettingsPanel() {
     { id: "knowledgeBase", label: l10n.t("Knowledge Base"), icon: BookOpenIcon },
     { id: "mcp", label: l10n.t("MCP Servers"), icon: PlugIcon },
     { id: "skills", label: l10n.t("Skills"), icon: ZapIcon },
+    { id: "scheduledTasks", label: l10n.t("Scheduled Tasks"), icon: ClockIcon },
+    { id: "memory", label: l10n.t("Memory"), icon: BrainIcon },
     { id: "permissions", label: l10n.t("Permissions"), icon: ShieldCheckIcon },
     { id: "about", label: l10n.t("About"), icon: InfoIcon },
   ];
@@ -120,6 +134,8 @@ export function SettingsPanel() {
             {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
             {activeSection === "mcp" && <MCPConfig />}
             {activeSection === "skills" && <SkillsConfig />}
+            {activeSection === "scheduledTasks" && <ScheduledTasksConfig />}
+            {activeSection === "memory" && <MemoryConfig />}
             {activeSection === "permissions" && <PermissionsConfig />}
             {activeSection === "about" && <AboutSection />}
           </div>
@@ -129,14 +145,65 @@ export function SettingsPanel() {
   );
 }
 
+function getAccentOptions(): { id: AccentColor; label: string; color: string }[] {
+  return [
+    { id: "blue", label: l10n.t("Blue"), color: "#3b82f6" },
+    { id: "violet", label: l10n.t("Violet"), color: "#8b5cf6" },
+    { id: "rose", label: l10n.t("Rose"), color: "#f43f5e" },
+    { id: "orange", label: l10n.t("Orange"), color: "#f97316" },
+    { id: "green", label: l10n.t("Green"), color: "#10b981" },
+    { id: "teal", label: l10n.t("Teal"), color: "#14b8a6" },
+  ];
+}
+
 function GeneralSection() {
   const dispatch = useDispatch<AppDispatch>();
-  const { theme, setThemeMode } = useTheme();
+  const {
+    theme,
+    accentColor,
+    fontSize,
+    layoutDensity,
+    setThemeMode,
+    setAccent,
+    setFontSizeMode,
+    setDensity,
+  } = useTheme();
   const currentLanguage = l10n.getLanguage();
   const proxyUrl = useSelector((s: RootState) => s.settings.proxyUrl);
   const [proxyDraft, setProxyDraft] = useState(proxyUrl);
   const workspacePath = useSelector((s: RootState) => s.settings.workspacePath);
   const dataPath = useSelector((s: RootState) => s.settings.dataPath);
+
+  // Notification preferences
+  const [notifEnabled, setNotifEnabled] = useState(true);
+  const [notifScheduled, setNotifScheduled] = useState(true);
+  const [notifAgent, setNotifAgent] = useState(true);
+
+  useEffect(() => {
+    window.api.preferences.get().then((p) => {
+      const n = p.notifications as
+        | { enabled?: boolean; scheduledTasks?: boolean; agentCompletion?: boolean }
+        | undefined;
+      if (n) {
+        if (typeof n.enabled === "boolean") setNotifEnabled(n.enabled);
+        if (typeof n.scheduledTasks === "boolean") setNotifScheduled(n.scheduledTasks);
+        if (typeof n.agentCompletion === "boolean") setNotifAgent(n.agentCompletion);
+      }
+    });
+  }, []);
+
+  const persistNotifications = useCallback(
+    (patch: { enabled?: boolean; scheduledTasks?: boolean; agentCompletion?: boolean }) => {
+      const next = {
+        enabled: patch.enabled ?? notifEnabled,
+        scheduledTasks: patch.scheduledTasks ?? notifScheduled,
+        agentCompletion: patch.agentCompletion ?? notifAgent,
+      };
+      window.api.preferences.set({ notifications: next });
+    },
+    [notifEnabled, notifScheduled, notifAgent],
+  );
+
   const pickDirectory = async (setter: (path: string) => void) => {
     const dir = await window.api.fs.selectDirectory();
     if (dir) setter(dir);
@@ -146,6 +213,18 @@ function GeneralSection() {
     { value: "light", label: l10n.t("Light") },
     { value: "dark", label: l10n.t("Dark") },
     { value: "system", label: l10n.t("System") },
+  ];
+
+  const fontSizeOptions: { value: FontSize; label: string }[] = [
+    { value: "small", label: l10n.t("Small") },
+    { value: "default", label: l10n.t("Default") },
+    { value: "large", label: l10n.t("Large") },
+  ];
+
+  const densityOptions: { value: LayoutDensity; label: string }[] = [
+    { value: "compact", label: l10n.t("Compact") },
+    { value: "comfortable", label: l10n.t("Comfortable") },
+    { value: "spacious", label: l10n.t("Spacious") },
   ];
 
   const availableLanguages = l10n.getAvailableLanguages();
@@ -201,6 +280,81 @@ function GeneralSection() {
         </div>
         <div className="flex items-center justify-between py-2">
           <div>
+            <p className="text-sm text-foreground">{l10n.t("Accent Color")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Customize the primary accent color")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {getAccentOptions().map((opt) => (
+              <Tooltip key={opt.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setAccent(opt.id)}
+                    className={cn(
+                      "w-6 h-6 rounded-full transition-all shrink-0",
+                      accentColor === opt.id
+                        ? "ring-2 ring-foreground/70 ring-offset-2 ring-offset-card scale-110"
+                        : "hover:scale-110",
+                    )}
+                    style={{ backgroundColor: opt.color }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>{opt.label}</TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Font Size")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Adjust interface text size")}
+            </p>
+          </div>
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
+            {fontSizeOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setFontSizeMode(opt.value)}
+                className={cn(
+                  "px-3 py-1.5 text-[12px] font-medium transition-colors",
+                  fontSize === opt.value
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Layout Density")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Control spacing between elements")}
+            </p>
+          </div>
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
+            {densityOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setDensity(opt.value)}
+                className={cn(
+                  "px-3 py-1.5 text-[12px] font-medium transition-colors",
+                  layoutDensity === opt.value
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <div>
             <p className="text-sm text-foreground">{l10n.t("Language")}</p>
             <p className="text-[12px] text-muted-foreground mt-0.5">
               {l10n.t("Select display language")}
@@ -243,6 +397,102 @@ function GeneralSection() {
           placeholder="http://127.0.0.1:7890"
           className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
         />
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+          {l10n.t("Notifications")}
+        </label>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Enable Notifications")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Show system notifications when app is in background")}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const next = !notifEnabled;
+              setNotifEnabled(next);
+              persistNotifications({ enabled: next });
+            }}
+            className={cn(
+              "relative w-9 h-5 rounded-full transition-colors",
+              notifEnabled ? "bg-primary" : "bg-muted-foreground/30",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                notifEnabled && "translate-x-4",
+              )}
+            />
+          </button>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p
+              className={cn("text-sm", notifEnabled ? "text-foreground" : "text-muted-foreground")}
+            >
+              {l10n.t("Scheduled Task Completion")}
+            </p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Notify when scheduled tasks finish")}
+            </p>
+          </div>
+          <button
+            disabled={!notifEnabled}
+            onClick={() => {
+              const next = !notifScheduled;
+              setNotifScheduled(next);
+              persistNotifications({ scheduledTasks: next });
+            }}
+            className={cn(
+              "relative w-9 h-5 rounded-full transition-colors",
+              !notifEnabled && "opacity-50 cursor-not-allowed",
+              notifScheduled && notifEnabled ? "bg-primary" : "bg-muted-foreground/30",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                notifScheduled && notifEnabled && "translate-x-4",
+              )}
+            />
+          </button>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p
+              className={cn("text-sm", notifEnabled ? "text-foreground" : "text-muted-foreground")}
+            >
+              {l10n.t("Agent Response Ready")}
+            </p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Notify when agent finishes responding")}
+            </p>
+          </div>
+          <button
+            disabled={!notifEnabled}
+            onClick={() => {
+              const next = !notifAgent;
+              setNotifAgent(next);
+              persistNotifications({ agentCompletion: next });
+            }}
+            className={cn(
+              "relative w-9 h-5 rounded-full transition-colors",
+              !notifEnabled && "opacity-50 cursor-not-allowed",
+              notifAgent && notifEnabled ? "bg-primary" : "bg-muted-foreground/30",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                notifAgent && notifEnabled && "translate-x-4",
+              )}
+            />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -312,7 +562,89 @@ function GeneralSection() {
           {l10n.t("Changes take effect after restarting the app")}
         </p>
       </div>
+
+      <DangerZoneSection />
     </div>
+  );
+}
+
+function DangerZoneSection() {
+  const dispatch = useDispatch<AppDispatch>();
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+
+  const handleResetSettings = () => {
+    dispatch(resetAllSettings());
+  };
+
+  const handleClearConversations = () => {
+    dispatch(clearAllConversations());
+  };
+
+  return (
+    <>
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-destructive/80 uppercase tracking-wider">
+          {l10n.t("Danger Zone")}
+        </label>
+
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Reset All Settings")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Restore all settings to their default values")}
+            </p>
+          </div>
+          <button
+            onClick={() => setResetConfirmOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive border border-destructive/30 hover:bg-destructive/10 transition-colors"
+          >
+            <RotateCcwIcon className="w-3.5 h-3.5" />
+            {l10n.t("Reset")}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Clear All Conversations")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Delete all conversations permanently")}
+            </p>
+          </div>
+          <button
+            onClick={() => setClearConfirmOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive border border-destructive/30 hover:bg-destructive/10 transition-colors"
+          >
+            <Trash2Icon className="w-3.5 h-3.5" />
+            {l10n.t("Clear")}
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        onOpenChange={setResetConfirmOpen}
+        title={l10n.t("Reset All Settings")}
+        description={l10n.t(
+          "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.",
+        )}
+        confirmLabel={l10n.t("Reset")}
+        variant="destructive"
+        onConfirm={handleResetSettings}
+      />
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title={l10n.t("Clear All Conversations")}
+        description={l10n.t(
+          "All conversations will be permanently deleted. This action cannot be undone.",
+        )}
+        confirmLabel={l10n.t("Clear")}
+        variant="destructive"
+        onConfirm={handleClearConversations}
+      />
+    </>
   );
 }
 
@@ -361,6 +693,7 @@ function AboutSection() {
   const updateState = useSelector((s: RootState) => s.update.state);
 
   const handleCheckForUpdates = () => {
+    dispatch(setUpdateStatus({ state: "checking" }));
     dispatch(openUpdateDialog());
     dispatch(checkForUpdates());
   };

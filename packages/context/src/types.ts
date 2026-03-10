@@ -27,7 +27,9 @@ export interface LLMAssistantMessage {
 export interface LLMToolMessage {
   role: "tool";
   tool_call_id: string;
-  content: string;
+  content:
+    | string
+    | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
 }
 
 export type LLMMessage = LLMSystemMessage | LLMUserMessage | LLMAssistantMessage | LLMToolMessage;

@@ -18,6 +18,30 @@ export { MCPClientManager } from "./mcp/index.js";
 // Skills API
 export { searchSkills, getSkill } from "./skills/skill-api.js";
 
+// Scheduler
+export { ScheduledTaskManager } from "./scheduler/index.js";
+
+// Sub-agent orchestration
+export { SubAgentOrchestrator, Blackboard } from "./sub-agent/index.js";
+export type {
+  SubAgentTask,
+  SubAgentResult,
+  SubAgentStatus,
+  SubAgentProgressEvent,
+  SubAgentProgressEntry,
+  OrchestratedResult,
+} from "./sub-agent/index.js";
+
+// Memory
+export { MemoryManager } from "./memory/index.js";
+export type {
+  ConversationSummary,
+  LearnedFact,
+  MemoryConfig,
+  MemoryExtraction,
+} from "./memory/index.js";
+export { DEFAULT_MEMORY_CONFIG } from "./memory/index.js";
+
 // Types
 export type {
   SerializableAgentEvent,
@@ -37,6 +61,10 @@ export type {
   MCPServerState,
   MCPConnectionStatus,
   BranchInfo,
+  ScheduledTask,
+  ScheduledTaskSchedule,
+  ScheduledTaskAction,
+  ScheduledTaskStatusUpdate,
 } from "./types.js";
 
 export {
