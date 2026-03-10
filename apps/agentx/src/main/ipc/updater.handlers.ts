@@ -191,6 +191,7 @@ export function registerUpdaterHandlers(): void {
       await autoUpdater.checkForUpdates();
     } catch (err) {
       console.error("[Updater] Check failed:", err);
+      sendStatus({ state: "error", error: err instanceof Error ? err.message : String(err) });
     }
   });
 
@@ -199,6 +200,7 @@ export function registerUpdaterHandlers(): void {
       await autoUpdater.downloadUpdate();
     } catch (err) {
       console.error("[Updater] Download failed:", err);
+      sendStatus({ state: "error", error: err instanceof Error ? err.message : String(err) });
     }
   });
 
@@ -217,12 +219,14 @@ export function registerUpdaterHandlers(): void {
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch((err: Error) => {
       console.error("[Updater] Initial check failed:", err);
+      sendStatus({ state: "error", error: err.message });
     });
   }, INITIAL_DELAY_MS);
 
   setInterval(() => {
     autoUpdater.checkForUpdates().catch((err: Error) => {
       console.error("[Updater] Periodic check failed:", err);
+      sendStatus({ state: "error", error: err.message });
     });
   }, CHECK_INTERVAL_MS);
 
