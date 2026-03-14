@@ -1,4 +1,4 @@
-import { LanguageInfo, SUPPORTED_LANGUAGE } from "@workspace/l10n/languages";
+import { LanguageInfo, SUPPORTED_LANGUAGE } from "@agentx/l10n/languages";
 import OpenAI from "openai";
 
 export class Translator {

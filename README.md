@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/agentx/resources/icon.png" width="128" height="128" alt="AgentX" />
+  <img src="packages/agentx/resources/icon.png" width="128" height="128" alt="AgentX" />
 </p>
 
 <h1 align="center">AgentX</h1>
@@ -157,7 +157,7 @@ Add persistent context entries (facts, preferences, project conventions) that ar
 - Real-time streaming with typing indicators
 - Message actions (copy, edit, regenerate)
 - Dark theme optimized for extended use
-- Lightweight — built with Electron + React 19
+- Lightweight — built with Tauri v2 + React 19
 
 ### macOS System Permissions
 
@@ -208,7 +208,7 @@ pnpm --filter agentx dist:win
 pnpm --filter agentx dist:linux
 ```
 
-Build artifacts are output to `apps/agentx/release/`.
+Build artifacts are output to `packages/agentx/src-tauri/target/release/bundle/`.
 
 ## Architecture
 
@@ -216,10 +216,10 @@ AgentX is a modular **pnpm monorepo** with clear separation of concerns:
 
 ```
 agentx/
-├── apps/
-│   └── agentx/                  # Electron desktop app
-│       ├── src/main/            #   Main process + IPC handlers
-│       ├── src/renderer/        #   React UI (Redux, Tailwind)
+├── packages/
+│   └── agentx/                  # Tauri v2 desktop app
+│       ├── src-tauri/           #   Rust backend (Tauri commands)
+│       ├── src/                 #   React UI (Redux, Tailwind)
 │       └── resources/toolkit/   #   YAML prompt & tool definitions
 │
 ├── packages/
@@ -327,7 +327,7 @@ To add a new tool:
 
 | Layer       | Technology                                                    |
 | ----------- | ------------------------------------------------------------- |
-| **Desktop** | Electron 33, electron-vite, electron-builder                  |
+| **Desktop** | Tauri v2, Vite, Rust                                          |
 | **UI**      | React 19, Redux Toolkit, Tailwind CSS 4, Radix UI             |
 | **Agent**   | Custom turn-based loop with streaming EventStream             |
 | **LLM**     | OpenAI SDK 5 (also used for Anthropic/Gemini adapters)        |

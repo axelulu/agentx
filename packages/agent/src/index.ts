@@ -69,7 +69,7 @@ export type {
 export type { ProviderConfig } from "./providers/types.js";
 
 // ---------------------------------------------------------------------------
-// Re-exports from @workspace/context (so desktop only needs @workspace/agent)
+// Re-exports from @agentx/context (so consumers only need @agentx/agent)
 // ---------------------------------------------------------------------------
 export {
   ContextManager,
@@ -82,7 +82,7 @@ export {
   InMemorySummaryStore,
   estimateTokens,
   estimateMessagesTokens,
-} from "@workspace/context";
+} from "@agentx/context";
 
 export type {
   Middleware,
@@ -92,10 +92,10 @@ export type {
   SummaryStore,
   CompressionResult,
   ToolResultCompressionConfig,
-} from "@workspace/context";
+} from "@agentx/context";
 
 // ---------------------------------------------------------------------------
-// Re-exports from @workspace/toolkit (so desktop only needs @workspace/agent)
+// Re-exports from @agentx/toolkit (so consumers only need @agentx/agent)
 // ---------------------------------------------------------------------------
 export {
   Toolkit,
@@ -115,7 +115,7 @@ export {
   isConditionalSection,
   isTaggedSection,
   isListSection,
-} from "@workspace/toolkit";
+} from "@agentx/toolkit";
 
 export type {
   BuiltTool,
@@ -137,4 +137,4 @@ export type {
   PromptTemplate,
   CompiledPrompt,
   CapabilityEntry,
-} from "@workspace/toolkit";
+} from "@agentx/toolkit";

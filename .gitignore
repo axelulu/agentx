@@ -25,5 +25,5 @@ out/
 *.log
 logs/
 
-# Electron
-release/
+# Tauri
+target/

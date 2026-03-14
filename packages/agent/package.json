@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/agent",
+  "name": "@agentx/agent",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,14 +14,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@workspace/context": "workspace:*",
-    "@workspace/toolkit": "workspace:*",
+    "@agentx/context": "workspace:*",
+    "@agentx/toolkit": "workspace:*",
     "openai": "^5.16.0"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@workspace/eslint-config": "workspace:*",
-    "@workspace/typescript-config": "workspace:*",
+    "@agentx/eslint-config": "workspace:*",
+    "@agentx/typescript-config": "workspace:*",
     "eslint": "^9.20.1",
     "typescript": "^5.8.3",
     "vitest": "^4.0.5"

@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/l10n",
+  "name": "@agentx/l10n",
   "version": "1.0.0",
   "private": true,
   "description": "Simple and powerful internationalization package for JavaScript/TypeScript applications",
@@ -58,7 +58,7 @@
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@workspace/eslint-config": "workspace:*",
+    "@agentx/eslint-config": "workspace:*",
     "eslint": "^9.20.1",
     "typescript": "^5.0.0",
     "vitest": "^4.0.5"

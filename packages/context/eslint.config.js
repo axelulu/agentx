@@ -1,4 +1,4 @@
-import { backendConfig } from "@workspace/eslint-config/backend";
+import { backendConfig } from "@agentx/eslint-config/backend";
 
 /** @type {import("eslint").Linter.Config} */
 export default backendConfig;

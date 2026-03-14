@@ -1,4 +1,4 @@
-import { config } from "@workspace/eslint-config/base";
+import { config } from "@agentx/eslint-config/base";
 
 export default [
   ...config,

@@ -50,8 +50,8 @@ jobs:
       - name: Build workspace packages
         run: pnpm build:prod
 
-      - name: Build Electron app (${{ matrix.platform }})
-        run: pnpm --filter agentx dist:${{ matrix.platform }}
+      - name: Build Tauri app (${{ matrix.platform }})
+        run: pnpm --filter agentx build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -60,13 +60,12 @@ jobs:
         with:
           name: release-${{ matrix.platform }}
           path: |
-            apps/agentx/release/*.dmg
-            apps/agentx/release/*.zip
-            apps/agentx/release/*.exe
-            apps/agentx/release/*.AppImage
-            apps/agentx/release/*.yml
-            apps/agentx/release/*.yaml
-            apps/agentx/release/*.blockmap
+            packages/agentx/src-tauri/target/release/bundle/**/*.dmg
+            packages/agentx/src-tauri/target/release/bundle/**/*.app.tar.gz
+            packages/agentx/src-tauri/target/release/bundle/**/*.exe
+            packages/agentx/src-tauri/target/release/bundle/**/*.msi
+            packages/agentx/src-tauri/target/release/bundle/**/*.AppImage
+            packages/agentx/src-tauri/target/release/bundle/**/*.deb
           if-no-files-found: error
 
   release:

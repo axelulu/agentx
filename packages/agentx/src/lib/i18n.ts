@@ -1,0 +1,25 @@
+import { l10n } from "@agentx/l10n";
+import en from "@/locales/en.json";
+import zhCN from "@/locales/zh-CN.json";
+import zhTW from "@/locales/zh-TW.json";
+import ja from "@/locales/ja.json";
+import ko from "@/locales/ko.json";
+import es from "@/locales/es.json";
+import fr from "@/locales/fr.json";
+import de from "@/locales/de.json";
+import ptBR from "@/locales/pt-BR.json";
+import ru from "@/locales/ru.json";
+import ar from "@/locales/ar.json";
+
+l10n.setTranslations("en", en);
+l10n.setTranslations("zh-CN", zhCN);
+l10n.setTranslations("zh-TW", zhTW);
+l10n.setTranslations("ja", ja);
+l10n.setTranslations("ko", ko);
+l10n.setTranslations("es", es);
+l10n.setTranslations("fr", fr);
+l10n.setTranslations("de", de);
+l10n.setTranslations("pt-BR", ptBR);
+l10n.setTranslations("ru", ru);
+l10n.setTranslations("ar", ar);
+l10n.setLanguage(localStorage.getItem("agentx-language") || "en");

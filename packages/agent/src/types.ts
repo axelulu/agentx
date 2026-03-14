@@ -1,4 +1,4 @@
-// Re-export base types from @workspace/context
+// Re-export base types from @agentx/context
 export type {
   LLMSystemMessage,
   LLMUserMessage,
@@ -14,14 +14,14 @@ export type {
   StreamFnOptions,
   StreamFn,
   MiddlewareContext,
-} from "@workspace/context";
+} from "@agentx/context";
 
-import type { Middleware, MiddlewareContext, StreamFn, LLMMessage } from "@workspace/context";
+import type { Middleware, MiddlewareContext, StreamFn, LLMMessage } from "@agentx/context";
 
-// Re-export tool types from @workspace/toolkit
-export type { ToolExecutionContext, AgentToolResult } from "@workspace/toolkit";
+// Re-export tool types from @agentx/toolkit
+export type { ToolExecutionContext, AgentToolResult } from "@agentx/toolkit";
 
-import type { BuiltTool, AgentToolResult } from "@workspace/toolkit";
+import type { BuiltTool, AgentToolResult } from "@agentx/toolkit";
 
 /**
  * AgentTool — alias for toolkit's BuiltTool.
