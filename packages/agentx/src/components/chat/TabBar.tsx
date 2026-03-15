@@ -51,7 +51,7 @@ export function TabBar() {
   if (openTabs.length <= 1) return null;
 
   return (
-    <div className="flex items-end bg-background border-b border-border overflow-x-auto scrollbar-none shrink-0">
+    <div className="flex items-end bg-background border-b border-border overflow-x-auto scrollbar-none shrink-0 gap-0">
       <AnimatePresence initial={false}>
         {openTabs.map((tabId) => {
           const isActive = tabId === currentConversationId;
@@ -70,10 +70,10 @@ export function TabBar() {
                 onClick={() => handleTabClick(tabId)}
                 onContextMenu={(e) => handleContextMenu(e, tabId)}
                 className={cn(
-                  "group flex items-center gap-1.5 px-3 py-1.5 text-[12px] max-w-[180px] border-r border-border transition-colors",
+                  "group flex items-center gap-1.5 px-4 py-2 text-[13px] max-w-[180px] transition-colors",
                   isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                    ? "text-foreground border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {isRunning && (

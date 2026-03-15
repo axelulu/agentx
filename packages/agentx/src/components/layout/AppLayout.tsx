@@ -40,7 +40,7 @@ export function AppLayout() {
               animate={{ width: 260, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden border-r border-sidebar-border"
+              className="overflow-hidden"
             >
               <Sidebar />
             </motion.div>

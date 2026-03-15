@@ -3,7 +3,6 @@ import type { Message, ToolCallData } from "@/slices/chatSlice";
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
 import {
-  BotIcon,
   WrenchIcon,
   ChevronRightIcon,
   CopyIcon,
@@ -261,7 +260,7 @@ function UserBubble({
   return (
     <div className={cn("group/msg flex flex-col items-end", animate && "animate-slide-up")}>
       {/* Bubble */}
-      <div className="text-[13px] leading-relaxed bg-foreground/[0.04] rounded-2xl px-4 py-3 max-w-[75%]">
+      <div className="text-sm leading-relaxed bg-primary/10 dark:bg-primary/15 rounded-2xl px-5 py-3.5 max-w-2xl">
         {/* Inline image thumbnails */}
         {hasImages && (
           <div className={cn("flex flex-wrap gap-2", (text || hasAttachments) && "mb-2")}>
@@ -402,17 +401,12 @@ function AssistantBubble({
   return (
     <div
       className={cn(
-        "group/msg flex gap-3",
+        "group/msg flex flex-col max-w-2xl",
         animate && !isConsecutiveAssistant && "animate-slide-up",
       )}
     >
-      {/* Avatar */}
-      <div className="flex items-center justify-center w-6 h-6 rounded-lg shrink-0 mt-0.5 bg-foreground/[0.06]">
-        <BotIcon className="w-3 h-3 text-foreground/50" />
-      </div>
-
       {/* Content + actions */}
-      <div className="flex-1 min-w-0 pt-0.5">
+      <div className="flex-1 min-w-0">
         {/* Tool call blocks — each rendered as a prominent step */}
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div className="flex flex-col gap-1.5 mb-2">
@@ -783,10 +777,8 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
   return (
     <div
       className={cn(
-        "rounded-lg border text-xs overflow-hidden",
-        isError
-          ? "border-destructive/20 bg-destructive/[0.04]"
-          : "border-foreground/[0.08] bg-foreground/[0.02]",
+        "text-xs overflow-hidden",
+        isError ? "border-l-2 border-destructive/40 pl-3" : "border-l-2 border-primary/30 pl-3",
       )}
     >
       {/* Header */}
@@ -801,8 +793,8 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
           }
         }}
         className={cn(
-          "flex items-center gap-2 w-full px-3 py-1.5 text-left select-none",
-          hasResult && "cursor-pointer hover:bg-foreground/[0.03]",
+          "flex items-center gap-2 w-full py-1.5 text-left select-none",
+          hasResult && "cursor-pointer",
         )}
       >
         {isRunning ? (
@@ -875,18 +867,13 @@ function ToolResultBubble({ message, animate = true }: { message: Message; anima
   const isLong = content.length > 200;
 
   return (
-    <div className={cn("flex gap-3", animate && "animate-slide-up")}>
-      {/* Avatar */}
-      <div className="flex items-center justify-center w-6 h-6 rounded-lg shrink-0 mt-0.5 bg-foreground/[0.06]">
-        <BotIcon className="w-3 h-3 text-foreground/50" />
-      </div>
-
+    <div className={cn("flex", animate && "animate-slide-up")}>
       <div
         className={cn(
-          "rounded-lg px-3 py-2 text-xs max-w-[90%]",
+          "text-xs max-w-[90%]",
           message.isError
-            ? "bg-destructive/[0.06] text-destructive"
-            : "bg-foreground/[0.03] text-muted-foreground",
+            ? "border-l-2 border-destructive/40 pl-3"
+            : "border-l-2 border-primary/30 pl-3",
         )}
       >
         <button

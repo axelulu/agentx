@@ -146,7 +146,7 @@ export function Sidebar() {
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder={l10n.t("Search conversations...")}
-              className="w-full bg-sidebar-accent rounded-md pl-8 pr-7 py-1.5 text-[12px] text-sidebar-foreground placeholder:text-muted-foreground/50 outline-none border border-sidebar-border focus:ring-1 focus:ring-ring"
+              className="w-full bg-sidebar-accent rounded-md pl-8 pr-7 py-2 text-[13px] text-sidebar-foreground placeholder:text-muted-foreground/50 outline-none border border-transparent focus:border-sidebar-border"
             />
             {searchQuery && (
               <button

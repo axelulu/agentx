@@ -82,10 +82,10 @@ export function SettingsPanel() {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.97, opacity: 0 }}
         transition={{ duration: 0.15, ease: "easeOut" }}
-        className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[720px] h-[520px] overflow-hidden flex"
+        className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex"
       >
         {/* Left: Navigation */}
-        <div className="w-[180px] shrink-0 bg-secondary/50 border-r border-border flex flex-col">
+        <div className="w-[200px] shrink-0 bg-muted border-r border-border flex flex-col">
           <div className="px-4 pt-5 pb-3">
             <h2 className="text-[13px] font-semibold text-foreground">{l10n.t("Settings")}</h2>
           </div>
@@ -95,10 +95,10 @@ export function SettingsPanel() {
                 key={id}
                 onClick={() => setActiveSection(id)}
                 className={cn(
-                  "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] transition-colors",
+                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
                   activeSection === id
-                    ? "bg-foreground/10 text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
                 )}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -126,7 +126,7 @@ export function SettingsPanel() {
               <TooltipContent>{l10n.t("Close")}</TooltipContent>
             </Tooltip>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <div className="flex-1 overflow-y-auto px-8 pb-8">
             {activeSection === "general" && <GeneralSection />}
             {activeSection === "voice" && <VoiceConfig />}
             {activeSection === "systemPrompt" && <SystemPromptSection />}

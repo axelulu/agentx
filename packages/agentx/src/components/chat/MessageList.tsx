@@ -3,7 +3,6 @@ import { l10n } from "@agentx/l10n";
 import { MessageBubble } from "./MessageBubble";
 import { BranchNavigator } from "./BranchNavigator";
 import { useEffect, useRef, useCallback, type RefObject } from "react";
-import { BotIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NEAR_BOTTOM_THRESHOLD = 300;
@@ -94,7 +93,7 @@ export function MessageList({
   const needsStandaloneIndicator = isStreaming && lastMessage?.role === "user";
 
   return (
-    <div className="flex flex-col px-6 py-8 max-w-3xl mx-auto w-full">
+    <div className="flex flex-col px-8 py-10 max-w-3xl mx-auto w-full">
       {messages.map((message, idx) => {
         const prev = idx > 0 ? messages[idx - 1] : null;
         const isConsecutiveAssistant = message.role === "assistant" && prev?.role === "assistant";
@@ -103,7 +102,7 @@ export function MessageList({
         return (
           <div
             key={message.id}
-            className={cn(isConsecutiveAssistant ? "mt-2" : idx > 0 ? "mt-6" : "")}
+            className={cn(isConsecutiveAssistant ? "mt-3" : idx > 0 ? "mt-8" : "")}
           >
             <MessageBubble
               message={message}
@@ -132,10 +131,7 @@ export function MessageList({
 
       {/* Typing indicator before assistant message arrives */}
       {needsStandaloneIndicator && (
-        <div className="flex gap-3 mt-6 animate-slide-up">
-          <div className="flex items-center justify-center w-6 h-6 rounded-lg shrink-0 mt-0.5 bg-foreground/[0.06]">
-            <BotIcon className="w-3 h-3 text-foreground/50" />
-          </div>
+        <div className="flex mt-8 animate-slide-up">
           <div className="flex items-center gap-1 pt-1.5">
             <span className="typing-dot w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
             <span className="typing-dot w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />

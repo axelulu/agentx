@@ -102,7 +102,7 @@ function CodeBlock({
 
     return (
       <code
-        className="px-1.5 py-0.5 rounded-[4px] bg-foreground/[0.07] text-[12px] font-mono text-foreground/90"
+        className="px-1.5 py-0.5 rounded-[4px] bg-foreground/[0.07] text-[13px] font-mono text-foreground/90"
         {...props}
       >
         {children}
@@ -141,7 +141,7 @@ function CodeBlock({
         </button>
       </div>
       {/* Code content */}
-      <pre className="px-3.5 py-3 overflow-x-auto text-[12px] leading-relaxed bg-foreground/[0.02]">
+      <pre className="px-3.5 py-3 overflow-x-auto text-[13px] leading-relaxed bg-foreground/[0.02]">
         <code className={cn("font-mono", className)} {...props}>
           {children}
         </code>
@@ -355,7 +355,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   const lastBlockIsThinking = blocks.length > 0 && blocks[blocks.length - 1].type === "thinking";
 
   return (
-    <div className={cn("text-[13px] leading-relaxed text-foreground", className)}>
+    <div className={cn("text-sm leading-relaxed text-foreground", className)}>
       {blocks.map((block, i) =>
         block.type === "thinking" ? (
           <ThinkingBlock

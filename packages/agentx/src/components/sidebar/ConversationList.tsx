@@ -467,7 +467,7 @@ export function ConversationList({
     return (
       <div
         className={cn(
-          "group flex items-start gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer text-[13px]",
+          "group flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-[13px]",
           selectMode
             ? isSelected
               ? "bg-foreground/[0.05] text-foreground"

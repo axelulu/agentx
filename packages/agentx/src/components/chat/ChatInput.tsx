@@ -343,8 +343,8 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "relative border rounded-2xl overflow-hidden transition-all bg-card focus-within:border-foreground/20 focus-within:shadow-sm",
-            isDragOver ? "border-foreground/30 bg-foreground/[0.02]" : "border-foreground/10",
+            "relative border rounded-2xl overflow-hidden transition-all bg-card focus-within:border-ring/50 focus-within:shadow-sm",
+            isDragOver ? "border-foreground/30 bg-foreground/[0.02]" : "border-border",
           )}
         >
           {/* Drop overlay */}
@@ -383,7 +383,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             onPaste={handlePaste}
             placeholder={l10n.t("Message AgentX...")}
             rows={1}
-            className="w-full bg-transparent resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-4 pt-3 pb-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-transparent resize-none outline-none text-sm text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-5 pt-3.5 pb-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isStreaming}
           />
 
@@ -412,7 +412,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           )}
 
           {/* Toolbar */}
-          <div className="flex items-center gap-1 px-2.5 pb-2.5">
+          <div className="flex items-center gap-1.5 px-3 pb-3">
             <ToolbarButton title={l10n.t("Attach file")} onClick={handleAttachClick}>
               <PaperclipIcon className="w-4 h-4" />
             </ToolbarButton>
@@ -428,7 +428,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             <ConversationPromptButton />
 
             {/* Model label */}
-            <div className="flex items-center gap-1.5 ml-1.5 text-[11px] tabular-nums">
+            <div className="flex items-center gap-1.5 ml-1.5 text-xs tabular-nums">
               <span className="text-muted-foreground/35 font-medium">{modelLabel}</span>
               <TokenUsageInline sessionUsage={sessionUsage} conversationUsage={conversationUsage} />
             </div>
@@ -441,7 +441,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
                 <TooltipTrigger asChild>
                   <button
                     onClick={abort}
-                    className="flex items-center justify-center w-7 h-7 rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-all"
+                    className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-all"
                   >
                     <SquareIcon className="w-3 h-3" />
                   </button>
@@ -455,7 +455,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
                     onClick={handleSend}
                     disabled={!canSend}
                     className={cn(
-                      "flex items-center justify-center w-7 h-7 rounded-full transition-all",
+                      "flex items-center justify-center w-8 h-8 rounded-full transition-all",
                       canSend
                         ? "bg-foreground text-background hover:opacity-90"
                         : "bg-foreground/8 text-muted-foreground/25",
