@@ -98,31 +98,27 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
         .resource_dir()
         .map_err(|e| format!("Failed to get resource dir: {}", e))?;
 
-    // In development, use node to run the sidecar script directly
-    // In production, use the bundled sidecar binary
-    let (program, args) = if cfg!(debug_assertions) {
-        // Dev mode: run with node/bun
-        let sidecar_path = resource_dir
+    // Resolve the sidecar JS bundle path
+    let sidecar_path = if cfg!(debug_assertions) {
+        // Dev mode: use the source build output
+        resource_dir
             .parent()
             .unwrap_or(&resource_dir)
             .join("sidecar")
             .join("dist")
-            .join("index.js");
-
-        // Try bun first, fall back to node
-        let node = if which_exists("bun") {
-            "bun".to_string()
-        } else {
-            "node".to_string()
-        };
-
-        (node, vec![sidecar_path.to_string_lossy().to_string()])
+            .join("index.js")
     } else {
-        // Production: use bundled sidecar binary
-        let sidecar_name = format!("agentx-sidecar{}", std::env::consts::EXE_SUFFIX);
-        let sidecar_path = resource_dir.join(sidecar_name);
-        (sidecar_path.to_string_lossy().to_string(), vec![])
+        // Production: use the bundled resource
+        resource_dir.join("sidecar").join("index.js")
     };
+
+    // Always run with node (try bun first in dev for speed)
+    let program = if cfg!(debug_assertions) && which_exists("bun") {
+        "bun".to_string()
+    } else {
+        "node".to_string()
+    };
+    let args = vec![sidecar_path.to_string_lossy().to_string()];
 
     // Pass data paths as CLI args
     let data_dir = app
