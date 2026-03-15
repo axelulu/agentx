@@ -24,13 +24,10 @@ jobs:
         include:
           - os: macos-latest
             platform: mac
-            bundles: dmg
           - os: windows-latest
             platform: win
-            bundles: nsis
           - os: ubuntu-latest
             platform: linux
-            bundles: deb,appimage
 
     runs-on: ${{ matrix.os }}
 
@@ -72,7 +69,7 @@ jobs:
         run: pnpm --filter "agentx^..." build
 
       - name: Build Tauri app (${{ matrix.platform }})
-        run: pnpm --filter agentx exec tauri build --bundles ${{ matrix.bundles }}
+        run: pnpm --filter agentx build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
