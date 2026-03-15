@@ -24,10 +24,13 @@ jobs:
         include:
           - os: macos-latest
             platform: mac
+            bundles: dmg
           - os: windows-latest
             platform: win
+            bundles: nsis
           - os: ubuntu-latest
             platform: linux
+            bundles: deb,appimage
 
     runs-on: ${{ matrix.os }}
 
@@ -69,7 +72,7 @@ jobs:
         run: pnpm --filter "agentx^..." build
 
       - name: Build Tauri app (${{ matrix.platform }})
-        run: pnpm --filter agentx build
+        run: pnpm --filter agentx exec tauri build --bundles ${{ matrix.bundles }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,8 +83,7 @@ jobs:
           path: |
             packages/agentx/src-tauri/target/release/bundle/**/*.dmg
             packages/agentx/src-tauri/target/release/bundle/**/*.app.tar.gz
-            packages/agentx/src-tauri/target/release/bundle/**/*.exe
-            packages/agentx/src-tauri/target/release/bundle/**/*.msi
+            packages/agentx/src-tauri/target/release/bundle/nsis/*.exe
             packages/agentx/src-tauri/target/release/bundle/**/*.AppImage
             packages/agentx/src-tauri/target/release/bundle/**/*.deb
           if-no-files-found: error
