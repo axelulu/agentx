@@ -75,8 +75,8 @@ export function AccordionCard({
       className={cn(
         "rounded-lg border transition-all duration-150",
         expanded
-          ? "bg-foreground/[0.03] border-border"
-          : "bg-foreground/[0.015] border-border/60 hover:bg-foreground/[0.04] hover:border-border",
+          ? "bg-foreground/[0.04] border-border"
+          : "bg-foreground/[0.02] border-border/70 hover:bg-foreground/[0.05] hover:border-border",
       )}
     >
       {/* Header */}
@@ -84,7 +84,7 @@ export function AccordionCard({
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 flex items-center gap-2 pl-3 py-2 text-left min-w-0 rounded-md hover:bg-foreground/5 transition-colors"
+          className="flex-1 flex items-center gap-2 pl-3 py-2 text-left min-w-0 rounded-md hover:bg-foreground/[0.06] transition-colors"
         >
           <ChevronRightIcon
             className={cn(
@@ -108,7 +108,7 @@ export function AccordionCard({
             <span className="text-[11px] text-muted-foreground/60 shrink-0">{subtitle}</span>
           )}
           {active && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-foreground/10 text-muted-foreground text-[10px] font-medium leading-none shrink-0">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-foreground/12 text-foreground text-[10px] font-medium leading-none shrink-0">
               <CheckIcon className="w-2.5 h-2.5" />
               {activeLabel ?? l10n.t("Active")}
             </span>
@@ -121,7 +121,7 @@ export function AccordionCard({
             <button
               type="button"
               onClick={onActivate}
-              className="text-[11px] font-medium text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-md bg-foreground/5 hover:bg-foreground/10 transition-colors"
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground px-2.5 py-1 rounded-md bg-foreground/8 hover:bg-foreground/12 transition-colors"
             >
               {l10n.t("Set Active")}
             </button>
@@ -129,7 +129,7 @@ export function AccordionCard({
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 rounded-md text-muted-foreground/40 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
+            className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
             title={l10n.t("Remove")}
           >
             <Trash2Icon className="w-3.5 h-3.5" />
@@ -183,7 +183,7 @@ export function AddButton({ label, onClick }: AddButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border/30 text-[12px] text-muted-foreground hover:text-foreground hover:border-border/60 hover:bg-foreground/5 transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-border/50 text-[12px] text-muted-foreground hover:text-foreground hover:border-border hover:bg-foreground/[0.06] transition-colors"
     >
       <PlusIcon className="w-3 h-3" />
       {label}
@@ -213,13 +213,13 @@ export function ToggleSwitch({ checked, onChange, label }: ToggleSwitchProps) {
       <span
         className={cn(
           "relative w-7 h-4 rounded-full transition-colors",
-          checked ? "bg-foreground/25" : "bg-foreground/10",
+          checked ? "bg-foreground/40" : "bg-foreground/12",
         )}
       >
         <span
           className={cn(
             "absolute top-[2px] w-3 h-3 rounded-full transition-all duration-150",
-            checked ? "left-[14px] bg-foreground/80" : "left-[2px] bg-muted-foreground/50",
+            checked ? "left-[14px] bg-background" : "left-[2px] bg-muted-foreground/50",
           )}
         />
       </span>
