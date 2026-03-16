@@ -135,6 +135,10 @@ jobs:
           BASE_URL="https://github.com/${REPO}/releases/download/${GITHUB_REF_NAME}"
 
           # Build platforms JSON dynamically based on available sig files
+          # Tauri updater artifact names vary by platform:
+          #   macOS:   AgentX.app.tar.gz (no version/arch in name)
+          #   Windows: AgentX_VERSION_x64-setup.nsis.zip
+          #   Linux:   AgentX_VERSION_amd64.AppImage.tar.gz
           PLATFORMS="{"
           FIRST=true
 
@@ -147,8 +151,8 @@ jobs:
             fi
           }
 
-          add_platform "darwin-aarch64" "AgentX_${VERSION}_aarch64.app.tar.gz" "AgentX_${VERSION}_aarch64.app.tar.gz.sig"
-          add_platform "darwin-x86_64"  "AgentX_${VERSION}_x64.app.tar.gz"     "AgentX_${VERSION}_x64.app.tar.gz.sig"
+          add_platform "darwin-aarch64" "AgentX.app.tar.gz" "AgentX.app.tar.gz.sig"
+          add_platform "darwin-x86_64"  "AgentX.app.tar.gz" "AgentX.app.tar.gz.sig"
           add_platform "windows-x86_64" "AgentX_${VERSION}_x64-setup.nsis.zip" "AgentX_${VERSION}_x64-setup.nsis.zip.sig"
           add_platform "linux-x86_64"   "AgentX_${VERSION}_amd64.AppImage.tar.gz" "AgentX_${VERSION}_amd64.AppImage.tar.gz.sig"
 
