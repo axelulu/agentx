@@ -36,5 +36,10 @@
       "cache": false
     }
   },
-  "globalDependencies": ["package.json", "pnpm-workspace.yaml", "turbo.json"]
+  "globalDependencies": ["package.json", "pnpm-workspace.yaml", "turbo.json"],
+  "globalPassThroughEnv": [
+    "TAURI_SIGNING_PRIVATE_KEY",
+    "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+    "GH_TOKEN"
+  ]
 }
