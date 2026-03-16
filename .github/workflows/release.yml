@@ -26,7 +26,7 @@ jobs:
             platform: mac
           - os: windows-latest
             platform: win
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             platform: linux
 
     runs-on: ${{ matrix.os }}
@@ -56,6 +56,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: packages/agentx/src-tauri -> target
+          key: ${{ matrix.platform }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
