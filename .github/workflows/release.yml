@@ -112,8 +112,12 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: List artifacts
-        run: ls -R artifacts/
+      - name: Flatten artifacts
+        run: |
+          mkdir -p dist
+          find artifacts -type f \( -name '*.dmg' -o -name '*.app.tar.gz' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.deb' \) -exec mv {} dist/ \;
+          echo "Release artifacts:"
+          ls -lh dist/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -144,6 +148,6 @@ jobs:
             chmod +x AgentX-*.AppImage
             ./AgentX-*.AppImage
             ```
-          files: artifacts/**/*
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
