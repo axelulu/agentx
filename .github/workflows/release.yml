@@ -144,6 +144,6 @@ jobs:
             chmod +x AgentX-*.AppImage
             ./AgentX-*.AppImage
             ```
-          files: artifacts/*
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
