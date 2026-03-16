@@ -18,14 +18,14 @@ Use `$ARGUMENTS` to read the user's input.
 
 Run these checks and **stop with a clear error** if any fail:
 
-1. **Clean working tree**: Run `git status --porcelain`. If there are uncommitted changes, warn the user and ask whether to proceed (the version bump commit will only include `apps/agentx/package.json`). Untracked files are OK to ignore.
+1. **Clean working tree**: Run `git status --porcelain`. If there are uncommitted changes, warn the user and ask whether to proceed (the version bump commit will only include `packages/agentx/package.json`). Untracked files are OK to ignore.
 2. **On main branch**: Run `git branch --show-current`. If not on `main`, warn and ask if they want to continue anyway.
 3. **Synced with remote**: Run `git fetch origin main && git diff origin/main..HEAD --stat`. If there are unpushed commits, inform the user and ask whether to push them first or include them in this release.
 4. **Build checks**: Run `pnpm lint && pnpm type-check && pnpm build` from the repo root. If any fail, stop and show the errors.
 
 ### 2. Determine New Version
 
-- Read the current version from `apps/agentx/package.json` (the `"version"` field).
+- Read the current version from `packages/agentx/package.json` (the `"version"` field).
 - Based on the bump type or explicit version from the user, calculate the new version.
   - `patch`: 0.1.0 → 0.1.1
   - `minor`: 0.1.0 → 0.2.0
@@ -35,12 +35,15 @@ Run these checks and **stop with a clear error** if any fail:
 
 ### 3. Bump Version
 
-- Edit `apps/agentx/package.json` to update the `"version"` field to the new version.
+- Edit `packages/agentx/package.json` to update the `"version"` field to the new version.
+- Edit `packages/agentx/src-tauri/tauri.conf.json` to update the `"version"` field to the new version.
+- Edit `packages/agentx/src-tauri/Cargo.toml` to update the `version` field to the new version.
+- Run `~/.cargo/bin/cargo generate-lockfile --manifest-path packages/agentx/src-tauri/Cargo.toml` to update the Cargo.lock.
 - Do NOT bump versions in other `packages/*/package.json` (they are private internal packages at v0.0.0).
 
 ### 4. Commit & Tag
 
-- Stage only the version file: `git add apps/agentx/package.json`
+- Stage the version files: `git add packages/agentx/package.json packages/agentx/src-tauri/tauri.conf.json packages/agentx/src-tauri/Cargo.toml packages/agentx/src-tauri/Cargo.lock`
 - Create a commit with message: `chore(release): v{new version}`
   - Do NOT add Co-Authored-By to release commits.
 - Create an annotated tag: `git tag -a v{new version} -m "Release v{new version}"`
