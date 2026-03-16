@@ -908,21 +908,52 @@ pub async fn updater_check(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn updater_install(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_updater::UpdaterExt;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
 
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         match handle.updater() {
             Ok(updater) => match updater.check().await {
                 Ok(Some(update)) => {
+                    let version = update.version.clone();
                     let _ = handle.emit(
                         "updater:status",
                         serde_json::json!({ "state": "downloading" }),
                     );
-                    match update.download_and_install(|_, _| {}, || {}).await {
+                    let downloaded = Arc::new(AtomicU64::new(0));
+                    let h = handle.clone();
+                    let on_chunk = {
+                        let downloaded = Arc::clone(&downloaded);
+                        move |chunk_len: usize, content_len: Option<u64>| {
+                            let prev = downloaded.fetch_add(chunk_len as u64, Ordering::Relaxed);
+                            let transferred = prev + chunk_len as u64;
+                            let total = content_len.unwrap_or(0);
+                            let percent = if total > 0 {
+                                (transferred as f64 / total as f64) * 100.0
+                            } else {
+                                0.0
+                            };
+                            let _ = h.emit(
+                                "updater:status",
+                                serde_json::json!({
+                                    "state": "downloading",
+                                    "progress": {
+                                        "percent": percent,
+                                        "bytesPerSecond": 0,
+                                        "transferred": transferred,
+                                        "total": total
+                                    }
+                                }),
+                            );
+                        }
+                    };
+                    let on_finish = || {};
+                    match update.download_and_install(on_chunk, on_finish).await {
                         Ok(_) => {
                             let _ = handle.emit(
                                 "updater:status",
-                                serde_json::json!({ "state": "downloaded", "version": update.version }),
+                                serde_json::json!({ "state": "downloaded", "version": version }),
                             );
                         }
                         Err(e) => {
@@ -949,6 +980,11 @@ pub async fn updater_install(app: AppHandle) -> Result<(), String> {
         }
     });
     Ok(())
+}
+
+#[tauri::command]
+pub async fn updater_restart(app: AppHandle) -> Result<(), String> {
+    app.restart();
 }
 
 // ---------------------------------------------------------------------------

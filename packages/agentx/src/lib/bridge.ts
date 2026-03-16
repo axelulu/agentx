@@ -248,7 +248,7 @@ const bridge: NativeAPI = {
   updater: {
     checkForUpdates: () => invoke("updater_check"),
     downloadUpdate: () => invoke("updater_install"),
-    installUpdate: () => invoke("updater_install"),
+    installUpdate: () => invoke("updater_restart"),
     onStatus: (callback: (status: unknown) => void) => {
       return createEventListener("updater:status", callback);
     },

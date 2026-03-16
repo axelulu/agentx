@@ -127,6 +127,7 @@ pub fn run() {
             commands::permissions_reset,
             commands::updater_check,
             commands::updater_install,
+            commands::updater_restart,
             // Window commands
             commands::window_minimize,
             commands::window_maximize,
