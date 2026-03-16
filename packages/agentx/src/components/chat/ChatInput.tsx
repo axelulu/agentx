@@ -36,6 +36,7 @@ import {
   type DragEvent,
   type ClipboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { SkillSelector } from "@/components/skills/SkillSelector";
@@ -595,20 +596,51 @@ function MoreToolsMenu({
   isTranscribing: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const handleEscape = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  // Position the menu above the button, adjusting for viewport edges
+  useEffect(() => {
+    if (!open || !btnRef.current || !menuRef.current) return;
+    const btnRect = btnRef.current.getBoundingClientRect();
+    const menu = menuRef.current;
+    const vw = window.innerWidth;
+
+    let left = btnRect.left;
+    const bottom = window.innerHeight - btnRect.top + 6;
+
+    // Keep within viewport horizontally
+    if (left + menu.offsetWidth > vw - 8) {
+      left = Math.max(8, vw - menu.offsetWidth - 8);
+    }
+
+    menu.style.left = `${left}px`;
+    menu.style.bottom = `${bottom}px`;
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={btnRef}
         onClick={() => setOpen(!open)}
         className={cn(
           "flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.07] transition-colors",
@@ -617,44 +649,53 @@ function MoreToolsMenu({
       >
         <PlusIcon className="w-4 h-4" />
       </button>
-      {open && (
-        <div className="absolute left-0 bottom-full mb-2 z-50 min-w-[180px] rounded-xl border border-border/60 bg-card shadow-lg py-1.5 animate-fade-in">
-          <MenuItemButton
-            icon={CameraIcon}
-            label={l10n.t("Screenshot")}
-            onClick={() => {
-              onScreenCapture();
-              setOpen(false);
-            }}
-          />
-          <MenuItemButton
-            icon={BookOpenIcon}
-            label={l10n.t("Knowledge Base")}
-            onClick={() => {
-              onKnowledgeBase();
-              setOpen(false);
-            }}
-          />
-          <MenuItemButton
-            icon={PlugIcon}
-            label={l10n.t("MCP Servers")}
-            onClick={() => {
-              onMCP();
-              setOpen(false);
-            }}
-          />
-          <MenuItemButton
-            icon={isTranscribing ? Loader2Icon : MicIcon}
-            label={isRecording ? l10n.t("Stop recording") : l10n.t("Voice input")}
-            onClick={() => {
-              onMic();
-              setOpen(false);
-            }}
-            iconClassName={cn(isRecording && "text-destructive", isTranscribing && "animate-spin")}
-          />
-        </div>
-      )}
-    </div>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[9999] min-w-[180px] rounded-xl border border-border/60 bg-popover shadow-lg py-1.5"
+            style={{ left: 0, bottom: 0 }}
+          >
+            <MenuItemButton
+              icon={CameraIcon}
+              label={l10n.t("Screenshot")}
+              onClick={() => {
+                onScreenCapture();
+                setOpen(false);
+              }}
+            />
+            <MenuItemButton
+              icon={BookOpenIcon}
+              label={l10n.t("Knowledge Base")}
+              onClick={() => {
+                onKnowledgeBase();
+                setOpen(false);
+              }}
+            />
+            <MenuItemButton
+              icon={PlugIcon}
+              label={l10n.t("MCP Servers")}
+              onClick={() => {
+                onMCP();
+                setOpen(false);
+              }}
+            />
+            <MenuItemButton
+              icon={isTranscribing ? Loader2Icon : MicIcon}
+              label={isRecording ? l10n.t("Stop recording") : l10n.t("Voice input")}
+              onClick={() => {
+                onMic();
+                setOpen(false);
+              }}
+              iconClassName={cn(
+                isRecording && "text-destructive",
+                isTranscribing && "animate-spin",
+              )}
+            />
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
