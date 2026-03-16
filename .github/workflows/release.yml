@@ -82,7 +82,8 @@ jobs:
           PKG_CONFIG_PATH: ${{ matrix.platform == 'linux' && '/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig' || '' }}
 
       - name: Build Tauri app (${{ matrix.platform }})
-        run: pnpm --filter agentx build
+        working-directory: packages/agentx
+        run: pnpm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
