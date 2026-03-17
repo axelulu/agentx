@@ -136,20 +136,25 @@ jobs:
           PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           BASE_URL="https://github.com/${REPO}/releases/download/${GITHUB_REF_NAME}"
 
-          # Build platforms JSON dynamically based on available sig files
-          # Tauri updater artifact names vary by platform:
-          #   macOS:   AgentX.app.tar.gz (no version/arch in name)
-          #   Windows: AgentX_VERSION_x64-setup.nsis.zip
-          #   Linux:   AgentX_VERSION_amd64.AppImage.tar.gz
-          PLATFORMS="{"
-          FIRST=true
+          # Start with base JSON
+          JSON=$(jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$PUB_DATE" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: {}}')
 
+          # Add each platform if its sig file exists
+          # Sig files are base64-encoded; decode to get raw minisign signature
           add_platform() {
             local key="$1" file="$2" sig_file="$3"
             if [ -f "dist/${sig_file}" ]; then
-              local sig=$(cat "dist/${sig_file}")
-              if [ "$FIRST" = true ]; then FIRST=false; else PLATFORMS+=","; fi
-              PLATFORMS+="\"${key}\":{\"signature\":\"${sig}\",\"url\":\"${BASE_URL}/${file}\"}"
+              local sig=$(base64 -d "dist/${sig_file}")
+              local url="${BASE_URL}/${file}"
+              JSON=$(echo "$JSON" | jq \
+                --arg key "$key" \
+                --arg sig "$sig" \
+                --arg url "$url" \
+                '.platforms[$key] = {signature: $sig, url: $url}')
             fi
           }
 
@@ -158,17 +163,7 @@ jobs:
           add_platform "windows-x86_64" "AgentX_${VERSION}_x64-setup.nsis.zip" "AgentX_${VERSION}_x64-setup.nsis.zip.sig"
           add_platform "linux-x86_64"   "AgentX_${VERSION}_amd64.AppImage.tar.gz" "AgentX_${VERSION}_amd64.AppImage.tar.gz.sig"
 
-          PLATFORMS+="}"
-
-          # Write latest.json
-          jq -n \
-            --arg version "$VERSION" \
-            --arg notes "$NOTES" \
-            --arg pub_date "$PUB_DATE" \
-            --argjson platforms "$PLATFORMS" \
-            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}' \
-            > dist/latest.json
-
+          echo "$JSON" > dist/latest.json
           echo "Generated latest.json:"
           cat dist/latest.json
 
