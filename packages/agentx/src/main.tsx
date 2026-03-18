@@ -10,6 +10,9 @@ import "@/styles/globals.css";
 
 initBridge();
 
+// Disable browser context menu (right-click reload, etc.)
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Provider store={store}>

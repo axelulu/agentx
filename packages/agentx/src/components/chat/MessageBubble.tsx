@@ -107,7 +107,13 @@ function useCopy() {
 // Single message export button with inline dropdown
 // ---------------------------------------------------------------------------
 
-function MessageExportButton({ message }: { message: Message }) {
+function MessageExportButton({
+  message,
+  position = "top-right",
+}: {
+  message: Message;
+  position?: "top-right" | "bottom-left";
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -133,7 +139,12 @@ function MessageExportButton({ message }: { message: Message }) {
     <div ref={ref} className="relative">
       <ActionButton icon={DownloadIcon} label={l10n.t("Export")} onClick={() => setOpen(!open)} />
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 min-w-[160px] rounded-lg border border-border bg-card shadow-lg py-1">
+        <div
+          className={cn(
+            "absolute z-50 min-w-[160px] rounded-lg border border-border bg-card shadow-lg py-1",
+            position === "bottom-left" ? "top-full mt-1 right-0" : "bottom-full mb-1 left-0",
+          )}
+        >
           <button
             onClick={() => handleExport("markdown")}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-foreground/[0.06] transition-colors"
@@ -324,7 +335,7 @@ function UserBubble({
         {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
       </div>
 
-      {/* Action buttons — visible on hover */}
+      {/* Action buttons — visible on hover, bottom-right */}
       <div className="flex items-center gap-0.5 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150">
         <ActionButton
           icon={copied ? CheckIcon : CopyIcon}
@@ -343,7 +354,7 @@ function UserBubble({
             }
           />
         )}
-        <MessageExportButton message={message} />
+        <MessageExportButton message={message} position="bottom-left" />
       </div>
 
       {hasAttachments && (
