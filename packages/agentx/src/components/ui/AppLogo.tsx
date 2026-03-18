@@ -15,20 +15,12 @@ export function AppLogo({ size = 20, className }: AppLogoProps) {
       className={className}
     >
       <defs>
-        <linearGradient id={`${id}-bg`} x1="0.5" y1="0" x2="0.5" y2="1">
-          <stop offset="0%" stopColor="#1a1a1a" />
-          <stop offset="100%" stopColor="#0a0a0a" />
-        </linearGradient>
-        <linearGradient id={`${id}-x`} x1="0.15" y1="0.15" x2="0.85" y2="0.85">
-          <stop offset="0%" stopColor="#666666" />
-          <stop offset="100%" stopColor="#999999" />
-        </linearGradient>
         <clipPath id={`${id}-clip`}>
           <rect x="100" y="100" width="824" height="824" rx="184" ry="184" />
         </clipPath>
       </defs>
       <g clipPath={`url(#${id}-clip)`}>
-        <rect x="100" y="100" width="824" height="824" fill={`url(#${id}-bg)`} />
+        <rect x="100" y="100" width="824" height="824" fill="#111117" />
       </g>
       <rect
         x="101"
@@ -39,26 +31,12 @@ export function AppLogo({ size = 20, className }: AppLogoProps) {
         ry="183.5"
         fill="none"
         stroke="#ffffff"
-        strokeOpacity="0.08"
+        strokeOpacity="0.06"
         strokeWidth="0.75"
       />
-      <line
-        x1="352"
-        y1="352"
-        x2="672"
-        y2="672"
-        stroke={`url(#${id}-x)`}
-        strokeWidth="76"
-        strokeLinecap="round"
-      />
-      <line
-        x1="672"
-        y1="352"
-        x2="352"
-        y2="672"
-        stroke={`url(#${id}-x)`}
-        strokeWidth="76"
-        strokeLinecap="round"
+      <path
+        d="M 332 345 H 692 Q 764 345 764 417 V 573 Q 764 645 692 645 H 385 L 300 680 L 332 645 Q 260 645 260 573 V 417 Q 260 345 332 345 Z"
+        fill="#ffffff"
       />
     </svg>
   );
