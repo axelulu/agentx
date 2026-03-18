@@ -50,37 +50,36 @@ export function TabBar() {
   if (openTabs.length <= 1) return null;
 
   return (
-    <div className="flex items-end bg-background border-b border-border overflow-x-auto scrollbar-none shrink-0 gap-0">
+    <div className="flex items-center bg-background border-b border-border shrink-0 gap-0 overflow-x-auto tab-scrollbar">
       {openTabs.map((tabId) => {
         const isActive = tabId === currentConversationId;
         const isRunning = runningSessions.includes(tabId);
         return (
-          <div key={tabId} className="shrink-0">
-            <button
-              onClick={() => handleTabClick(tabId)}
-              onContextMenu={(e) => handleContextMenu(e, tabId)}
+          <button
+            key={tabId}
+            onClick={() => handleTabClick(tabId)}
+            onContextMenu={(e) => handleContextMenu(e, tabId)}
+            className={cn(
+              "group relative flex items-center gap-1.5 px-3 py-1.5 text-[12px] max-w-[180px] shrink-0 transition-colors border-b-2",
+              isActive
+                ? "text-foreground border-foreground"
+                : "text-muted-foreground hover:text-foreground border-transparent hover:bg-foreground/[0.04]",
+            )}
+          >
+            {isRunning && <Loader2Icon className="w-3 h-3 shrink-0 animate-spin text-foreground" />}
+            <span className="truncate">{getTitle(tabId)}</span>
+            <span
+              onClick={(e) => handleClose(e, tabId)}
               className={cn(
-                "group flex items-center gap-1.5 px-4 py-2 text-[13px] max-w-[180px] transition-colors",
+                "shrink-0 p-0.5 rounded-sm transition-colors",
                 isActive
-                  ? "text-foreground border-b-2 border-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "hover:bg-foreground/[0.08]"
+                  : "opacity-0 group-hover:opacity-100 hover:bg-foreground/[0.08]",
               )}
             >
-              {isRunning && (
-                <Loader2Icon className="w-3 h-3 shrink-0 animate-spin text-foreground" />
-              )}
-              <span className="truncate">{getTitle(tabId)}</span>
-              <span
-                onClick={(e) => handleClose(e, tabId)}
-                className={cn(
-                  "shrink-0 p-0.5 rounded-sm transition-colors",
-                  isActive ? "hover:bg-muted" : "opacity-0 group-hover:opacity-100 hover:bg-muted",
-                )}
-              >
-                <XIcon className="w-3 h-3" />
-              </span>
-            </button>
-          </div>
+              <XIcon className="w-3 h-3" />
+            </span>
+          </button>
         );
       })}
 

@@ -38,6 +38,13 @@ export function useShortcuts() {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
 
+      // Cmd/Ctrl+K — search (fallback in case menu event doesn't fire)
+      if (e.key === "k" || e.key === "K") {
+        e.preventDefault();
+        dispatch(toggleSearch());
+        return;
+      }
+
       // Cmd/Ctrl+W — close current tab
       if (e.key === "w" || e.key === "W") {
         if (currentConversationId && openTabs.includes(currentConversationId)) {

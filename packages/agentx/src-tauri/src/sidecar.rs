@@ -171,12 +171,15 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
             String::new()
         }
     } else {
-        // Production: use the bundled binary
-        resource_dir
-            .join("binaries")
-            .join("agent-browser")
-            .to_string_lossy()
-            .to_string()
+        // Production: Tauri externalBin places binaries in Contents/MacOS/
+        // (sibling to the main executable), not in Resources/
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.to_path_buf()));
+        match exe_dir {
+            Some(dir) => dir.join("agent-browser").to_string_lossy().to_string(),
+            None => String::new(),
+        }
     };
 
     // On macOS, GUI apps launched from Finder/Dock have a minimal PATH that

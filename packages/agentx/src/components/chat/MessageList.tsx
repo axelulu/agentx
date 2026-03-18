@@ -71,10 +71,13 @@ export function MessageList({
     return () => el.removeEventListener("scroll", onScroll);
   }, [scrollContainerRef, checkNearBottom]);
 
-  // Auto-scroll only when near bottom
+  // Auto-scroll only when near bottom, or force-scroll when the user just sent a message
   useEffect(() => {
-    if (isNearBottomRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const lastMsg = messages[messages.length - 1];
+    const userJustSent = lastMsg?.role === "user";
+    if (userJustSent || isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: userJustSent ? "instant" : "smooth" });
+      if (userJustSent) isNearBottomRef.current = true;
     }
   }, [messages, isStreaming]);
 

@@ -141,6 +141,18 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* Tab bar — hidden scrollbar */
+.tab-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.tab-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  height: 0 !important;
+  width: 0 !important;
+}
+
 /* Animation utilities */
 @keyframes fade-in {
   from {

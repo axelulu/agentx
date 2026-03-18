@@ -38,7 +38,7 @@ export function AppLayout() {
         >
           {/* macOS traffic-light drag strip — must clear native buttons (~24px) + padding */}
           <div
-            className="h-9 shrink-0"
+            className="h-7 shrink-0"
             style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
           />
           <Sidebar />

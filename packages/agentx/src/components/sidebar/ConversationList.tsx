@@ -164,7 +164,9 @@ export function ConversationList({
   isSearching,
 }: ConversationListProps) {
   const dispatch = useDispatch<AppDispatch>();
-  const { conversations, currentConversationId } = useSelector((state: RootState) => state.chat);
+  const { conversations, currentConversationId, runningSessions } = useSelector(
+    (state: RootState) => state.chat,
+  );
   const folders = useSelector((state: RootState) => state.settings.folders);
   const conversationOrder = useSelector((state: RootState) => state.settings.conversationOrder);
   const collapsedFolderIds = useSelector((state: RootState) => state.ui.collapsedFolderIds);
@@ -463,6 +465,7 @@ export function ConversationList({
     const isActive = conversation.id === currentConversationId;
     const isEditing = !selectMode && editingId === conversation.id;
     const isSelected = selectedIds.has(conversation.id);
+    const isRunning = runningSessions.includes(conversation.id);
     const Icon = getConversationIcon(conversation.title);
     return (
       <div
@@ -523,6 +526,29 @@ export function ConversationList({
                 {isSelected && (
                   <CheckIcon className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
                 )}
+              </motion.div>
+            ) : isRunning ? (
+              <motion.div
+                key="loading"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-[3px]"
+              >
+                {[0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="block w-[3px] h-[3px] rounded-full bg-foreground"
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: i * 0.2,
+                      ease: "easeInOut",
+                    }}
+                  />
+                ))}
               </motion.div>
             ) : (
               <motion.div
