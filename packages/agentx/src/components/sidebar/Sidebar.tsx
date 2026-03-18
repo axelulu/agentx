@@ -74,9 +74,9 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex flex-col h-full w-[260px] frosted-glass border-r border-sidebar-border">
+    <div className="flex flex-col flex-1 min-h-0 w-[260px]">
       {/* Top: Brand + New Chat */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-1.5">
         <span className="font-semibold text-[13px] tracking-tight text-sidebar-foreground select-none">
           {l10n.t("AgentX")}
         </span>
@@ -140,14 +140,14 @@ export function Sidebar() {
       {!selectMode && conversations.length > 0 && (
         <div className="px-3 pb-2">
           <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+            <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/60" />
 
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder={l10n.t("Search conversations...")}
-              className="w-full bg-sidebar-accent rounded-md pl-8 pr-7 py-2 text-[13px] text-sidebar-foreground placeholder:text-muted-foreground/50 outline-none border border-transparent focus:border-sidebar-border"
+              className="w-full bg-sidebar-accent rounded-md pl-7 pr-6 py-1.5 text-[12px] text-sidebar-foreground placeholder:text-muted-foreground/50 outline-none border border-transparent focus:border-sidebar-border"
             />
             {searchQuery && (
               <button

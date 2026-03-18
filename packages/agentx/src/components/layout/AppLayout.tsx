@@ -29,29 +29,32 @@ export function AppLayout() {
 
   return (
     <div className="h-full text-foreground relative overflow-hidden">
-      {/* Decorative background — visible behind the frosted-glass sidebar */}
-      <div className="absolute inset-0 bg-gradient-to-br from-neutral-200 via-neutral-300/80 to-neutral-200 dark:from-neutral-800 dark:via-neutral-700/60 dark:to-neutral-800" />
-
-      {/* App shell */}
-      <div className="relative flex flex-col h-full">
-        <TitleBar />
-        <UpdateDialog />
-        <div className="flex flex-1 overflow-hidden">
+      {/* App shell — columns first so frosted glass spans full height on left */}
+      <div className="relative flex h-full">
+        {/* Left column: transparent so native macOS vibrancy shows through */}
+        <div
+          className="flex flex-col shrink-0 overflow-hidden transition-all duration-200 ease-in-out frosted-glass border-r border-sidebar-border"
+          style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
+        >
+          {/* macOS traffic-light drag strip — must clear native buttons (~24px) + padding */}
           <div
-            className="overflow-hidden transition-all duration-200 ease-in-out shrink-0"
-            style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
-          >
-            <Sidebar />
-          </div>
-          <div className="flex flex-col flex-1 overflow-hidden bg-background">
-            <TabBar />
-            <ChatPanel />
-          </div>
+            className="h-9 shrink-0"
+            style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+          />
+          <Sidebar />
         </div>
 
-        {settingsOpen && <SettingsPanel />}
-        <SearchDialog />
+        {/* Right column: opaque content area */}
+        <div className="flex flex-col flex-1 overflow-hidden bg-background">
+          <TitleBar />
+          <UpdateDialog />
+          <TabBar />
+          <ChatPanel />
+        </div>
       </div>
+
+      {settingsOpen && <SettingsPanel />}
+      <SearchDialog />
     </div>
   );
 }

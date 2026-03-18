@@ -1,23 +1,26 @@
 import { toggleSidebar } from "@/slices/uiSlice";
 import { l10n } from "@agentx/l10n";
 import { PanelLeftIcon } from "lucide-react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "@/slices/store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { AppLogo } from "@/components/ui/AppLogo";
+import { ExportMenu } from "@/components/chat/ExportMenu";
 
 export function TitleBar() {
   const dispatch = useDispatch();
+  const sidebarOpen = useSelector((state: RootState) => state.ui.sidebarOpen);
 
   return (
     <div
       className="flex items-center h-10 px-4 select-none"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
-      {/* macOS traffic light space */}
-      <div className="w-16 shrink-0" />
+      {/* Traffic light spacer — only needed when sidebar is closed */}
+      {!sidebarOpen && <div className="w-16 shrink-0" />}
 
       <div
-        className="flex items-center gap-1.5 ml-1"
+        className="flex items-center gap-1.5"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
         <AppLogo size={20} className="shrink-0" />
@@ -36,6 +39,14 @@ export function TitleBar() {
       </div>
 
       <div className="flex-1" />
+
+      {/* Right side actions */}
+      <div
+        className="flex items-center"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
+        <ExportMenu />
+      </div>
     </div>
   );
 }

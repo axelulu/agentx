@@ -470,11 +470,11 @@ export function ConversationList({
           "group flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-[13px]",
           selectMode
             ? isSelected
-              ? "bg-accent text-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "bg-sidebar-accent text-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
             : isActive
-              ? "bg-accent text-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              ? "bg-sidebar-accent text-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
         )}
         onClick={() => {
           if (selectMode) {
@@ -504,7 +504,7 @@ export function ConversationList({
               ? ""
               : isActive
                 ? "bg-foreground/20 text-foreground"
-                : "bg-foreground/[0.06] text-muted-foreground group-hover:bg-foreground/[0.10] group-hover:text-foreground",
+                : "bg-foreground/[0.08] text-muted-foreground group-hover:bg-foreground/[0.12] group-hover:text-foreground",
           )}
         >
           <AnimatePresence mode="wait" initial={false}>
@@ -640,7 +640,7 @@ export function ConversationList({
     onToggle: () => void;
   }) => (
     <div
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground select-none"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-foreground/70 hover:bg-foreground/[0.08] hover:text-foreground select-none"
       onClick={onToggle}
     >
       <ChevronRightIcon
@@ -789,7 +789,7 @@ export function ConversationList({
                   >
                     {/* Folder header */}
                     <div
-                      className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-foreground/70 hover:bg-foreground/[0.08] hover:text-foreground"
                       onClick={() => !isEmpty && dispatch(toggleFolderCollapsed(folder.id))}
                       onDoubleClick={(e) => {
                         e.stopPropagation();

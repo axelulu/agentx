@@ -72,7 +72,7 @@ export function ConversationPromptButton() {
         <TooltipTrigger asChild>
           <button
             onClick={() => setOpen(true)}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors relative"
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors relative"
           >
             <ScrollTextIcon className={cn("w-4 h-4", hasCustom && "text-foreground")} />
             {hasCustom && (

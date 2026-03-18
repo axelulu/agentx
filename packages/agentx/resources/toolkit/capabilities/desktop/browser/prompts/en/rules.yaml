@@ -4,47 +4,51 @@ sections:
     content: |
       ## Browser Automation
 
-      You can control a web browser using the bundled browser automation script.
-      Use the shell_run tool to execute browser commands.
+      **IMPORTANT: For ANY task involving a web browser — opening URLs, navigating websites, reading web pages, clicking elements, filling forms, taking page screenshots, web scraping — you MUST use the `browser_run` tool. NEVER use shell_run with "open", "xdg-open", "start", or "curl" for browser tasks.**
 
-      **Runtime:** Use $AGENTX_NODE as the Node.js binary and $AGENTX_BROWSER_SCRIPT as the script path.
+      You can control a web browser using the `browser_run` tool, powered by agent-browser.
+      agent-browser uses CDP to directly control Chrome and outputs AI-optimized results (200-400 tokens).
 
       **Usage pattern:**
-      1. Launch browser: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" launch" }
-      2. Navigate: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" goto https://example.com" }
-      3. Interact: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" click \"#submit-btn\"" }
-      4. Type text: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" type \"#search\" hello world" }
-      5. Extract: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" content \".article-body\"" }
-      6. Screenshot: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" screenshot /tmp/page.png" }
-      7. Evaluate JS: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" evaluate \"document.title\"" }
-      8. Wait: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" wait \".loaded\"" }
-      9. Select dropdown: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" select \"#country\" US" }
-      10. Scroll: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" scroll down 500" }
-      11. Status: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" status" }
-      12. Close: shell_run { command: "\"$AGENTX_NODE\" \"$AGENTX_BROWSER_SCRIPT\" close" }
+      1. Open a page: browser_run { command: "open https://example.com" }
+      2. Take a snapshot: browser_run { command: "snapshot" }
+         - Returns an accessibility tree with @eN element references
+      3. Click an element: browser_run { command: "click @e3" }
+      4. Type into a field: browser_run { command: "type @e5 \"search query\"" }
+      5. Fill a field (replaces content): browser_run { command: "fill @e5 \"new value\"" }
+      6. Screenshot: browser_run { command: "screenshot /tmp/page.png" }
+         - The screenshot image is automatically attached for visual analysis
+      7. Evaluate JS: browser_run { command: "eval \"document.title\"" }
+      8. Scroll: browser_run { command: "scroll down" }
+      9. Wait: browser_run { command: "wait" }
+      10. Close: browser_run { command: "close" }
 
       **Commands reference:**
-      - launch [--headless] [--url <url>] — Launch browser, optionally headless and/or with initial URL
-      - goto <url> — Navigate to a URL
-      - click <selector> — Click an element (CSS selector)
-      - type <selector> <text> — Type text into an input field
-      - screenshot [path] — Take screenshot, saves to given path or temp file
-      - content [selector] — Get text content of page or a specific element
-      - evaluate <javascript> — Run JS in page context, return result
-      - wait <selector|ms> — Wait for element or N milliseconds
-      - select <selector> <value> — Select a dropdown option
-      - scroll <up|down> [amount] — Scroll page (default 500px)
-      - status — Check if browser session is alive
-      - close — Close browser and clean up session
+      - open <url> — Open a URL (automatically launches browser if needed)
+      - snapshot — Get accessibility tree with @eN element references (primary way to understand the page)
+      - click @eN — Click an element by its @eN reference
+      - type @eN "text" — Type text into an input (appends)
+      - fill @eN "text" — Fill an input field (replaces existing content)
+      - select @eN "value" — Select a dropdown option
+      - screenshot [path] — Take screenshot, optionally save to path
+      - eval "javascript" — Run JS in page context
+      - scroll <up|down> — Scroll the page
+      - wait — Wait for page to settle
+      - back — Navigate back
+      - forward — Navigate forward
+      - close — Close the browser
+
+      **Element references (@eN):**
+      - Run `snapshot` to get the accessibility tree with @eN references
+      - Use these references in click, type, fill, and select commands
+      - References are stable within a page state but update after navigation or DOM changes
+      - Always run `snapshot` again after page changes to get fresh references
 
       **Important rules:**
       - Always set timeout_ms: 60000 or higher for browser commands (they can be slow)
-      - Always launch the browser first before other commands
-      - Always close the browser when done with the browsing task
-      - Use CSS selectors for click/type/content/wait commands
-      - The browser session persists across shell_run calls
-      - If a session dies or expires, launch again
-      - All output is JSON: { "ok": true, ... } or { "ok": false, "error": "..." }
-      - Use content to read page text before deciding what to click
-      - Use evaluate for complex JS operations
-      - Use screenshot to visually verify what the page looks like
+      - Use `snapshot` as the primary way to understand page content and find elements
+      - Do NOT use CSS selectors — use @eN references from snapshot output
+      - The browser session persists across browser_run calls
+      - Run `snapshot` after any navigation or interaction to see updated state
+      - Use `screenshot` to visually verify what the page looks like
+      - No need to explicitly launch the browser — `open` handles it automatically

@@ -274,7 +274,9 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
   }, [inputValue, attachments, imageAttachments, isStreaming, providers, dispatch, sendMessage]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+    // keyCode 229 means the keystroke is being processed by an IME (e.g. Chinese pinyin);
+    // we must ignore it so that Enter confirms the composition instead of sending the message.
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
       e.preventDefault();
       handleSend();
     }
@@ -331,7 +333,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     inputValue.trim().length > 0 || attachments.length > 0 || imageAttachments.length > 0;
 
   return (
-    <div className="px-5 py-3 pb-5">
+    <div className="px-4 py-2 pb-3">
       {error && (
         <div className="max-w-3xl mx-auto mb-2.5 px-3 py-2 text-xs text-destructive bg-destructive/10 rounded-md">
           {error}
@@ -344,7 +346,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "relative border rounded-2xl overflow-hidden transition-all bg-card focus-within:border-foreground/30",
+            "relative border rounded-xl overflow-hidden transition-all bg-card focus-within:border-foreground/30",
             isDragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border",
           )}
         >
@@ -384,7 +386,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             onPaste={handlePaste}
             placeholder={l10n.t("Message AgentX...")}
             rows={1}
-            className="w-full bg-transparent resize-none outline-none text-sm text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-5 pt-3.5 pb-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-transparent resize-none outline-none text-sm text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-3.5 pt-2.5 pb-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isStreaming}
           />
 
@@ -413,7 +415,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           )}
 
           {/* Toolbar */}
-          <div className="flex items-center gap-1.5 px-3 pb-3">
+          <div className="flex items-center gap-1 px-2.5 pb-2">
             <ToolbarButton title={l10n.t("Attach file")} onClick={handleAttachClick}>
               <PaperclipIcon className="w-4 h-4" />
             </ToolbarButton>
@@ -442,9 +444,9 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
                 <TooltipTrigger asChild>
                   <button
                     onClick={abort}
-                    className="flex items-center justify-center w-8 h-8 rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-all"
+                    className="flex items-center justify-center w-7 h-7 rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-all"
                   >
-                    <SquareIcon className="w-3 h-3" />
+                    <SquareIcon className="w-2.5 h-2.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{l10n.t("Stop")}</TooltipContent>
@@ -456,13 +458,13 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
                     onClick={handleSend}
                     disabled={!canSend}
                     className={cn(
-                      "flex items-center justify-center w-8 h-8 rounded-full transition-all",
+                      "flex items-center justify-center w-7 h-7 rounded-full transition-all",
                       canSend
                         ? "bg-foreground text-background hover:opacity-90"
                         : "bg-foreground/[0.08] text-muted-foreground/25",
                     )}
                   >
-                    <ArrowUpIcon className="w-4 h-4" />
+                    <ArrowUpIcon className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{l10n.t("Send")}</TooltipContent>
@@ -643,7 +645,7 @@ function MoreToolsMenu({
         ref={btnRef}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors",
+          "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors",
           open && "bg-foreground/[0.06] text-foreground",
         )}
       >
@@ -733,7 +735,7 @@ function ToolbarButton({
   const btn = (
     <button
       onClick={onClick}
-      className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+      className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
     >
       {children}
     </button>

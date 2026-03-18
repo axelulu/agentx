@@ -27,3 +27,4 @@ logs/
 
 # Tauri
 target/
+src-tauri/binaries/

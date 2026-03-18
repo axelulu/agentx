@@ -21,7 +21,6 @@ import { l10n } from "@agentx/l10n";
 import { MessageList } from "./MessageList";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ToolApprovalBanner } from "./ToolApprovalBanner";
-import { ExportMenu } from "./ExportMenu";
 
 export function ChatPanel() {
   const dispatch = useDispatch<AppDispatch>();
@@ -100,10 +99,6 @@ export function ChatPanel() {
     <div className="flex flex-col flex-1 overflow-hidden">
       {currentConversationId ? (
         <>
-          {/* Toolbar */}
-          <div className="flex items-center justify-end px-4 py-1.5 shrink-0">
-            <ExportMenu />
-          </div>
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
             <MessageList
               messages={messages}

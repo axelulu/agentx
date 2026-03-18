@@ -9,3 +9,4 @@ sections:
       - Prefer non-interactive commands; avoid commands that require user input.
       - Check command output for errors before proceeding.
       - For large outputs, consider piping through head or tail.
+      - NEVER use shell_run for browser-related tasks (opening URLs, web scraping, clicking elements, taking page screenshots, etc.). Always use browser_run for anything involving a web browser. Do NOT use "open", "xdg-open", "start", or "curl" to interact with web pages — use browser_run instead.

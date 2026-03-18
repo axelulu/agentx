@@ -21,8 +21,20 @@ struct SidecarInner {
 }
 
 impl SidecarState {
+    /// Wait for the sidecar process to be ready (up to ~10 seconds).
+    async fn wait_ready(&self) -> Result<(), String> {
+        for _ in 0..100 {
+            if self.inner.lock().await.is_some() {
+                return Ok(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        Err("Sidecar not running after 10s timeout".to_string())
+    }
+
     /// Send a JSON-RPC request to the sidecar and wait for the response.
     pub async fn call(&self, method: &str, params: Value) -> Result<Value, String> {
+        self.wait_ready().await?;
         let guard = self.inner.lock().await;
         let inner = guard.as_ref().ok_or("Sidecar not running")?;
 
@@ -64,6 +76,7 @@ impl SidecarState {
 
     /// Send a fire-and-forget JSON-RPC notification (no id, no response expected).
     pub async fn notify(&self, method: &str, params: Value) -> Result<(), String> {
+        self.wait_ready().await?;
         let mut guard = self.inner.lock().await;
         let inner = guard.as_mut().ok_or("Sidecar not running")?;
 
@@ -98,7 +111,8 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
         .resource_dir()
         .map_err(|e| format!("Failed to get resource dir: {}", e))?;
 
-    // Resolve the sidecar JS bundle path
+    // Resolve the sidecar JS bundle path (.cjs to avoid ESM/CJS conflicts
+    // when the parent package.json has "type": "module")
     let sidecar_path = if cfg!(debug_assertions) {
         // Dev mode: CARGO_MANIFEST_DIR points to src-tauri/, go up to packages/agentx/
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -107,10 +121,10 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
             .unwrap_or(&manifest_dir)
             .join("sidecar")
             .join("dist")
-            .join("index.js")
+            .join("index.cjs")
     } else {
         // Production: use the bundled resource
-        resource_dir.join("sidecar").join("index.js")
+        resource_dir.join("sidecar").join("index.cjs")
     };
 
     // Always run with node (try bun first in dev for speed)
@@ -148,10 +162,35 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
         home_dir.clone(),
     ]);
 
+    // Resolve agent-browser binary path
+    let browser_bin = if cfg!(debug_assertions) {
+        // Dev: use system-installed agent-browser if available
+        if which_exists("agent-browser") {
+            "agent-browser".to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        // Production: use the bundled binary
+        resource_dir
+            .join("binaries")
+            .join("agent-browser")
+            .to_string_lossy()
+            .to_string()
+    };
+
+    // On macOS, GUI apps launched from Finder/Dock have a minimal PATH that
+    // doesn't include Homebrew, nvm, volta, etc.  Augment PATH so we can find `node`.
+    let augmented_path = augment_path();
+
     eprintln!("[Sidecar] Spawning: {} {:?}", program, all_args);
+    eprintln!("[Sidecar] AGENTX_BROWSER_BIN={}", browser_bin);
+    eprintln!("[Sidecar] PATH={}", augmented_path);
 
     let mut child = Command::new(&program)
         .args(&all_args)
+        .env("PATH", &augmented_path)
+        .env("AGENTX_BROWSER_BIN", &browser_bin)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::inherit())
@@ -262,6 +301,126 @@ fn handle_sidecar_notification(app: &AppHandle, method: &str, params: Value) {
             let _ = app.emit(method, params);
         }
     }
+}
+
+/// Build an augmented PATH that includes common Node.js installation locations.
+/// On macOS, GUI apps inherit a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin) which
+/// doesn't include Homebrew, nvm, volta, fnm, mise, etc.
+fn augment_path() -> String {
+    let current = std::env::var("PATH").unwrap_or_default();
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+
+    let mut extra_dirs: Vec<String> = Vec::new();
+
+    // Homebrew (Apple Silicon + Intel)
+    extra_dirs.push("/opt/homebrew/bin".to_string());
+    extra_dirs.push("/usr/local/bin".to_string());
+
+    // nvm — resolve the current default
+    let nvm_dir = std::env::var("NVM_DIR")
+        .unwrap_or_else(|_| format!("{}/.nvm", home));
+    // nvm stores the active version via an alias; the easiest portable check
+    // is to look at the `default` alias and resolve the path.
+    let nvm_default = std::path::Path::new(&nvm_dir).join("alias").join("default");
+    if let Ok(version_alias) = std::fs::read_to_string(&nvm_default) {
+        let version = version_alias.trim();
+        // The alias might be "lts/*", "18", "v20.11.0", etc.
+        // Walk the versions dir to find a match.
+        let versions_dir = std::path::Path::new(&nvm_dir).join("versions").join("node");
+        if let Ok(entries) = std::fs::read_dir(&versions_dir) {
+            let mut candidates: Vec<_> = entries
+                .filter_map(|e| e.ok())
+                .map(|e| e.file_name().to_string_lossy().to_string())
+                .collect();
+            candidates.sort();
+            candidates.reverse(); // newest first
+            // Find an exact match or prefix match
+            if let Some(matched) = candidates.iter().find(|v| {
+                *v == version || v.strip_prefix('v').map_or(false, |s| s.starts_with(version))
+            }) {
+                extra_dirs.push(
+                    versions_dir.join(matched).join("bin").to_string_lossy().to_string(),
+                );
+            } else if let Some(latest) = candidates.first() {
+                // Fallback: just use the latest installed version
+                extra_dirs.push(
+                    versions_dir.join(latest).join("bin").to_string_lossy().to_string(),
+                );
+            }
+        }
+    } else {
+        // No default alias — just pick the newest installed version if any
+        let versions_dir = std::path::Path::new(&nvm_dir).join("versions").join("node");
+        if let Ok(entries) = std::fs::read_dir(&versions_dir) {
+            let mut candidates: Vec<_> = entries
+                .filter_map(|e| e.ok())
+                .map(|e| e.file_name().to_string_lossy().to_string())
+                .collect();
+            candidates.sort();
+            if let Some(latest) = candidates.last() {
+                extra_dirs.push(
+                    versions_dir.join(latest).join("bin").to_string_lossy().to_string(),
+                );
+            }
+        }
+    }
+
+    // volta
+    extra_dirs.push(format!("{}/.volta/bin", home));
+
+    // fnm
+    let fnm_dir = format!("{}/.local/share/fnm/aliases/default/bin", home);
+    extra_dirs.push(fnm_dir);
+
+    // mise / rtx
+    extra_dirs.push(format!("{}/.local/share/mise/shims", home));
+    extra_dirs.push(format!("{}/.local/share/rtx/shims", home));
+
+    // asdf
+    extra_dirs.push(format!("{}/.asdf/shims", home));
+
+    // Common user-local bin
+    extra_dirs.push(format!("{}/.local/bin", home));
+
+    // Also try to read the user's default shell PATH via a quick login shell invocation
+    // (cached per process lifetime)
+    if let Some(shell_path) = resolve_shell_path() {
+        for dir in shell_path.split(':') {
+            if !dir.is_empty() && !extra_dirs.contains(&dir.to_string()) {
+                extra_dirs.push(dir.to_string());
+            }
+        }
+    }
+
+    // Prepend extra dirs that actually exist
+    let mut parts: Vec<&str> = Vec::new();
+    for dir in &extra_dirs {
+        if std::path::Path::new(dir).is_dir() && !current.split(':').any(|p| p == dir.as_str()) {
+            parts.push(dir);
+        }
+    }
+    // Append original PATH
+    if !current.is_empty() {
+        parts.push(&current);
+    }
+
+    parts.join(":")
+}
+
+/// Try to get the user's full PATH from a login shell invocation.
+fn resolve_shell_path() -> Option<String> {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let output = std::process::Command::new(&shell)
+        .args(["-l", "-c", "echo $PATH"])
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !path.is_empty() {
+            return Some(path);
+        }
+    }
+    None
 }
 
 fn which_exists(name: &str) -> bool {

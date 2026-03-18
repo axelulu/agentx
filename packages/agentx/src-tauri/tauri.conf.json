@@ -1,16 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/schema.json",
   "productName": "AgentX",
-  "version": "0.1.58",
+  "version": "0.1.59",
   "identifier": "com.agentx.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "pnpm vite:dev",
-    "beforeBuildCommand": "pnpm build:sidecar && pnpm vite:build"
+    "beforeDevCommand": "pnpm download:browser-bin && pnpm vite:dev",
+    "beforeBuildCommand": "pnpm build:sidecar && pnpm download:browser-bin && pnpm vite:build"
   },
   "app": {
     "withGlobalTauri": false,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
@@ -20,10 +21,14 @@
         "minWidth": 800,
         "minHeight": 600,
         "decorations": true,
-        "transparent": false,
+        "transparent": true,
         "visible": false,
         "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "windowEffects": {
+          "effects": ["hudWindow"],
+          "state": "active"
+        }
       }
     ],
     "security": {
@@ -46,10 +51,10 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "externalBin": [],
+    "externalBin": ["binaries/agent-browser"],
     "resources": {
-      "../sidecar/dist/index.js": "sidecar/index.js",
-      "../resources/toolkit/**/*": "toolkit/"
+      "../sidecar/dist/index.cjs": "sidecar/index.cjs",
+      "../resources/toolkit": "toolkit"
     },
     "macOS": {
       "entitlements": "../resources/entitlements.mac.plist",

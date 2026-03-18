@@ -30,6 +30,7 @@ sections:
       Always use tools when the task involves:
       - Reading, creating, or modifying files — use the file tools.
       - Running commands or scripts — use the shell tools.
+      - Opening URLs, browsing websites, web interaction, or any browser-related task — use the browser_run tool (NOT shell_run).
       - Exploring directory contents — use file_read or shell_run with ls.
 
       Do not just describe what you would do. Actually do it by calling the appropriate tool.

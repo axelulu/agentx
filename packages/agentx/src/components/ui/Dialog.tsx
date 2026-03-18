@@ -10,6 +10,7 @@ import * as React from "react";
 interface DialogConfigContextType {
   closeOnClickOutside?: boolean;
   closeOnEscape?: boolean;
+  requestClose?: () => void;
 }
 
 const DialogConfigContext = React.createContext<DialogConfigContextType>({
@@ -26,8 +27,12 @@ function Dialog({
   closeOnClickOutside?: boolean;
   closeOnEscape?: boolean;
 }) {
+  const requestClose = React.useCallback(() => {
+    props.onOpenChange?.(false);
+  }, [props.onOpenChange]);
+
   return (
-    <DialogConfigContext.Provider value={{ closeOnClickOutside, closeOnEscape }}>
+    <DialogConfigContext.Provider value={{ closeOnClickOutside, closeOnEscape, requestClose }}>
       <DialogPrimitive.Root data-slot="dialog" {...props}>
         {children}
       </DialogPrimitive.Root>
@@ -76,7 +81,8 @@ function DialogContent({
   overlayStyle?: React.CSSProperties;
   maxWidth?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl" | "full";
 }) {
-  const { closeOnClickOutside, closeOnEscape } = React.useContext(DialogConfigContext);
+  const { closeOnClickOutside, closeOnEscape, requestClose } =
+    React.useContext(DialogConfigContext);
 
   const maxWidthClasses = {
     xs: "sm:max-w-xs",
@@ -94,7 +100,10 @@ function DialogContent({
 
   return (
     <DialogPortal>
-      <DialogOverlay style={overlayStyle} />
+      <DialogOverlay
+        style={overlayStyle}
+        onClick={closeOnClickOutside !== false ? requestClose : undefined}
+      />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

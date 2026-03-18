@@ -260,7 +260,7 @@ function UserBubble({
   return (
     <div className={cn("group/msg flex flex-col items-end", animate && "animate-slide-up")}>
       {/* Bubble */}
-      <div className="text-sm leading-relaxed bg-foreground/[0.06] dark:bg-foreground/[0.08] rounded-2xl px-5 py-3.5 max-w-2xl">
+      <div className="text-[13px] leading-relaxed bg-foreground/[0.06] dark:bg-foreground/[0.08] rounded-xl px-3.5 py-2.5 max-w-2xl">
         {/* Inline image thumbnails */}
         {hasImages && (
           <div className={cn("flex flex-wrap gap-2", (text || hasAttachments) && "mb-2")}>
@@ -551,7 +551,7 @@ function SubAgentProgress({ streamingOutput }: { streamingOutput: string }) {
   return (
     <div
       ref={containerRef}
-      className="px-3 py-1.5 max-h-48 overflow-auto border-t border-border text-[11px] leading-relaxed text-muted-foreground/80 space-y-0.5"
+      className="px-3 py-2 max-h-48 overflow-auto text-[11px] leading-relaxed text-muted-foreground/80 space-y-0.5"
     >
       {entries.map((entry, i) => (
         <div key={i} className="flex items-center gap-1.5">
@@ -681,10 +681,7 @@ function OrchestratorProgress({ streamingOutput }: { streamingOutput: string }) 
   const { agents } = latestSnapshot;
 
   return (
-    <div
-      ref={containerRef}
-      className="px-3 py-2 max-h-64 overflow-auto border-t border-border text-[11px] space-y-1"
-    >
+    <div ref={containerRef} className="px-3 py-2 max-h-64 overflow-auto text-[11px] space-y-1">
       {agents.map((agent) => {
         const style = STATUS_STYLES[agent.status] ?? STATUS_STYLES.pending;
         const progress =
@@ -774,14 +771,17 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
     setUserExpanded(!expanded);
   };
 
+  const showBody = hasStreamingOutput || expanded;
+
   return (
     <div
       className={cn(
-        "text-xs overflow-hidden",
-        isError ? "border-l-2 border-destructive/40 pl-3" : "border-l-2 border-border pl-3",
+        "text-xs flex flex-col border overflow-hidden bg-foreground/[0.03]",
+        showBody ? "rounded-xl" : "rounded-full",
+        isError ? "border-destructive/30" : "border-border",
       )}
     >
-      {/* Header */}
+      {/* Capsule header */}
       <div
         role={hasResult ? "button" : undefined}
         tabIndex={hasResult ? 0 : undefined}
@@ -793,61 +793,63 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
           }
         }}
         className={cn(
-          "flex items-center gap-2 w-full py-1.5 text-left select-none",
-          hasResult && "cursor-pointer",
+          "flex items-center gap-1.5 px-3 py-1.5 select-none transition-colors min-w-0",
+          isError ? "text-destructive" : isRunning ? "text-foreground/70" : "text-muted-foreground",
+          hasResult && "cursor-pointer hover:bg-foreground/[0.06]",
         )}
       >
         {isRunning ? (
-          <LoaderIcon className="w-3 h-3 text-muted-foreground animate-spin shrink-0" />
+          <LoaderIcon className="w-3 h-3 animate-spin shrink-0" />
         ) : isError ? (
-          <AlertCircleIcon className="w-3 h-3 text-destructive shrink-0" />
+          <AlertCircleIcon className="w-3 h-3 shrink-0" />
         ) : isCancelled ? (
-          <BanIcon className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+          <BanIcon className="w-3 h-3 opacity-50 shrink-0" />
+        ) : isDone ? (
+          <CheckCircleIcon className="w-3 h-3 text-foreground/50 shrink-0" />
         ) : (
-          <ToolIcon className="w-3 h-3 text-muted-foreground shrink-0" />
+          <ToolIcon className="w-3 h-3 shrink-0" />
         )}
-        <span className="font-medium text-foreground">{toolCall.name}</span>
+        <span className="font-medium shrink-0">{toolCall.name}</span>
         {summary && (
-          <span className="text-muted-foreground truncate flex-1 min-w-0">{summary}</span>
+          <span className="text-muted-foreground/60 truncate flex-1 min-w-0">{summary}</span>
         )}
         {hasResult && (
           <ChevronRightIcon
             className={cn(
-              "w-3 h-3 text-muted-foreground/50 shrink-0 transition-transform duration-150",
+              "w-3 h-3 opacity-40 shrink-0 transition-transform duration-150",
               expanded && "rotate-90",
             )}
           />
         )}
         {isCancelled && (
-          <span className="text-[10px] text-muted-foreground/50 shrink-0">
-            {l10n.t("cancelled")}
-          </span>
-        )}
-        {isDone && !isError && !hasResult && (
-          <CheckIcon className="w-3 h-3 text-foreground/70 shrink-0" />
+          <span className="text-[10px] opacity-50 shrink-0">{l10n.t("cancelled")}</span>
         )}
       </div>
 
-      {/* Streaming output (live, while running) */}
+      {/* Streaming output — inside the unified container */}
       {hasStreamingOutput && toolCall.name === "orchestrate_sub_agents" ? (
-        <OrchestratorProgress streamingOutput={toolCall.streamingOutput!} />
+        <div className="border-t border-border">
+          <OrchestratorProgress streamingOutput={toolCall.streamingOutput!} />
+        </div>
       ) : hasStreamingOutput && toolCall.name === "sub_agent" ? (
-        <SubAgentProgress streamingOutput={toolCall.streamingOutput!} />
+        <div className="border-t border-border">
+          <SubAgentProgress streamingOutput={toolCall.streamingOutput!} />
+        </div>
       ) : hasStreamingOutput ? (
         <pre
           ref={streamingRef}
-          className="px-3 pb-2 max-h-48 overflow-auto border-t border-border font-mono text-[11px] leading-relaxed text-muted-foreground/80 whitespace-pre-wrap break-words"
+          className="px-3 py-2 max-h-48 overflow-auto border-t border-border font-mono text-[11px] leading-relaxed text-muted-foreground/80 whitespace-pre-wrap break-words"
         >
           {stripAnsi(toolCall.streamingOutput!)}
         </pre>
       ) : null}
 
-      {/* Result (expandable) */}
+      {/* Result — inside the unified container */}
       {expanded && (
         <div
           className={cn(
-            "px-3 pb-2 max-h-64 overflow-auto border-t border-border",
-            isError ? "text-destructive/80" : "text-muted-foreground/80",
+            "px-3 py-2 max-h-64 overflow-auto border-t border-border",
+            isError ? "text-destructive/80 bg-destructive/[0.03]" : "text-muted-foreground/80",
           )}
         >
           <ToolResultRenderer content={resultContent} toolName={toolCall.name} isError={isError} />
@@ -866,31 +868,37 @@ function ToolResultBubble({ message, animate = true }: { message: Message; anima
   const content = message.content ?? "";
   const isLong = content.length > 200;
 
+  const showBody = expanded || !isLong;
+
   return (
-    <div className={cn("flex", animate && "animate-slide-up")}>
-      <div
+    <div
+      className={cn(
+        "text-xs inline-flex flex-col border overflow-hidden bg-foreground/[0.03]",
+        animate && "animate-slide-up",
+        showBody ? "rounded-xl" : "rounded-full",
+        message.isError ? "border-destructive/30" : "border-border",
+      )}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
         className={cn(
-          "text-xs max-w-[90%]",
-          message.isError
-            ? "border-l-2 border-destructive/40 pl-3"
-            : "border-l-2 border-border pl-3",
+          "inline-flex items-center gap-1.5 px-3 py-1.5 select-none transition-colors",
+          message.isError ? "text-destructive" : "text-muted-foreground hover:bg-foreground/[0.04]",
         )}
       >
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 font-medium mb-0.5"
-        >
-          <ChevronRightIcon
-            className={cn("w-3 h-3 transition-transform duration-150", expanded && "rotate-90")}
-          />
-          {l10n.t("Tool result")}
-        </button>
-        {(expanded || !isLong) && (
-          <div className="whitespace-pre-wrap break-words font-mono mt-1 text-[11px] leading-relaxed opacity-80">
-            {content}
-          </div>
-        )}
-      </div>
+        <ChevronRightIcon
+          className={cn(
+            "w-3 h-3 shrink-0 transition-transform duration-150",
+            expanded && "rotate-90",
+          )}
+        />
+        <span className="font-medium">{l10n.t("Tool result")}</span>
+      </button>
+      {showBody && (
+        <div className="px-3 py-2 border-t border-border whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground/80">
+          {content}
+        </div>
+      )}
     </div>
   );
 }

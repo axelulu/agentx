@@ -47,7 +47,7 @@ export function UpdateDialog() {
     <Dialog
       open={dialogOpen}
       onOpenChange={handleOpenChange}
-      closeOnClickOutside={canClose}
+      closeOnClickOutside={false}
       closeOnEscape={canClose}
     >
       <DialogContent showCloseButton={false} maxWidth="xs" className="!p-5 !gap-0 !rounded-xl">
