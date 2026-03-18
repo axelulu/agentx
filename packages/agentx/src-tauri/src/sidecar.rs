@@ -100,10 +100,11 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
 
     // Resolve the sidecar JS bundle path
     let sidecar_path = if cfg!(debug_assertions) {
-        // Dev mode: use the source build output
-        resource_dir
+        // Dev mode: CARGO_MANIFEST_DIR points to src-tauri/, go up to packages/agentx/
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
             .parent()
-            .unwrap_or(&resource_dir)
+            .unwrap_or(&manifest_dir)
             .join("sidecar")
             .join("dist")
             .join("index.js")
@@ -127,9 +128,10 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| format!("Failed to get app data dir: {}", e))?;
     let home_dir = dirs_home();
     let toolkit_path = if cfg!(debug_assertions) {
-        resource_dir
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        manifest_dir
             .parent()
-            .unwrap_or(&resource_dir)
+            .unwrap_or(&manifest_dir)
             .join("resources")
             .join("toolkit")
     } else {
@@ -172,11 +174,14 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
     };
 
     // Store in state
-    let state: tauri::State<'_, SidecarState> = app.state();
-    *state.inner.lock().await = Some(inner);
+    let sidecar_state: tauri::State<'_, SidecarState> = app.state();
+    let state_arc = sidecar_state.inner.clone();
+    *state_arc.lock().await = Some(inner);
 
     // Background reader task: parse stdout JSON-RPC responses and notifications
     let app_handle = app.clone();
+    let restart_handle = app.clone();
+    let restart_state = state_arc.clone();
     tokio::spawn(async move {
         let reader = BufReader::new(stdout);
         let mut lines = reader.lines();
@@ -217,7 +222,13 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
             }
         }
 
-        eprintln!("[Sidecar] stdout reader ended");
+        eprintln!("[Sidecar] stdout reader ended — requesting restart");
+
+        // Clear old state so pending calls fail fast
+        *restart_state.lock().await = None;
+
+        // Emit a Tauri event so the setup code can trigger a restart
+        let _ = restart_handle.emit("sidecar:restart", ());
     });
 
     eprintln!("[Sidecar] Started successfully");

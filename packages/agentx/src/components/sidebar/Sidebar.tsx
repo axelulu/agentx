@@ -90,7 +90,7 @@ export function Sidebar() {
                 <XIcon className="w-4 h-4 text-muted-foreground" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{l10n.t("Close")}</TooltipContent>
+            <TooltipContent side="bottom">{l10n.t("Close")}</TooltipContent>
           </Tooltip>
         ) : (
           <div className="flex items-center gap-1">
@@ -104,7 +104,7 @@ export function Sidebar() {
                     <ListChecksIcon className="w-4 h-4 text-muted-foreground" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>{l10n.t("Select")}</TooltipContent>
+                <TooltipContent side="bottom">{l10n.t("Select")}</TooltipContent>
               </Tooltip>
             )}
             <Tooltip>
@@ -116,7 +116,7 @@ export function Sidebar() {
                   <FolderPlusIcon className="w-4 h-4 text-muted-foreground" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>{l10n.t("New Folder")}</TooltipContent>
+              <TooltipContent side="bottom">{l10n.t("New Folder")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -130,7 +130,7 @@ export function Sidebar() {
                   <SquarePenIcon className="w-4 h-4 text-muted-foreground" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>{l10n.t("New Chat")}</TooltipContent>
+              <TooltipContent side="bottom">{l10n.t("New Chat")}</TooltipContent>
             </Tooltip>
           </div>
         )}
@@ -190,7 +190,7 @@ export function Sidebar() {
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent>{l10n.t("Toggle Theme")}</TooltipContent>
+            <TooltipContent side="top">{l10n.t("Toggle Theme")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -201,7 +201,7 @@ export function Sidebar() {
                 <SettingsIcon className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{l10n.t("Settings")}</TooltipContent>
+            <TooltipContent side="top">{l10n.t("Settings")}</TooltipContent>
           </Tooltip>
         </div>
       </div>

@@ -4,7 +4,9 @@ mod tray;
 mod menu;
 mod window;
 
-use tauri::Manager;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
+use tauri::{Listener, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -30,6 +32,30 @@ pub fn run() {
                 if let Err(e) = sidecar::spawn_sidecar(&handle).await {
                     eprintln!("[Sidecar] Failed to spawn: {}", e);
                 }
+            });
+
+            // Listen for sidecar restart requests (max 3 retries to prevent infinite loop)
+            let restart_handle = app.handle().clone();
+            let restart_count = Arc::new(AtomicU32::new(0));
+            app.listen("sidecar:restart", move |_| {
+                let h = restart_handle.clone();
+                let count = restart_count.clone();
+                tauri::async_runtime::spawn(async move {
+                    let attempts = count.fetch_add(1, Ordering::SeqCst);
+                    if attempts >= 3 {
+                        eprintln!("[Sidecar] Max restart attempts (3) reached, giving up");
+                        return;
+                    }
+                    let delay = std::time::Duration::from_secs((attempts as u64 + 1) * 2);
+                    eprintln!("[Sidecar] Restarting after crash (attempt {}/3, delay {:?})...", attempts + 1, delay);
+                    tokio::time::sleep(delay).await;
+                    if let Err(e) = sidecar::spawn_sidecar(&h).await {
+                        eprintln!("[Sidecar] Restart failed: {}", e);
+                    } else {
+                        eprintln!("[Sidecar] Restarted successfully");
+                        count.store(0, Ordering::SeqCst);
+                    }
+                });
             });
 
             // Register global shortcut (Alt+Space)
