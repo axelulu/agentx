@@ -119,19 +119,19 @@ function parseDiff(content: string): DiffFile[] {
 }
 
 const LINE_STYLES: Record<LineType, string> = {
-  add: "bg-emerald-500/10 text-emerald-400",
-  remove: "bg-red-500/10 text-red-400",
+  add: "bg-foreground/[0.05] text-foreground/90",
+  remove: "bg-foreground/[0.03] text-foreground/40 line-through",
   context: "text-muted-foreground/80",
   header: "text-muted-foreground/60",
-  hunk: "text-blue-400/80 bg-blue-500/5",
+  hunk: "text-muted-foreground/60 bg-foreground/[0.03]",
 };
 
 const LINE_NUM_STYLES: Record<LineType, string> = {
-  add: "text-emerald-400/40",
-  remove: "text-red-400/40",
+  add: "text-foreground/30",
+  remove: "text-foreground/20",
   context: "text-muted-foreground/30",
   header: "text-muted-foreground/20",
-  hunk: "text-blue-400/30",
+  hunk: "text-muted-foreground/25",
 };
 
 export const DiffView = memo(function DiffView({ content }: { content: string }) {
@@ -143,7 +143,7 @@ export const DiffView = memo(function DiffView({ content }: { content: string })
         <div key={fi}>
           {/* File header */}
           {file.filePath && (
-            <div className="sticky top-0 px-2 py-1 bg-foreground/[0.04] text-foreground/70 text-[11px] font-medium border-b border-foreground/[0.06] truncate">
+            <div className="sticky top-0 px-2 py-1 bg-foreground/[0.04] text-foreground/80 text-[11px] font-medium border-b border-border truncate">
               {file.filePath}
             </div>
           )}
@@ -153,7 +153,7 @@ export const DiffView = memo(function DiffView({ content }: { content: string })
               {/* Line numbers */}
               <span
                 className={cn(
-                  "select-none shrink-0 w-8 text-right pr-1 border-r border-foreground/[0.05]",
+                  "select-none shrink-0 w-8 text-right pr-1 border-r border-border",
                   LINE_NUM_STYLES[line.type],
                 )}
               >
@@ -161,7 +161,7 @@ export const DiffView = memo(function DiffView({ content }: { content: string })
               </span>
               <span
                 className={cn(
-                  "select-none shrink-0 w-8 text-right pr-1 border-r border-foreground/[0.05]",
+                  "select-none shrink-0 w-8 text-right pr-1 border-r border-border",
                   LINE_NUM_STYLES[line.type],
                 )}
               >

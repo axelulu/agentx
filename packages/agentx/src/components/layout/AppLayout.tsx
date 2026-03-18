@@ -28,24 +28,30 @@ export function AppLayout() {
   }, [dispatch]);
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground">
-      <TitleBar />
-      <UpdateDialog />
-      <div className="flex flex-1 overflow-hidden">
-        <div
-          className="overflow-hidden transition-all duration-200 ease-in-out"
-          style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
-        >
-          <Sidebar />
-        </div>
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <TabBar />
-          <ChatPanel />
-        </div>
-      </div>
+    <div className="h-full text-foreground relative overflow-hidden">
+      {/* Decorative background — visible behind the frosted-glass sidebar */}
+      <div className="absolute inset-0 bg-gradient-to-br from-neutral-200 via-neutral-300/80 to-neutral-200 dark:from-neutral-800 dark:via-neutral-700/60 dark:to-neutral-800" />
 
-      {settingsOpen && <SettingsPanel />}
-      <SearchDialog />
+      {/* App shell */}
+      <div className="relative flex flex-col h-full">
+        <TitleBar />
+        <UpdateDialog />
+        <div className="flex flex-1 overflow-hidden">
+          <div
+            className="overflow-hidden transition-all duration-200 ease-in-out shrink-0"
+            style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
+          >
+            <Sidebar />
+          </div>
+          <div className="flex flex-col flex-1 overflow-hidden bg-background">
+            <TabBar />
+            <ChatPanel />
+          </div>
+        </div>
+
+        {settingsOpen && <SettingsPanel />}
+        <SearchDialog />
+      </div>
     </div>
   );
 }

@@ -103,7 +103,7 @@ export function ToolApprovalBanner() {
               onClick={() => handleRespond(true)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                "bg-emerald-600 text-white hover:bg-emerald-700",
+                "bg-foreground text-background hover:bg-foreground/90",
               )}
             >
               <CheckIcon className="w-3 h-3" />
@@ -113,7 +113,7 @@ export function ToolApprovalBanner() {
               onClick={handleAlwaysAllow}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                "bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600/30",
+                "bg-muted text-foreground hover:bg-accent",
               )}
             >
               <ShieldCheckIcon className="w-3 h-3" />
@@ -123,7 +123,7 @@ export function ToolApprovalBanner() {
               onClick={() => handleRespond(false)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-                "bg-foreground/10 text-foreground hover:bg-foreground/15",
+                "bg-muted text-foreground hover:bg-accent",
               )}
             >
               <XIcon className="w-3 h-3" />

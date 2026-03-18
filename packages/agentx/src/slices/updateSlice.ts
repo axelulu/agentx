@@ -47,6 +47,13 @@ export const installUpdate = createAsyncThunk("update/installUpdate", async () =
 const updateSlice = createSlice({
   name: "update",
   initialState,
+  extraReducers: (builder) => {
+    builder.addCase(downloadUpdate.pending, (state) => {
+      state.state = "downloading";
+      state.progress = { percent: 0, bytesPerSecond: 0, transferred: 0, total: 0 };
+      state.error = null;
+    });
+  },
   reducers: {
     setUpdateStatus(
       state,

@@ -97,11 +97,11 @@ export function SkillSelector() {
           <button
             ref={buttonRef}
             onClick={() => setPopoverOpen(!popoverOpen)}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.07] transition-colors relative"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors relative"
           >
-            <ZapIcon className={cn("w-4 h-4", activeCount > 0 && "text-amber-500")} />
+            <ZapIcon className={cn("w-4 h-4", activeCount > 0 && "text-foreground")} />
             {activeCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-500 text-[9px] font-bold text-white flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-foreground text-[9px] font-bold text-background flex items-center justify-center">
                 {activeCount}
               </span>
             )}

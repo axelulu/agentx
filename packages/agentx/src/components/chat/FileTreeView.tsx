@@ -61,7 +61,7 @@ function TreeNodeRow({ node, depth }: { node: TreeNode; depth: number }) {
       <div
         onClick={handleClick}
         className={cn(
-          "flex items-center gap-1 py-0.5 px-1 rounded cursor-pointer hover:bg-foreground/[0.04] text-[11px]",
+          "flex items-center gap-1 py-0.5 px-1 rounded cursor-pointer hover:bg-foreground/[0.06] text-[11px]",
           node.isDir ? "text-foreground/80" : "text-muted-foreground/80 hover:text-foreground",
         )}
         style={{ paddingLeft: `${depth * 14 + 4}px` }}
@@ -75,7 +75,7 @@ function TreeNodeRow({ node, depth }: { node: TreeNode; depth: number }) {
           />
         )}
         {node.isDir ? (
-          <DirIcon className="w-3.5 h-3.5 shrink-0 text-amber-500/70" />
+          <DirIcon className="w-3.5 h-3.5 shrink-0 text-foreground/60" />
         ) : (
           <FileIcon className="w-3.5 h-3.5 shrink-0" />
         )}

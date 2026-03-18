@@ -74,7 +74,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex flex-col h-full w-[260px] bg-sidebar">
+    <div className="flex flex-col h-full w-[260px] frosted-glass border-r border-sidebar-border">
       {/* Top: Brand + New Chat */}
       <div className="flex items-center justify-between px-4 py-3">
         <span className="font-semibold text-[13px] tracking-tight text-sidebar-foreground select-none">
@@ -141,6 +141,7 @@ export function Sidebar() {
         <div className="px-3 pb-2">
           <div className="relative">
             <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+
             <input
               type="text"
               value={searchQuery}

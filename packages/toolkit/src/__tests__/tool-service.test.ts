@@ -98,7 +98,7 @@ describe("ToolService", () => {
     setupToolYaml("search", "web", [
       {
         name: "web_search",
-        description: "Search the web using {{app_name}}",
+        description: "Search the web using ${app_name}",
         category: "search",
         input_schema: { type: "object", properties: {} },
       },
@@ -118,7 +118,7 @@ describe("ToolService", () => {
       [
         {
           name: "gen_image",
-          description: "{{global_var}} - {{local_var}}",
+          description: "${global_var} - ${local_var}",
           category: "generation",
           input_schema: { type: "object", properties: {} },
         },

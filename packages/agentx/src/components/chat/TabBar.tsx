@@ -62,19 +62,19 @@ export function TabBar() {
               className={cn(
                 "group flex items-center gap-1.5 px-4 py-2 text-[13px] max-w-[180px] transition-colors",
                 isActive
-                  ? "text-foreground border-b-2 border-primary"
+                  ? "text-foreground border-b-2 border-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {isRunning && <Loader2Icon className="w-3 h-3 shrink-0 animate-spin text-primary" />}
+              {isRunning && (
+                <Loader2Icon className="w-3 h-3 shrink-0 animate-spin text-foreground" />
+              )}
               <span className="truncate">{getTitle(tabId)}</span>
               <span
                 onClick={(e) => handleClose(e, tabId)}
                 className={cn(
                   "shrink-0 p-0.5 rounded-sm transition-colors",
-                  isActive
-                    ? "hover:bg-foreground/10"
-                    : "opacity-0 group-hover:opacity-100 hover:bg-foreground/10",
+                  isActive ? "hover:bg-muted" : "opacity-0 group-hover:opacity-100 hover:bg-muted",
                 )}
               >
                 <XIcon className="w-3 h-3" />

@@ -12,7 +12,7 @@ describe("PromptCompiler", () => {
     });
 
     it("replaces variables in plain strings", () => {
-      expect(compiler.renderSection("Hello {{name}}", { name: "Brain" })).toBe("Hello Brain");
+      expect(compiler.renderSection("Hello ${name}", { name: "Brain" })).toBe("Hello Brain");
     });
 
     it("renders tagged sections", () => {
@@ -26,12 +26,12 @@ describe("PromptCompiler", () => {
     });
 
     it("renders conditional sections (truthy)", () => {
-      const section: SectionContent = { $if: "{{mode}} == 'chat'", content: "Chat mode" };
+      const section: SectionContent = { $if: "${mode} == 'chat'", content: "Chat mode" };
       expect(compiler.renderSection(section, { mode: "chat" })).toBe("Chat mode");
     });
 
     it("renders conditional sections (falsy)", () => {
-      const section: SectionContent = { $if: "{{mode}} == 'chat'", content: "Chat mode" };
+      const section: SectionContent = { $if: "${mode} == 'chat'", content: "Chat mode" };
       expect(compiler.renderSection(section, { mode: "loop" })).toBe("");
     });
 
@@ -72,7 +72,7 @@ describe("PromptCompiler", () => {
         meta: { name: "test" },
         variables: { static: { app: "Brain" } },
         sections: {
-          intro: "Welcome to {{app}}",
+          intro: "Welcome to ${app}",
         },
       };
 
@@ -89,7 +89,7 @@ describe("PromptCompiler", () => {
           },
         },
         sections: {
-          greeting: "Hello {{user}}",
+          greeting: "Hello ${user}",
         },
       };
 

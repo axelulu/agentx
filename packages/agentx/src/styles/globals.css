@@ -103,6 +103,17 @@
   }
 }
 
+/* Frosted glass sidebar — explicit webkit prefix for Tauri/WebKit */
+.frosted-glass {
+  background: rgba(240, 240, 240, 0.55);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+.dark .frosted-glass {
+  background: rgba(18, 18, 18, 0.55);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
@@ -228,32 +239,32 @@
 .dark .hljs-literal,
 .dark .hljs-section,
 .dark .hljs-link {
-  color: #ff7b72;
+  color: #b0b0b0;
 }
 
 .dark .hljs-string,
 .dark .hljs-attr,
 .dark .hljs-addition {
-  color: #a5d6ff;
+  color: #d0d0d0;
 }
 
 .dark .hljs-title,
 .dark .hljs-title\.class_,
 .dark .hljs-title\.function_ {
-  color: #d2a8ff;
+  color: #c0c0c0;
 }
 
 .dark .hljs-comment,
 .dark .hljs-quote,
 .dark .hljs-meta {
-  color: #8b949e;
+  color: #707070;
 }
 
 .dark .hljs-number,
 .dark .hljs-regexp,
 .dark .hljs-selector-id,
 .dark .hljs-selector-class {
-  color: #79c0ff;
+  color: #a0a0a0;
 }
 
 .dark .hljs-variable,
@@ -261,11 +272,11 @@
 .dark .hljs-tag,
 .dark .hljs-name,
 .dark .hljs-deletion {
-  color: #ffa657;
+  color: #b8b8b8;
 }
 
 .dark .hljs-built_in,
 .dark .hljs-type,
 .dark .hljs-params {
-  color: #7ee787;
+  color: #c8c8c8;
 }

@@ -130,7 +130,7 @@ function DroppableSectionHeader({
       ref={setNodeRef}
       className={cn(
         "rounded-md transition-shadow",
-        isOver && !disabled && "ring-2 ring-primary/30",
+        isOver && !disabled && "ring-2 ring-foreground/20",
       )}
     >
       {children}
@@ -470,11 +470,11 @@ export function ConversationList({
           "group flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-[13px]",
           selectMode
             ? isSelected
-              ? "bg-foreground/[0.05] text-foreground"
-              : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+              ? "bg-accent text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
             : isActive
-              ? "bg-foreground/[0.08] text-foreground"
-              : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+              ? "bg-accent text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
         onClick={() => {
           if (selectMode) {
@@ -503,8 +503,8 @@ export function ConversationList({
             selectMode
               ? ""
               : isActive
-                ? "bg-primary/15 text-primary"
-                : "bg-foreground/[0.05] text-muted-foreground group-hover:bg-foreground/[0.08] group-hover:text-foreground",
+                ? "bg-foreground/20 text-foreground"
+                : "bg-foreground/[0.06] text-muted-foreground group-hover:bg-foreground/[0.10] group-hover:text-foreground",
           )}
         >
           <AnimatePresence mode="wait" initial={false}>
@@ -517,7 +517,7 @@ export function ConversationList({
                 transition={{ duration: 0.15 }}
                 className={cn(
                   "w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-colors",
-                  isSelected ? "bg-primary border-primary" : "border-muted-foreground/30",
+                  isSelected ? "bg-foreground border-foreground" : "border-muted-foreground/30",
                 )}
               >
                 {isSelected && (
@@ -555,7 +555,7 @@ export function ConversationList({
                 }
               }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full bg-transparent outline-none text-[13px] leading-snug font-medium border-b border-primary/50 py-0"
+              className="w-full bg-transparent outline-none text-[13px] leading-snug font-medium border-b border-foreground/30 py-0"
             />
           ) : (
             <p
@@ -565,7 +565,7 @@ export function ConversationList({
               )}
             >
               {conversation.isFavorite && (
-                <StarIcon className="w-3 h-3 inline-block mr-1 text-amber-400 fill-amber-400 -mt-0.5" />
+                <StarIcon className="w-3 h-3 inline-block mr-1 text-foreground/60 fill-foreground/60 -mt-0.5" />
               )}
               {conversation.title}
             </p>
@@ -640,7 +640,7 @@ export function ConversationList({
     onToggle: () => void;
   }) => (
     <div
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground select-none"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground select-none"
       onClick={onToggle}
     >
       <ChevronRightIcon
@@ -789,7 +789,7 @@ export function ConversationList({
                   >
                     {/* Folder header */}
                     <div
-                      className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+                      className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => !isEmpty && dispatch(toggleFolderCollapsed(folder.id))}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -832,7 +832,7 @@ export function ConversationList({
                             }
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="flex-1 min-w-0 bg-transparent outline-none text-[12px] font-medium border-b border-primary/50 py-0"
+                          className="flex-1 min-w-0 bg-transparent outline-none text-[12px] font-medium border-b border-foreground/30 py-0"
                         />
                       ) : (
                         <span className="flex-1 min-w-0 truncate font-medium">{folder.name}</span>
@@ -934,7 +934,7 @@ export function ConversationList({
                 {(() => {
                   const Icon = getConversationIcon(draggedConversation.title);
                   return (
-                    <div className="shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-foreground/[0.05]">
+                    <div className="shrink-0 flex items-center justify-center w-6 h-6 rounded-md bg-foreground/[0.06]">
                       <Icon className="w-3.5 h-3.5" />
                     </div>
                   );
@@ -968,7 +968,7 @@ export function ConversationList({
               </span>
               <button
                 onClick={selectAll}
-                className="text-[12px] text-primary hover:text-primary/80 font-medium transition-colors"
+                className="text-[12px] text-foreground hover:text-foreground/80 font-medium transition-colors"
               >
                 {l10n.t("Select All")}
               </button>

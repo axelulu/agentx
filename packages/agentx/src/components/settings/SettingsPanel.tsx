@@ -73,23 +73,23 @@ export function SettingsPanel() {
       />
       <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex animate-slide-up">
         {/* Left: Navigation */}
-        <div className="w-[200px] shrink-0 bg-muted border-r border-border flex flex-col">
-          <div className="px-4 pt-5 pb-3">
-            <h2 className="text-[13px] font-semibold text-foreground">{l10n.t("Settings")}</h2>
+        <div className="w-[168px] shrink-0 bg-foreground/[0.03] border-r border-border flex flex-col">
+          <div className="px-3 pt-5 pb-3">
+            <h2 className="text-[12px] font-semibold text-foreground">{l10n.t("Settings")}</h2>
           </div>
-          <nav className="flex-1 px-2 space-y-0.5">
+          <nav className="flex-1 px-1.5 space-y-0.5">
             {sections.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveSection(id)}
                 className={cn(
-                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
+                  "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors",
                   activeSection === id
                     ? "bg-accent text-accent-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
                 )}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 {label}
               </button>
             ))}
@@ -267,33 +267,7 @@ function GeneralSection() {
             ))}
           </div>
         </div>
-        <div className="flex items-center justify-between py-2">
-          <div>
-            <p className="text-sm text-foreground">{l10n.t("Accent Color")}</p>
-            <p className="text-[12px] text-muted-foreground mt-0.5">
-              {l10n.t("Customize the primary accent color")}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {getAccentOptions().map((opt) => (
-              <Tooltip key={opt.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setAccent(opt.id)}
-                    className={cn(
-                      "w-6 h-6 rounded-full transition-all shrink-0",
-                      accentColor === opt.id
-                        ? "ring-2 ring-foreground/70 ring-offset-2 ring-offset-card scale-110"
-                        : "hover:scale-110",
-                    )}
-                    style={{ backgroundColor: opt.color }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>{opt.label}</TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
-        </div>
+        {/* Accent color picker removed — monochrome theme */}
         <div className="flex items-center justify-between py-2">
           <div>
             <p className="text-sm text-foreground">{l10n.t("Font Size")}</p>
@@ -412,7 +386,7 @@ function GeneralSection() {
           >
             <span
               className={cn(
-                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-primary-foreground transition-transform",
                 notifEnabled && "translate-x-4",
               )}
             />
@@ -444,7 +418,7 @@ function GeneralSection() {
           >
             <span
               className={cn(
-                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-primary-foreground transition-transform",
                 notifScheduled && notifEnabled && "translate-x-4",
               )}
             />
@@ -476,7 +450,7 @@ function GeneralSection() {
           >
             <span
               className={cn(
-                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-primary-foreground transition-transform",
                 notifAgent && notifEnabled && "translate-x-4",
               )}
             />
@@ -710,7 +684,7 @@ function AboutSection() {
               href="https://github.com/axelulu/agentx"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[12px] text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              className="text-[12px] text-foreground/70 hover:text-foreground hover:underline transition-colors"
             >
               github.com/axelulu/agentx
             </a>

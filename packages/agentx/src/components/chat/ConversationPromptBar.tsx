@@ -72,11 +72,11 @@ export function ConversationPromptButton() {
         <TooltipTrigger asChild>
           <button
             onClick={() => setOpen(true)}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.07] transition-colors relative"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors relative"
           >
-            <ScrollTextIcon className={cn("w-4 h-4", hasCustom && "text-blue-400")} />
+            <ScrollTextIcon className={cn("w-4 h-4", hasCustom && "text-foreground")} />
             {hasCustom && (
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400" />
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-foreground" />
             )}
           </button>
         </TooltipTrigger>
@@ -112,7 +112,7 @@ export function ConversationPromptButton() {
             <span className="text-[11px] text-muted-foreground/50">
               {hasCustom ? (
                 <>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 mr-1.5 align-middle" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground mr-1.5 align-middle" />
                   {l10n.t("Custom")}
                 </>
               ) : (

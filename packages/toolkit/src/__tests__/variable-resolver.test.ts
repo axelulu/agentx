@@ -4,42 +4,42 @@ import { mergeVariables, replaceVariables, replaceVariablesInObject } from "../v
 
 describe("replaceVariables", () => {
   it("replaces known variables", () => {
-    expect(replaceVariables("Hello {{name}}!", { name: "World" })).toBe("Hello World!");
+    expect(replaceVariables("Hello ${name}!", { name: "World" })).toBe("Hello World!");
   });
 
   it("replaces multiple variables", () => {
-    expect(replaceVariables("{{a}} and {{b}}", { a: "1", b: "2" })).toBe("1 and 2");
+    expect(replaceVariables("${a} and ${b}", { a: "1", b: "2" })).toBe("1 and 2");
   });
 
   it("removes undefined variables by default", () => {
-    expect(replaceVariables("Hello {{name}}!", {})).toBe("Hello !");
+    expect(replaceVariables("Hello ${name}!", {})).toBe("Hello !");
   });
 
   it("preserves undefined variables when flag is set", () => {
-    expect(replaceVariables("Hello {{name}}!", {}, true)).toBe("Hello {{name}}!");
+    expect(replaceVariables("Hello ${name}!", {}, true)).toBe("Hello ${name}!");
   });
 
   it("trims variable names", () => {
-    expect(replaceVariables("{{ name }}", { name: "ok" })).toBe("ok");
+    expect(replaceVariables("${ name }", { name: "ok" })).toBe("ok");
   });
 
   it("converts non-string values to strings", () => {
-    expect(replaceVariables("count: {{n}}", { n: 42 })).toBe("count: 42");
-    expect(replaceVariables("flag: {{b}}", { b: true })).toBe("flag: true");
+    expect(replaceVariables("count: ${n}", { n: 42 })).toBe("count: 42");
+    expect(replaceVariables("flag: ${b}", { b: true })).toBe("flag: true");
   });
 });
 
 describe("replaceVariablesInObject", () => {
   it("replaces in strings", () => {
-    expect(replaceVariablesInObject("{{x}}", { x: "hello" })).toBe("hello");
+    expect(replaceVariablesInObject("${x}", { x: "hello" })).toBe("hello");
   });
 
   it("replaces in arrays", () => {
-    expect(replaceVariablesInObject(["{{a}}", "{{b}}"], { a: "1", b: "2" })).toEqual(["1", "2"]);
+    expect(replaceVariablesInObject(["${a}", "${b}"], { a: "1", b: "2" })).toEqual(["1", "2"]);
   });
 
   it("replaces in nested objects", () => {
-    const obj = { top: { nested: "{{val}}" } };
+    const obj = { top: { nested: "${val}" } };
     expect(replaceVariablesInObject(obj, { val: "ok" })).toEqual({ top: { nested: "ok" } });
   });
 

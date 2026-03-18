@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import {
-  saveProvider,
-  removeProvider,
-  setActiveProvider,
+  upsertProvider,
+  deleteProvider,
+  activateProvider,
   type ProviderConfig as ProviderConfigType,
 } from "@/slices/settingsSlice";
 import { l10n } from "@agentx/l10n";
@@ -28,12 +28,12 @@ export function ProviderConfig() {
       defaultModel: type === "openai" ? "gpt-4o" : "",
       isActive: providers.length === 0,
     };
-    dispatch(saveProvider(config));
+    dispatch(upsertProvider(config));
     setExpandedId(config.id);
   };
 
   const handleSave = (config: ProviderConfigType) => {
-    dispatch(saveProvider(config));
+    dispatch(upsertProvider(config));
   };
 
   const toggle = (id: string) => {
@@ -55,7 +55,7 @@ export function ProviderConfig() {
           expanded={expandedId === provider.id}
           onToggle={() => toggle(provider.id)}
           onRemove={() => {
-            dispatch(removeProvider(provider.id));
+            dispatch(deleteProvider(provider.id));
             setExpandedId(null);
           }}
           title={provider.name}
@@ -63,7 +63,7 @@ export function ProviderConfig() {
           active={provider.isActive}
           onActivate={
             !provider.isActive && provider.apiKey
-              ? () => dispatch(setActiveProvider(provider.id))
+              ? () => dispatch(activateProvider(provider.id))
               : undefined
           }
         >

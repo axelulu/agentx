@@ -2,11 +2,11 @@
  * Variable Resolver
  * Simple variable replacement utility for prompt templates and tool definitions
  *
- * Variable syntax: {{variableName}}
+ * Variable syntax: ${variableName}
  */
 
-// Variable pattern: {{variableName}}
-const VARIABLE_PATTERN = /\{\{([^}]+)\}\}/g;
+// Variable pattern: ${variableName}
+const VARIABLE_PATTERN = /\$\{([^}]+)\}/g;
 
 /**
  * Replace variables in a string

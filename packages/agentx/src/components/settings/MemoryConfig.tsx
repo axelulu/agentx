@@ -19,23 +19,23 @@ import { cn } from "@/lib/utils";
 const CATEGORY_META: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
   preference: {
     icon: SparklesIcon,
-    color: "text-blue-500 dark:text-blue-400",
-    bg: "bg-blue-500/10",
+    color: "text-foreground/70",
+    bg: "bg-foreground/[0.06]",
   },
   project: {
     icon: CodeIcon,
-    color: "text-emerald-500 dark:text-emerald-400",
-    bg: "bg-emerald-500/10",
+    color: "text-foreground/70",
+    bg: "bg-foreground/[0.06]",
   },
   pattern: {
     icon: LightbulbIcon,
-    color: "text-amber-500 dark:text-amber-400",
-    bg: "bg-amber-500/10",
+    color: "text-foreground/70",
+    bg: "bg-foreground/[0.06]",
   },
   instruction: {
     icon: WrenchIcon,
-    color: "text-violet-500 dark:text-violet-400",
-    bg: "bg-violet-500/10",
+    color: "text-foreground/70",
+    bg: "bg-foreground/[0.06]",
   },
 };
 
@@ -137,13 +137,13 @@ export function MemoryConfig() {
               label={l10n.t("Facts")}
               value={facts.length}
               max={config.maxFacts}
-              accent="text-blue-500"
+              accent="text-foreground/70"
             />
             <StatPill
               label={l10n.t("Summaries")}
               value={summaries.length}
               max={config.maxSummaries}
-              accent="text-emerald-500"
+              accent="text-foreground/70"
             />
             <div className="flex-1 flex items-center justify-end">
               <label className="flex items-center gap-2 cursor-pointer group/ae">
@@ -182,7 +182,7 @@ export function MemoryConfig() {
           </div>
 
           {/* Tab content */}
-          <div className="rounded-lg border border-border/60 bg-foreground/[0.015] overflow-hidden">
+          <div className="rounded-lg border border-border/60 bg-card overflow-hidden">
             {activeTab === "facts" && (
               <div className="max-h-[240px] overflow-y-auto divide-y divide-border/40">
                 {facts.length === 0 ? (
@@ -228,7 +228,7 @@ export function MemoryConfig() {
                               />
                               <button
                                 onClick={saveEditFact}
-                                className="p-1.5 rounded-md text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                                className="p-1.5 rounded-md text-foreground hover:bg-foreground/10 transition-colors"
                               >
                                 <CheckIcon className="w-3 h-3" />
                               </button>
@@ -436,7 +436,7 @@ function TabButton({
         "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all",
         active
           ? "bg-foreground/[0.08] text-foreground"
-          : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]",
+          : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05]",
       )}
     >
       <Icon className="w-3.5 h-3.5" />
@@ -446,7 +446,7 @@ function TabButton({
           "ml-0.5 text-[10px] tabular-nums px-1.5 py-px rounded-full",
           active
             ? "bg-foreground/10 text-foreground/70"
-            : "bg-foreground/[0.05] text-muted-foreground/60",
+            : "bg-foreground/[0.06] text-muted-foreground",
         )}
       >
         {count}

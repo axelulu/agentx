@@ -95,15 +95,20 @@ const STATUS_CONFIG: Record<
 > = {
   granted: {
     icon: CheckCircle2Icon,
-    color: "text-emerald-500",
-    dotColor: "bg-emerald-500",
+    color: "text-foreground",
+    dotColor: "bg-foreground",
     labelKey: "Granted",
   },
-  denied: { icon: XCircleIcon, color: "text-red-500", dotColor: "bg-red-500", labelKey: "Denied" },
+  denied: {
+    icon: XCircleIcon,
+    color: "text-muted-foreground",
+    dotColor: "bg-muted-foreground",
+    labelKey: "Denied",
+  },
   "not-determined": {
     icon: CircleDotIcon,
-    color: "text-yellow-500",
-    dotColor: "bg-yellow-500",
+    color: "text-muted-foreground",
+    dotColor: "bg-muted-foreground",
     labelKey: "Not Set",
   },
   restricted: {
@@ -262,8 +267,8 @@ export function PermissionsConfig() {
       </p>
 
       {feedback && (
-        <div className="rounded-md bg-blue-500/10 border border-blue-500/20 px-3 py-2">
-          <p className="text-[12px] text-blue-400">{feedback}</p>
+        <div className="rounded-md bg-foreground/[0.05] border border-foreground/10 px-3 py-2">
+          <p className="text-[12px] text-foreground/80">{feedback}</p>
         </div>
       )}
 
@@ -280,14 +285,14 @@ export function PermissionsConfig() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors",
                 isGranted
-                  ? "border-emerald-500/20 bg-emerald-500/5"
+                  ? "border-foreground/15 bg-foreground/[0.04]"
                   : "border-border bg-secondary/30 hover:bg-secondary/50",
               )}
             >
               <perm.icon
                 className={cn(
                   "w-[18px] h-[18px] shrink-0",
-                  isGranted ? "text-emerald-500" : "text-muted-foreground",
+                  isGranted ? "text-foreground" : "text-muted-foreground",
                 )}
               />
 

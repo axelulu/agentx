@@ -16,12 +16,12 @@ export function AppLogo({ size = 20, className }: AppLogoProps) {
     >
       <defs>
         <linearGradient id={`${id}-bg`} x1="0.5" y1="0" x2="0.5" y2="1">
-          <stop offset="0%" stopColor="#181f30" />
-          <stop offset="100%" stopColor="#0c1019" />
+          <stop offset="0%" stopColor="#1a1a1a" />
+          <stop offset="100%" stopColor="#0a0a0a" />
         </linearGradient>
         <linearGradient id={`${id}-x`} x1="0.15" y1="0.15" x2="0.85" y2="0.85">
-          <stop offset="0%" stopColor="#4d90ff" />
-          <stop offset="100%" stopColor="#8257f5" />
+          <stop offset="0%" stopColor="#666666" />
+          <stop offset="100%" stopColor="#999999" />
         </linearGradient>
         <clipPath id={`${id}-clip`}>
           <rect x="100" y="100" width="824" height="824" rx="184" ry="184" />

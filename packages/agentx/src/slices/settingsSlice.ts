@@ -323,6 +323,28 @@ function persistMCPRemove(id: string): void {
   }
 }
 
+function persistProvider(config: ProviderConfig): void {
+  window.api.provider.set(config).catch((err: unknown) => {
+    console.error("[Provider] Failed to persist provider:", err);
+  });
+}
+
+function persistProviderRemove(id: string): void {
+  try {
+    window.api.provider.remove(id);
+  } catch (err) {
+    console.error("[Provider] Failed to remove provider:", err);
+  }
+}
+
+function persistProviderSetActive(id: string): void {
+  try {
+    window.api.provider.setActive(id);
+  } catch (err) {
+    console.error("[Provider] Failed to set active provider:", err);
+  }
+}
+
 function persistSkillInstall(skill: SkillDefinition): void {
   window.api.skills.install(skill).catch((err: unknown) => {
     console.error("[Skills] Failed to install:", err);
@@ -472,6 +494,28 @@ const settingsSlice = createSlice({
     deleteMCPServer(state, action: PayloadAction<string>) {
       state.mcpServers = state.mcpServers.filter((m) => m.id !== action.payload);
       persistMCPRemove(action.payload);
+    },
+
+    // Providers — synchronous reducers for instant UI updates
+    upsertProvider(state, action: PayloadAction<ProviderConfig>) {
+      const config = action.payload;
+      const idx = state.providers.findIndex((p) => p.id === config.id);
+      if (idx >= 0) {
+        state.providers[idx] = config;
+      } else {
+        state.providers.push(config);
+      }
+      persistProvider(config);
+    },
+    deleteProvider(state, action: PayloadAction<string>) {
+      state.providers = state.providers.filter((p) => p.id !== action.payload);
+      persistProviderRemove(action.payload);
+    },
+    activateProvider(state, action: PayloadAction<string>) {
+      for (const p of state.providers) {
+        p.isActive = p.id === action.payload;
+      }
+      persistProviderSetActive(action.payload);
     },
 
     // Scheduled Tasks — synchronous reducers for instant UI updates
@@ -735,6 +779,9 @@ export const {
   deleteKBItem,
   upsertMCPServer,
   deleteMCPServer,
+  upsertProvider,
+  deleteProvider,
+  activateProvider,
   upsertScheduledTask,
   deleteScheduledTask,
   replaceScheduledTasks,

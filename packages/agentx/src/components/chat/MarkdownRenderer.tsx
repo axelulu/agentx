@@ -66,7 +66,7 @@ function ClickablePath({ text }: { text: string }) {
       onMouseLeave={() => setHover(false)}
       className={cn(
         "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] text-[12px] font-mono transition-colors cursor-pointer",
-        "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300",
+        "bg-foreground/[0.06] text-foreground/80 hover:bg-foreground/[0.10] hover:text-foreground",
       )}
       title={line ? `${path} (line ${line})` : path}
     >
@@ -102,7 +102,7 @@ function CodeBlock({
 
     return (
       <code
-        className="px-1.5 py-0.5 rounded-[4px] bg-foreground/[0.07] text-[13px] font-mono text-foreground/90"
+        className="px-1.5 py-0.5 rounded-[4px] bg-foreground/[0.06] text-[13px] font-mono text-foreground/90"
         {...props}
       >
         {children}
@@ -117,9 +117,9 @@ function CodeBlock({
   };
 
   return (
-    <div className="group/code relative rounded-lg overflow-hidden border border-foreground/[0.08] my-2.5">
+    <div className="group/code relative rounded-lg overflow-hidden border border-border my-2.5">
       {/* Language label + copy button */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-foreground/[0.04] border-b border-foreground/[0.08]">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-foreground/[0.04] border-b border-border">
         <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
           {lang || l10n.t("code")}
         </span>
@@ -141,7 +141,7 @@ function CodeBlock({
         </button>
       </div>
       {/* Code content */}
-      <pre className="px-3.5 py-3 overflow-x-auto text-[13px] leading-relaxed bg-foreground/[0.02]">
+      <pre className="px-3.5 py-3 overflow-x-auto text-[13px] leading-relaxed bg-card">
         <code className={cn("font-mono", className)} {...props}>
           {children}
         </code>
@@ -215,15 +215,13 @@ const markdownComponents: Record<string, React.ComponentType<any>> = {
 
   // Table
   table: ({ children }: any) => (
-    <div className="overflow-x-auto my-2.5 rounded-lg border border-foreground/[0.08]">
+    <div className="overflow-x-auto my-2.5 rounded-lg border border-border">
       <table className="w-full text-[12px]">{children}</table>
     </div>
   ),
   thead: ({ children }: any) => <thead className="bg-foreground/[0.04]">{children}</thead>,
   tbody: ({ children }: any) => <tbody>{children}</tbody>,
-  tr: ({ children }: any) => (
-    <tr className="border-b border-foreground/[0.06] last:border-b-0">{children}</tr>
-  ),
+  tr: ({ children }: any) => <tr className="border-b border-border last:border-b-0">{children}</tr>,
   th: ({ children }: any) => (
     <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{children}</th>
   ),
@@ -231,11 +229,7 @@ const markdownComponents: Record<string, React.ComponentType<any>> = {
 
   // Images
   img: ({ src, alt }: any) => (
-    <img
-      src={src}
-      alt={alt ?? ""}
-      className="max-w-full rounded-lg my-2 border border-foreground/[0.08]"
-    />
+    <img src={src} alt={alt ?? ""} className="max-w-full rounded-lg my-2 border border-border" />
   ),
 };
 
@@ -255,11 +249,11 @@ function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming?
     previewLine.length < trimmed.split("\n")[0].length ? previewLine + "..." : previewLine;
 
   return (
-    <div className="mb-3 rounded-lg border border-foreground/[0.05] bg-foreground/[0.015] overflow-hidden">
+    <div className="mb-3 rounded-lg border border-border bg-card overflow-hidden">
       {/* Toggle header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-foreground/[0.02] transition-colors"
+        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-muted transition-colors"
       >
         {isStreaming ? (
           <LoaderIcon className="w-3.5 h-3.5 text-muted-foreground/40 animate-spin shrink-0" />
@@ -279,7 +273,7 @@ function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming?
 
       {/* Expandable thinking content */}
       {expanded && (
-        <div className="px-3 pb-3 border-t border-foreground/[0.04]">
+        <div className="px-3 pb-3 border-t border-border">
           <div className="mt-2 text-[12px] leading-relaxed text-muted-foreground/50 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
             {trimmed}
           </div>

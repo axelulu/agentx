@@ -345,12 +345,12 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           onDrop={handleDrop}
           className={cn(
             "relative border rounded-2xl overflow-hidden transition-all bg-card focus-within:border-foreground/30",
-            isDragOver ? "border-foreground/30 bg-foreground/[0.02]" : "border-border",
+            isDragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border",
           )}
         >
           {/* Drop overlay */}
           {isDragOver && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/30 bg-foreground/[0.05]">
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/30 bg-foreground/[0.03]">
               <span className="text-sm text-muted-foreground font-medium">
                 {l10n.t("Drop files here")}
               </span>
@@ -459,7 +459,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
                       "flex items-center justify-center w-8 h-8 rounded-full transition-all",
                       canSend
                         ? "bg-foreground text-background hover:opacity-90"
-                        : "bg-foreground/8 text-muted-foreground/25",
+                        : "bg-foreground/[0.08] text-muted-foreground/25",
                     )}
                   >
                     <ArrowUpIcon className="w-4 h-4" />
@@ -643,8 +643,8 @@ function MoreToolsMenu({
         ref={btnRef}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.07] transition-colors",
-          open && "bg-foreground/[0.07] text-foreground",
+          "flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors",
+          open && "bg-foreground/[0.06] text-foreground",
         )}
       >
         <PlusIcon className="w-4 h-4" />
@@ -733,7 +733,7 @@ function ToolbarButton({
   const btn = (
     <button
       onClick={onClick}
-      className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.07] transition-colors"
+      className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
     >
       {children}
     </button>

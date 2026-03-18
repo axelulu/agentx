@@ -77,7 +77,7 @@ function ActionButton({
       <TooltipTrigger asChild>
         <button
           onClick={onClick}
-          className="flex items-center justify-center w-6 h-6 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-foreground/[0.07] transition-colors"
+          className="flex items-center justify-center w-6 h-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <Icon className="w-3 h-3" />
         </button>
@@ -260,7 +260,7 @@ function UserBubble({
   return (
     <div className={cn("group/msg flex flex-col items-end", animate && "animate-slide-up")}>
       {/* Bubble */}
-      <div className="text-sm leading-relaxed bg-primary/10 dark:bg-primary/15 rounded-2xl px-5 py-3.5 max-w-2xl">
+      <div className="text-sm leading-relaxed bg-foreground/[0.06] dark:bg-foreground/[0.08] rounded-2xl px-5 py-3.5 max-w-2xl">
         {/* Inline image thumbnails */}
         {hasImages && (
           <div className={cn("flex flex-wrap gap-2", (text || hasAttachments) && "mb-2")}>
@@ -303,7 +303,7 @@ function UserBubble({
                 <button
                   key={file.path}
                   onClick={() => handleFileClick(file)}
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.06] hover:bg-foreground/[0.1] text-[12px] transition-colors max-w-[200px]"
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.06] hover:bg-foreground/[0.10] text-[12px] transition-colors max-w-[200px]"
                 >
                   {pt === "image" ? (
                     <img
@@ -551,7 +551,7 @@ function SubAgentProgress({ streamingOutput }: { streamingOutput: string }) {
   return (
     <div
       ref={containerRef}
-      className="px-3 py-1.5 max-h-48 overflow-auto border-t border-foreground/[0.05] text-[11px] leading-relaxed text-muted-foreground/80 space-y-0.5"
+      className="px-3 py-1.5 max-h-48 overflow-auto border-t border-border text-[11px] leading-relaxed text-muted-foreground/80 space-y-0.5"
     >
       {entries.map((entry, i) => (
         <div key={i} className="flex items-center gap-1.5">
@@ -575,7 +575,7 @@ function SubAgentProgress({ streamingOutput }: { streamingOutput: string }) {
               {entry.isError ? (
                 <AlertCircleIcon className="w-2.5 h-2.5 text-destructive shrink-0" />
               ) : (
-                <CheckIcon className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                <CheckIcon className="w-2.5 h-2.5 text-foreground shrink-0" />
               )}
               <span>{entry.tool}</span>
             </>
@@ -640,10 +640,10 @@ interface OrchestratorProgressEvent {
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; icon: string }> = {
   pending: { bg: "bg-muted-foreground/10", text: "text-muted-foreground/60", icon: "\u25cb" },
-  running: { bg: "bg-blue-500/10", text: "text-blue-500", icon: "\u25cf" },
-  completed: { bg: "bg-emerald-500/10", text: "text-emerald-500", icon: "\u2713" },
+  running: { bg: "bg-foreground/10", text: "text-foreground/70", icon: "\u25cf" },
+  completed: { bg: "bg-foreground/10", text: "text-foreground/60", icon: "\u2713" },
   error: { bg: "bg-destructive/10", text: "text-destructive", icon: "\u2717" },
-  cancelled: { bg: "bg-amber-500/10", text: "text-amber-500", icon: "\u2014" },
+  cancelled: { bg: "bg-foreground/10", text: "text-muted-foreground", icon: "\u2014" },
 };
 
 function OrchestratorProgress({ streamingOutput }: { streamingOutput: string }) {
@@ -683,7 +683,7 @@ function OrchestratorProgress({ streamingOutput }: { streamingOutput: string }) 
   return (
     <div
       ref={containerRef}
-      className="px-3 py-2 max-h-64 overflow-auto border-t border-foreground/[0.05] text-[11px] space-y-1"
+      className="px-3 py-2 max-h-64 overflow-auto border-t border-border text-[11px] space-y-1"
     >
       {agents.map((agent) => {
         const style = STATUS_STYLES[agent.status] ?? STATUS_STYLES.pending;
@@ -705,16 +705,16 @@ function OrchestratorProgress({ streamingOutput }: { streamingOutput: string }) 
 
             {/* Progress bar */}
             {agent.status === "running" && (
-              <div className="h-1 rounded-full bg-muted-foreground/10 overflow-hidden">
+              <div className="h-1 rounded-full bg-foreground/10 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-blue-500/60 transition-all duration-300"
+                  className="h-full rounded-full bg-foreground/50 transition-all duration-300"
                   style={{ width: `${Math.max(progress, 5)}%` }}
                 />
               </div>
             )}
             {agent.status === "completed" && (
-              <div className="h-1 rounded-full bg-emerald-500/30 overflow-hidden">
-                <div className="h-full rounded-full bg-emerald-500/60 w-full" />
+              <div className="h-1 rounded-full bg-foreground/10 overflow-hidden">
+                <div className="h-full rounded-full bg-foreground/50 w-full" />
               </div>
             )}
             {agent.status === "error" && (
@@ -778,7 +778,7 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
     <div
       className={cn(
         "text-xs overflow-hidden",
-        isError ? "border-l-2 border-destructive/40 pl-3" : "border-l-2 border-primary/30 pl-3",
+        isError ? "border-l-2 border-destructive/40 pl-3" : "border-l-2 border-border pl-3",
       )}
     >
       {/* Header */}
@@ -824,7 +824,7 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
           </span>
         )}
         {isDone && !isError && !hasResult && (
-          <CheckIcon className="w-3 h-3 text-emerald-500 shrink-0" />
+          <CheckIcon className="w-3 h-3 text-foreground/70 shrink-0" />
         )}
       </div>
 
@@ -836,7 +836,7 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
       ) : hasStreamingOutput ? (
         <pre
           ref={streamingRef}
-          className="px-3 pb-2 max-h-48 overflow-auto border-t border-foreground/[0.05] font-mono text-[11px] leading-relaxed text-muted-foreground/80 whitespace-pre-wrap break-words"
+          className="px-3 pb-2 max-h-48 overflow-auto border-t border-border font-mono text-[11px] leading-relaxed text-muted-foreground/80 whitespace-pre-wrap break-words"
         >
           {stripAnsi(toolCall.streamingOutput!)}
         </pre>
@@ -846,7 +846,7 @@ function ToolCallBlock({ toolCall }: { toolCall: ToolCallData }) {
       {expanded && (
         <div
           className={cn(
-            "px-3 pb-2 max-h-64 overflow-auto border-t border-foreground/[0.05]",
+            "px-3 pb-2 max-h-64 overflow-auto border-t border-border",
             isError ? "text-destructive/80" : "text-muted-foreground/80",
           )}
         >
@@ -873,7 +873,7 @@ function ToolResultBubble({ message, animate = true }: { message: Message; anima
           "text-xs max-w-[90%]",
           message.isError
             ? "border-l-2 border-destructive/40 pl-3"
-            : "border-l-2 border-primary/30 pl-3",
+            : "border-l-2 border-border pl-3",
         )}
       >
         <button

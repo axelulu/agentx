@@ -58,7 +58,7 @@ export function ExportMenu() {
         <TooltipTrigger asChild>
           <button
             onClick={() => setOpen(!open)}
-            className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/[0.07] transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
           >
             <DownloadIcon className="w-4 h-4" />
           </button>

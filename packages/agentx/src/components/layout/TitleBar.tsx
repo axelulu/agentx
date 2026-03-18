@@ -10,7 +10,7 @@ export function TitleBar() {
 
   return (
     <div
-      className="flex items-center h-14 px-4 select-none"
+      className="flex items-center h-10 px-4 select-none"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
       {/* macOS traffic light space */}
@@ -28,7 +28,7 @@ export function TitleBar() {
               onClick={() => dispatch(toggleSidebar())}
               className="p-1.5 rounded-md hover:bg-accent transition-colors"
             >
-              <PanelLeftIcon className="w-4 h-4 text-muted-foreground" />
+              <PanelLeftIcon className="w-4 h-4 text-foreground/80" />
             </button>
           </TooltipTrigger>
           <TooltipContent>{l10n.t("Toggle Sidebar")}</TooltipContent>
