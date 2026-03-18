@@ -12,7 +12,6 @@ import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { SearchDialog } from "@/components/search/SearchDialog";
 import { useUpdateListener } from "@/hooks/useUpdateListener";
 import { useShortcuts } from "@/hooks/useShortcuts";
-import { AnimatePresence, motion } from "framer-motion";
 
 export function AppLayout() {
   const dispatch = useDispatch<AppDispatch>();
@@ -33,26 +32,19 @@ export function AppLayout() {
       <TitleBar />
       <UpdateDialog />
       <div className="flex flex-1 overflow-hidden">
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 260, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <Sidebar />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div
+          className="overflow-hidden transition-all duration-200 ease-in-out"
+          style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
+        >
+          <Sidebar />
+        </div>
         <div className="flex flex-col flex-1 overflow-hidden">
           <TabBar />
           <ChatPanel />
         </div>
       </div>
 
-      <AnimatePresence>{settingsOpen && <SettingsPanel />}</AnimatePresence>
+      {settingsOpen && <SettingsPanel />}
       <SearchDialog />
     </div>
   );

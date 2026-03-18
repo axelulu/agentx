@@ -7,7 +7,6 @@ import { ContextMenu, type ContextMenuState } from "@/components/ui/ContextMenu"
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
 import { XIcon, Loader2Icon } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
 export function TabBar() {
   const dispatch = useDispatch<AppDispatch>();
@@ -52,50 +51,38 @@ export function TabBar() {
 
   return (
     <div className="flex items-end bg-background border-b border-border overflow-x-auto scrollbar-none shrink-0 gap-0">
-      <AnimatePresence initial={false}>
-        {openTabs.map((tabId) => {
-          const isActive = tabId === currentConversationId;
-          const isRunning = runningSessions.includes(tabId);
-          return (
-            <motion.div
-              key={tabId}
-              layout
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: "auto", opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="shrink-0"
+      {openTabs.map((tabId) => {
+        const isActive = tabId === currentConversationId;
+        const isRunning = runningSessions.includes(tabId);
+        return (
+          <div key={tabId} className="shrink-0">
+            <button
+              onClick={() => handleTabClick(tabId)}
+              onContextMenu={(e) => handleContextMenu(e, tabId)}
+              className={cn(
+                "group flex items-center gap-1.5 px-4 py-2 text-[13px] max-w-[180px] transition-colors",
+                isActive
+                  ? "text-foreground border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              <button
-                onClick={() => handleTabClick(tabId)}
-                onContextMenu={(e) => handleContextMenu(e, tabId)}
+              {isRunning && <Loader2Icon className="w-3 h-3 shrink-0 animate-spin text-primary" />}
+              <span className="truncate">{getTitle(tabId)}</span>
+              <span
+                onClick={(e) => handleClose(e, tabId)}
                 className={cn(
-                  "group flex items-center gap-1.5 px-4 py-2 text-[13px] max-w-[180px] transition-colors",
+                  "shrink-0 p-0.5 rounded-sm transition-colors",
                   isActive
-                    ? "text-foreground border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "hover:bg-foreground/10"
+                    : "opacity-0 group-hover:opacity-100 hover:bg-foreground/10",
                 )}
               >
-                {isRunning && (
-                  <Loader2Icon className="w-3 h-3 shrink-0 animate-spin text-primary" />
-                )}
-                <span className="truncate">{getTitle(tabId)}</span>
-                <span
-                  onClick={(e) => handleClose(e, tabId)}
-                  className={cn(
-                    "shrink-0 p-0.5 rounded-sm transition-colors",
-                    isActive
-                      ? "hover:bg-foreground/10"
-                      : "opacity-0 group-hover:opacity-100 hover:bg-foreground/10",
-                  )}
-                >
-                  <XIcon className="w-3 h-3" />
-                </span>
-              </button>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
+                <XIcon className="w-3 h-3" />
+              </span>
+            </button>
+          </div>
+        );
+      })}
 
       {contextMenu && (
         <ContextMenu

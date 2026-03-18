@@ -93,7 +93,7 @@ export function Sidebar() {
             <TooltipContent>{l10n.t("Close")}</TooltipContent>
           </Tooltip>
         ) : (
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1">
             {conversations.length > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -172,7 +172,7 @@ export function Sidebar() {
       </div>
 
       {/* Bottom: Controls */}
-      <div className="border-t border-sidebar-border px-3 py-2.5">
+      <div className="px-3 py-3">
         <div className="flex items-center justify-end gap-1">
           <Tooltip>
             <TooltipTrigger asChild>

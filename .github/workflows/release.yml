@@ -144,11 +144,11 @@ jobs:
             '{version: $version, notes: $notes, pub_date: $pub_date, platforms: {}}')
 
           # Add each platform if its sig file exists
-          # Sig files are base64-encoded; decode to get raw minisign signature
+          # Sig files are plain-text minisign signatures (not base64-encoded)
           add_platform() {
             local key="$1" file="$2" sig_file="$3"
             if [ -f "dist/${sig_file}" ]; then
-              local sig=$(base64 -d "dist/${sig_file}")
+              local sig=$(cat "dist/${sig_file}")
               local url="${BASE_URL}/${file}"
               JSON=$(echo "$JSON" | jq \
                 --arg key "$key" \

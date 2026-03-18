@@ -88,7 +88,7 @@ export function UpdateDialog() {
                 {l10n.t("Update Available")}
               </h3>
               <p className="text-[12px] text-muted-foreground mt-1">
-                {l10n.t("AgentX {{newVersion}} is available (you have {{currentVersion}}).", {
+                {l10n.t("AgentX ${newVersion} is available (you have ${currentVersion}).", {
                   newVersion: version ?? "",
                   currentVersion: __APP_VERSION__,
                 })}

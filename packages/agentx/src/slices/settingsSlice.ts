@@ -80,7 +80,7 @@ export interface ConversationOrder {
   folders: Record<string, string[]>;
 }
 
-export type AccentColor = "blue" | "violet" | "rose" | "orange" | "green" | "teal";
+export type AccentColor = "cyan" | "blue" | "violet" | "rose" | "orange" | "green" | "teal";
 export type FontSize = "small" | "default" | "large";
 export type LayoutDensity = "compact" | "comfortable" | "spacious";
 
@@ -196,7 +196,7 @@ export const resetAllSettings = createAsyncThunk(
     // Clear persisted preferences
     await window.api.preferences.set({
       theme: "system",
-      accentColor: "blue",
+      accentColor: "cyan",
       fontSize: "default",
       layoutDensity: "comfortable",
       language: "en",
@@ -361,7 +361,7 @@ function persistToolPermissions(perms: ToolPermissionsState): void {
 
 const initialState: SettingsState = {
   theme: (localStorage.getItem("agentx-theme") as SettingsState["theme"]) || "system",
-  accentColor: (localStorage.getItem("agentx-accent-color") as AccentColor) || "blue",
+  accentColor: (localStorage.getItem("agentx-accent-color") as AccentColor) || "cyan",
   fontSize: (localStorage.getItem("agentx-font-size") as FontSize) || "default",
   layoutDensity: (localStorage.getItem("agentx-layout-density") as LayoutDensity) || "comfortable",
   language: localStorage.getItem("agentx-language") || "en",
@@ -593,7 +593,7 @@ const settingsSlice = createSlice({
         }
         if (
           prefs.accentColor &&
-          ["blue", "violet", "rose", "orange", "green", "teal"].includes(prefs.accentColor)
+          ["cyan", "blue", "violet", "rose", "orange", "green", "teal"].includes(prefs.accentColor)
         ) {
           state.accentColor = prefs.accentColor as AccentColor;
           localStorage.setItem("agentx-accent-color", prefs.accentColor);

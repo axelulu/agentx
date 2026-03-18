@@ -125,15 +125,10 @@ export function ChatPanel() {
       ) : (
         <>
           <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="text-center space-y-3">
-              <div className="mx-auto w-10 h-10 rounded-2xl bg-foreground/[0.04] flex items-center justify-center">
-                <span className="text-lg font-light text-foreground/30">A</span>
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-sm font-medium text-foreground/60 tracking-tight">
-                  {l10n.t("What can I help with?")}
-                </h2>
-              </div>
+            <div className="text-center space-y-4">
+              <h2 className="text-3xl font-medium text-foreground/70 tracking-tight">
+                {l10n.t("What can I help with?")}
+              </h2>
             </div>
           </div>
           <ChatInput ref={chatInputRef} />

@@ -16,7 +16,6 @@ import {
 import { clearAllConversations } from "@/slices/chatSlice";
 import { checkForUpdates, openUpdateDialog, setUpdateStatus } from "@/slices/updateSlice";
 import { l10n, SUPPORTED_LANGUAGE } from "@agentx/l10n";
-import { motion } from "framer-motion";
 import {
   XIcon,
   CpuIcon,
@@ -67,23 +66,12 @@ export function SettingsPanel() {
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/40"
         onClick={() => dispatch(setSettingsOpen(false))}
       />
-      <motion.div
-        initial={{ scale: 0.97, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.97, opacity: 0 }}
-        transition={{ duration: 0.15, ease: "easeOut" }}
-        className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex"
-      >
+      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex animate-slide-up">
         {/* Left: Navigation */}
         <div className="w-[200px] shrink-0 bg-muted border-r border-border flex flex-col">
           <div className="px-4 pt-5 pb-3">
@@ -140,13 +128,14 @@ export function SettingsPanel() {
             {activeSection === "about" && <AboutSection />}
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 
 function getAccentOptions(): { id: AccentColor; label: string; color: string }[] {
   return [
+    { id: "cyan", label: l10n.t("Cyan"), color: "#38bdf8" },
     { id: "blue", label: l10n.t("Blue"), color: "#3b82f6" },
     { id: "violet", label: l10n.t("Violet"), color: "#8b5cf6" },
     { id: "rose", label: l10n.t("Rose"), color: "#f43f5e" },

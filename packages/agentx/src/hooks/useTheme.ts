@@ -12,6 +12,7 @@ import {
 } from "@/slices/settingsSlice";
 
 const ACCENT_HUES: Record<AccentColor, number> = {
+  cyan: 220,
   blue: 250,
   violet: 280,
   rose: 10,
@@ -54,7 +55,7 @@ export function useTheme() {
 
   // Apply accent color
   useEffect(() => {
-    const hue = ACCENT_HUES[accentColor] ?? 250;
+    const hue = ACCENT_HUES[accentColor] ?? 220;
     document.documentElement.style.setProperty("--accent-hue", String(hue));
   }, [accentColor]);
 

@@ -960,8 +960,8 @@ export function ConversationList({
               initial={{ y: "100%", opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="sticky bottom-2 mx-2 mt-auto px-3 py-2 rounded-lg bg-sidebar-accent/80 backdrop-blur-sm border border-sidebar-border flex items-center gap-2"
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="sticky bottom-2 mx-2 mt-auto px-3 py-2 rounded-lg bg-sidebar-accent border border-sidebar-border flex items-center gap-2"
             >
               <span className="text-[12px] text-muted-foreground tabular-nums">
                 {selectedIds.size} {l10n.t("selected")}
