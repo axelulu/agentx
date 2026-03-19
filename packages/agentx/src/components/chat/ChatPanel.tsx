@@ -21,6 +21,7 @@ import { l10n } from "@agentx/l10n";
 import { MessageList } from "./MessageList";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ToolApprovalBanner } from "./ToolApprovalBanner";
+import { WelcomePage } from "./WelcomePage";
 
 export function ChatPanel() {
   const dispatch = useDispatch<AppDispatch>();
@@ -96,10 +97,14 @@ export function ChatPanel() {
   }, [messages.length, isStreaming, autoReadReplies, speak, messages]);
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col flex-1 overflow-hidden" style={{ scrollbarGutter: "stable" }}>
       {currentConversationId ? (
         <>
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto"
+            style={{ scrollbarGutter: "stable" }}
+          >
             <MessageList
               messages={messages}
               isStreaming={isStreaming}
@@ -119,13 +124,14 @@ export function ChatPanel() {
         </>
       ) : (
         <>
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="text-center space-y-4">
-              <h2 className="text-3xl font-medium text-foreground/70 tracking-tight">
-                {l10n.t("What can I help with?")}
-              </h2>
-            </div>
-          </div>
+          <WelcomePage
+            onSelectPrompt={(text) => {
+              dispatch(setInputValue(text));
+              // Allow Redux state to flush so the textarea renders the new value,
+              // then move the cursor to the end and focus.
+              requestAnimationFrame(() => chatInputRef.current?.focus());
+            }}
+          />
           <ChatInput ref={chatInputRef} />
         </>
       )}

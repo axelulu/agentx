@@ -9,7 +9,7 @@ import {
   updateConversationFolder,
   toggleConversationFavorite,
 } from "@/slices/chatSlice";
-import { openTab, toggleFolderCollapsed } from "@/slices/uiSlice";
+import { openTab, toggleFolderCollapsed, setActiveView } from "@/slices/uiSlice";
 import { renameFolder, deleteFolder, clearLastCreatedFolderId } from "@/slices/settingsSlice";
 import type { Folder } from "@/slices/settingsSlice";
 import { l10n } from "@agentx/l10n";
@@ -143,27 +143,12 @@ function DroppableSectionHeader({
 // Component
 // ---------------------------------------------------------------------------
 
-interface SearchResult {
-  id: string;
-  title: string;
-  snippet?: string;
-}
-
 interface ConversationListProps {
   selectMode: boolean;
   onExitSelectMode: () => void;
-  searchQuery?: string;
-  searchResults?: SearchResult[] | null;
-  isSearching?: boolean;
 }
 
-export function ConversationList({
-  selectMode,
-  onExitSelectMode,
-  searchQuery,
-  searchResults,
-  isSearching,
-}: ConversationListProps) {
+export function ConversationList({ selectMode, onExitSelectMode }: ConversationListProps) {
   const dispatch = useDispatch<AppDispatch>();
   const { conversations, currentConversationId, runningSessions } = useSelector(
     (state: RootState) => state.chat,
@@ -171,6 +156,7 @@ export function ConversationList({
   const folders = useSelector((state: RootState) => state.settings.folders);
   const conversationOrder = useSelector((state: RootState) => state.settings.conversationOrder);
   const collapsedFolderIds = useSelector((state: RootState) => state.ui.collapsedFolderIds);
+  const activeView = useSelector((state: RootState) => state.ui.activeView);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -280,21 +266,7 @@ export function ConversationList({
     onExitSelectMode();
   }, [selectedIds, dispatch, onExitSelectMode]);
 
-  // Build snippet map from search results
-  const snippetMap = new Map<string, string>();
-  if (searchResults) {
-    for (const r of searchResults) {
-      if (r.snippet) snippetMap.set(r.id, r.snippet);
-    }
-  }
-
-  // Filter conversations based on search
-  const isSearchActive = !!searchQuery?.trim();
-  const filteredConversations = isSearchActive
-    ? searchResults
-      ? conversations.filter((c) => searchResults.some((r) => r.id === c.id))
-      : conversations.filter((c) => c.title.toLowerCase().includes(searchQuery!.toLowerCase()))
-    : conversations;
+  const filteredConversations = conversations;
 
   const handleDelete = () => {
     if (deleteTarget) {
@@ -441,7 +413,7 @@ export function ConversationList({
   }, [favorites, ungrouped, orderedFolderGroups]);
 
   // DnD
-  const isDndEnabled = !isSearchActive && !selectMode;
+  const isDndEnabled = !selectMode;
   const {
     sensors,
     activeId,
@@ -463,7 +435,7 @@ export function ConversationList({
 
   // Render a single conversation row (inner content)
   const renderConversationRowContent = (conversation: (typeof conversations)[0]) => {
-    const isActive = conversation.id === currentConversationId;
+    const isActive = activeView === "chat" && conversation.id === currentConversationId;
     const isEditing = !selectMode && editingId === conversation.id;
     const isSelected = selectedIds.has(conversation.id);
     const isRunning = runningSessions.includes(conversation.id);
@@ -486,6 +458,7 @@ export function ConversationList({
           } else if (!isEditing) {
             dispatch(switchConversation(conversation.id));
             dispatch(openTab(conversation.id));
+            dispatch(setActiveView("chat"));
           }
         }}
         onDoubleClick={(e) => {
@@ -648,36 +621,11 @@ export function ConversationList({
       className="flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-[12px] text-foreground/70 hover:bg-foreground/[0.08] hover:text-foreground select-none"
       onClick={onToggle}
     >
-      <ChevronRightIcon
-        className={cn(
-          "w-3 h-3 shrink-0 transition-transform duration-150",
-          !collapsed && "rotate-90",
-        )}
-      />
       <SectionIcon className="w-3.5 h-3.5 shrink-0" />
       <span className="flex-1 min-w-0 truncate font-medium">{label}</span>
       <span className="text-[10px] text-muted-foreground/40 tabular-nums">{count}</span>
     </div>
   );
-
-  // In search mode, flatten to a simple list
-  if (isSearchActive) {
-    return (
-      <div className="min-h-full flex flex-col">
-        {filteredConversations.length === 0 && !isSearching && (
-          <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-            <SearchIcon className="w-6 h-6 text-muted-foreground/20 mb-2" />
-            <p className="text-[12px] text-muted-foreground/50">{l10n.t("No results found")}</p>
-          </div>
-        )}
-        <div className="flex flex-col px-2">
-          {filteredConversations.map((conv) => (
-            <div key={conv.id}>{renderConversationRowContent(conv)}</div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   // Folder sortable IDs for folder reordering
   const folderSortableIds = sortedFolders.map((f) => `folder::${f.id}`);
@@ -810,13 +758,6 @@ export function ConversationList({
                         });
                       }}
                     >
-                      <ChevronRightIcon
-                        className={cn(
-                          "w-3 h-3 shrink-0 transition-transform duration-150",
-                          !isCollapsed && !isEmpty && "rotate-90",
-                          isEmpty && "text-transparent",
-                        )}
-                      />
                       {isCollapsed || isEmpty ? (
                         <FolderIcon className="w-3.5 h-3.5 shrink-0" />
                       ) : (
@@ -898,7 +839,7 @@ export function ConversationList({
             <div className="">
               <DroppableSectionHeader sectionId="ungrouped" disabled={!isDndEnabled}>
                 <SectionHeader
-                  icon={MessageSquareIcon}
+                  icon={ungroupedCollapsed ? FolderIcon : FolderOpenIcon}
                   label={l10n.t("Ungrouped")}
                   count={ungrouped.length}
                   collapsed={ungroupedCollapsed}
@@ -913,14 +854,16 @@ export function ConversationList({
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.15 }}
-                      className="overflow-hidden"
+                      className="overflow-hidden pl-3"
                     >
                       {renderSortableSection("ungrouped", ungrouped)}
                     </motion.div>
                   )}
                 </AnimatePresence>
               ) : (
-                !ungroupedCollapsed && renderSortableSection("ungrouped", ungrouped)
+                !ungroupedCollapsed && (
+                  <div className="pl-3">{renderSortableSection("ungrouped", ungrouped)}</div>
+                )
               )}
             </div>
           )}

@@ -27,8 +27,6 @@ import {
   FolderOpenIcon,
   ScrollTextIcon,
   MicIcon,
-  ZapIcon,
-  ClockIcon,
   BrainIcon,
   RotateCcwIcon,
   Trash2Icon,
@@ -38,13 +36,12 @@ import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
 import { MCPConfig } from "./MCPConfig";
 import { PermissionsConfig } from "./PermissionsConfig";
 import { VoiceConfig } from "./VoiceConfig";
-import { SkillsConfig } from "./SkillsConfig";
-import { ScheduledTasksConfig } from "./ScheduledTasksConfig";
 import { MemoryConfig } from "./MemoryConfig";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Select } from "@/components/ui/Select";
 
 export function SettingsPanel() {
   const dispatch = useDispatch();
@@ -58,20 +55,18 @@ export function SettingsPanel() {
     { id: "providers", label: l10n.t("AI Providers"), icon: CpuIcon },
     { id: "knowledgeBase", label: l10n.t("Knowledge Base"), icon: BookOpenIcon },
     { id: "mcp", label: l10n.t("MCP Servers"), icon: PlugIcon },
-    { id: "skills", label: l10n.t("Skills"), icon: ZapIcon },
-    { id: "scheduledTasks", label: l10n.t("Scheduled Tasks"), icon: ClockIcon },
     { id: "memory", label: l10n.t("Memory"), icon: BrainIcon },
     { id: "permissions", label: l10n.t("Permissions"), icon: ShieldCheckIcon },
     { id: "about", label: l10n.t("About"), icon: InfoIcon },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/15"
         onClick={() => dispatch(setSettingsOpen(false))}
       />
-      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex animate-slide-up">
+      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex">
         {/* Left: Navigation */}
         <div className="w-[168px] shrink-0 bg-foreground/[0.03] border-r border-border flex flex-col">
           <div className="px-3 pt-5 pb-3">
@@ -86,7 +81,7 @@ export function SettingsPanel() {
                   "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors",
                   activeSection === id
                     ? "bg-accent text-accent-foreground font-medium"
-                    : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
+                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
                 )}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -106,7 +101,7 @@ export function SettingsPanel() {
               <TooltipTrigger asChild>
                 <button
                   onClick={() => dispatch(setSettingsOpen(false))}
-                  className="p-1 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                  className="p-1 rounded-md hover:bg-foreground/[0.05] transition-colors text-muted-foreground hover:text-foreground"
                 >
                   <XIcon className="w-4 h-4" />
                 </button>
@@ -121,8 +116,6 @@ export function SettingsPanel() {
             {activeSection === "providers" && <ProviderConfig />}
             {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
             {activeSection === "mcp" && <MCPConfig />}
-            {activeSection === "skills" && <SkillsConfig />}
-            {activeSection === "scheduledTasks" && <ScheduledTasksConfig />}
             {activeSection === "memory" && <MemoryConfig />}
             {activeSection === "permissions" && <PermissionsConfig />}
             {activeSection === "about" && <AboutSection />}
@@ -250,7 +243,7 @@ function GeneralSection() {
               {l10n.t("Choose your preferred color scheme")}
             </p>
           </div>
-          <div className="flex items-center rounded-md border border-border overflow-hidden">
+          <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
             {themeOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -258,8 +251,8 @@ function GeneralSection() {
                 className={cn(
                   "px-3 py-1.5 text-[12px] font-medium transition-colors",
                   theme === opt.value
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                    ? "bg-foreground/[0.06] text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]",
                 )}
               >
                 {opt.label}
@@ -275,7 +268,7 @@ function GeneralSection() {
               {l10n.t("Adjust interface text size")}
             </p>
           </div>
-          <div className="flex items-center rounded-md border border-border overflow-hidden">
+          <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
             {fontSizeOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -283,8 +276,8 @@ function GeneralSection() {
                 className={cn(
                   "px-3 py-1.5 text-[12px] font-medium transition-colors",
                   fontSize === opt.value
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                    ? "bg-foreground/[0.06] text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]",
                 )}
               >
                 {opt.label}
@@ -299,7 +292,7 @@ function GeneralSection() {
               {l10n.t("Control spacing between elements")}
             </p>
           </div>
-          <div className="flex items-center rounded-md border border-border overflow-hidden">
+          <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
             {densityOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -307,8 +300,8 @@ function GeneralSection() {
                 className={cn(
                   "px-3 py-1.5 text-[12px] font-medium transition-colors",
                   layoutDensity === opt.value
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                    ? "bg-foreground/[0.06] text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]",
                 )}
               >
                 {opt.label}
@@ -323,17 +316,11 @@ function GeneralSection() {
               {l10n.t("Select display language")}
             </p>
           </div>
-          <select
+          <Select
             value={currentLanguage}
-            onChange={(e) => handleLanguageChange(e.target.value)}
-            className="bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring"
-          >
-            {languageOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={handleLanguageChange}
+            options={languageOptions}
+          />
         </div>
       </div>
 
@@ -358,7 +345,7 @@ function GeneralSection() {
             if (e.key === "Enter") commitProxy();
           }}
           placeholder="http://127.0.0.1:7890"
-          className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
+          className="w-full bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -381,7 +368,7 @@ function GeneralSection() {
             }}
             className={cn(
               "relative w-9 h-5 rounded-full transition-colors",
-              notifEnabled ? "bg-primary" : "bg-muted-foreground/30",
+              notifEnabled ? "bg-primary" : "bg-foreground/[0.12]",
             )}
           >
             <span
@@ -413,7 +400,7 @@ function GeneralSection() {
             className={cn(
               "relative w-9 h-5 rounded-full transition-colors",
               !notifEnabled && "opacity-50 cursor-not-allowed",
-              notifScheduled && notifEnabled ? "bg-primary" : "bg-muted-foreground/30",
+              notifScheduled && notifEnabled ? "bg-primary" : "bg-foreground/[0.12]",
             )}
           >
             <span
@@ -445,7 +432,7 @@ function GeneralSection() {
             className={cn(
               "relative w-9 h-5 rounded-full transition-colors",
               !notifEnabled && "opacity-50 cursor-not-allowed",
-              notifAgent && notifEnabled ? "bg-primary" : "bg-muted-foreground/30",
+              notifAgent && notifEnabled ? "bg-primary" : "bg-foreground/[0.12]",
             )}
           >
             <span
@@ -475,7 +462,7 @@ function GeneralSection() {
               type="button"
               onClick={() => workspacePath && window.api.fs.openPath(workspacePath)}
               className={cn(
-                "flex-1 text-left bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
+                "flex-1 text-left bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
                 workspacePath
                   ? "text-foreground hover:underline cursor-pointer"
                   : "text-muted-foreground/50 cursor-default",
@@ -485,7 +472,7 @@ function GeneralSection() {
             </button>
             <button
               onClick={() => pickDirectory((dir) => dispatch(setWorkspacePath(dir)))}
-              className="shrink-0 p-1.5 rounded-md border border-border hover:bg-foreground/5 transition-colors text-muted-foreground hover:text-foreground"
+              className="shrink-0 p-1.5 rounded-md bg-foreground/[0.04] hover:bg-foreground/[0.07] transition-colors text-muted-foreground hover:text-foreground"
             >
               <FolderOpenIcon className="w-4 h-4" />
             </button>
@@ -504,7 +491,7 @@ function GeneralSection() {
               type="button"
               onClick={() => dataPath && window.api.fs.openPath(dataPath)}
               className={cn(
-                "flex-1 text-left bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
+                "flex-1 text-left bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
                 dataPath
                   ? "text-foreground hover:underline cursor-pointer"
                   : "text-muted-foreground/50 cursor-default",
@@ -514,7 +501,7 @@ function GeneralSection() {
             </button>
             <button
               onClick={() => pickDirectory((dir) => dispatch(setDataPath(dir)))}
-              className="shrink-0 p-1.5 rounded-md border border-border hover:bg-foreground/5 transition-colors text-muted-foreground hover:text-foreground"
+              className="shrink-0 p-1.5 rounded-md bg-foreground/[0.04] hover:bg-foreground/[0.07] transition-colors text-muted-foreground hover:text-foreground"
             >
               <FolderOpenIcon className="w-4 h-4" />
             </button>
@@ -560,7 +547,7 @@ function DangerZoneSection() {
           </div>
           <button
             onClick={() => setResetConfirmOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive border border-destructive/30 hover:bg-destructive/10 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/15 transition-colors"
           >
             <RotateCcwIcon className="w-3.5 h-3.5" />
             {l10n.t("Reset")}
@@ -576,7 +563,7 @@ function DangerZoneSection() {
           </div>
           <button
             onClick={() => setClearConfirmOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive border border-destructive/30 hover:bg-destructive/10 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/15 transition-colors"
           >
             <Trash2Icon className="w-3.5 h-3.5" />
             {l10n.t("Clear")}
@@ -644,7 +631,7 @@ function SystemPromptSection() {
           onBlur={commitGlobal}
           placeholder={l10n.t("Enter custom instructions for the AI...")}
           rows={6}
-          className="w-full bg-secondary border border-border rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring resize-y min-h-[120px] max-h-[300px]"
+          className="w-full bg-background border border-border/60 rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring resize-y min-h-[120px] max-h-[300px]"
         />
       </div>
     </div>
@@ -705,7 +692,7 @@ function AboutSection() {
               "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
               isCheckDisabled
                 ? "bg-foreground/5 text-muted-foreground cursor-not-allowed"
-                : "bg-foreground/10 text-foreground hover:bg-foreground/15",
+                : "bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.08]",
             )}
           >
             {l10n.t("Check for Updates")}

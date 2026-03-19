@@ -501,6 +501,14 @@ const chatSlice = createSlice({
     setError(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
     },
+    resetToWelcome(state) {
+      state.currentConversationId = null;
+      state.messages = [];
+      state.inputValue = "";
+      state.error = null;
+      state.branchInfo = {};
+      state.enabledSkills = [];
+    },
     addUserMessage(
       state,
       action: PayloadAction<{ conversationId: string; content: string | ContentPart[] }>,
@@ -834,6 +842,7 @@ const chatSlice = createSlice({
 export const {
   setInputValue,
   setError,
+  resetToWelcome,
   addUserMessage,
   handleAgentEvent,
   clearPendingApproval,

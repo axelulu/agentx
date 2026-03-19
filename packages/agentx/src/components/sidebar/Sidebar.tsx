@@ -1,10 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/slices/store";
-import { createNewConversation } from "@/slices/chatSlice";
-import { toggleSettings, openTab } from "@/slices/uiSlice";
+import { resetToWelcome } from "@/slices/chatSlice";
+import { toggleSettings, openTab, setActiveView, toggleSearch } from "@/slices/uiSlice";
 import { useTheme } from "@/hooks/useTheme";
 import { l10n } from "@agentx/l10n";
+import { cn } from "@/lib/utils";
 import { ConversationList } from "./ConversationList";
 import {
   SquarePenIcon,
@@ -16,57 +17,21 @@ import {
   XIcon,
   SearchIcon,
   FolderPlusIcon,
+  WorkflowIcon,
+  ZapIcon,
 } from "lucide-react";
 import { createFolder } from "@/slices/settingsSlice";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 
 const THEME_CYCLE = ["dark", "light", "system"] as const;
 
-interface SearchResult {
-  id: string;
-  title: string;
-  snippet?: string;
-}
-
 export function Sidebar() {
   const dispatch = useDispatch<AppDispatch>();
   const { theme, setThemeMode } = useTheme();
+  const activeView = useSelector((state: RootState) => state.ui.activeView);
   const [selectMode, setSelectMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const conversations = useSelector((state: RootState) => state.chat.conversations);
-
-  const handleSearchChange = useCallback((query: string) => {
-    setSearchQuery(query);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-
-    if (!query.trim()) {
-      setSearchResults(null);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const results = await window.api.conversation.search(query.trim());
-        setSearchResults(results as SearchResult[]);
-      } catch {
-        setSearchResults(null);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-  }, []);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    };
-  }, []);
+  const currentConversationId = useSelector((state: RootState) => state.chat.currentConversationId);
 
   const cycleTheme = () => {
     const idx = THEME_CYCLE.indexOf(theme);
@@ -75,9 +40,60 @@ export function Sidebar() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 w-[260px]">
-      {/* Top: Brand + New Chat */}
-      <div className="flex items-center justify-between px-4 py-1.5">
-        <span className="font-semibold text-[13px] tracking-tight text-sidebar-foreground select-none">
+      {/* New Chat + Automation + Skills */}
+      <div className="px-3 pb-1">
+        <button
+          onClick={() => {
+            dispatch(resetToWelcome());
+            dispatch(setActiveView("chat"));
+          }}
+          className={cn(
+            "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+            activeView === "chat" && !currentConversationId
+              ? "bg-sidebar-accent text-sidebar-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          )}
+        >
+          <SquarePenIcon className="w-3.5 h-3.5" />
+          {l10n.t("New Chat")}
+        </button>
+        <button
+          onClick={() => dispatch(toggleSearch())}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+        >
+          <SearchIcon className="w-3.5 h-3.5" />
+          <span className="flex-1 text-left">{l10n.t("Search")}</span>
+          <kbd className="text-[10px] text-muted-foreground/40 font-normal">⌘K</kbd>
+        </button>
+        <button
+          onClick={() => dispatch(setActiveView("automation"))}
+          className={cn(
+            "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+            activeView === "automation"
+              ? "bg-sidebar-accent text-sidebar-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          )}
+        >
+          <WorkflowIcon className="w-3.5 h-3.5" />
+          {l10n.t("Automation")}
+        </button>
+        <button
+          onClick={() => dispatch(setActiveView("skills"))}
+          className={cn(
+            "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+            activeView === "skills"
+              ? "bg-sidebar-accent text-sidebar-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          )}
+        >
+          <ZapIcon className="w-3.5 h-3.5" />
+          {l10n.t("Skills")}
+        </button>
+      </div>
+
+      {/* Brand + Select/Folder */}
+      <div className="flex items-center justify-between px-4 py-1">
+        <span className="font-medium text-[11px] tracking-tight text-muted-foreground/50 select-none">
           {l10n.t("AgentX")}
         </span>
         {selectMode ? (
@@ -85,23 +101,23 @@ export function Sidebar() {
             <TooltipTrigger asChild>
               <button
                 onClick={() => setSelectMode(false)}
-                className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
+                className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
               >
-                <XIcon className="w-4 h-4 text-muted-foreground" />
+                <XIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{l10n.t("Close")}</TooltipContent>
           </Tooltip>
         ) : (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {conversations.length > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setSelectMode(true)}
-                    className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
+                    className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
                   >
-                    <ListChecksIcon className="w-4 h-4 text-muted-foreground" />
+                    <ListChecksIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{l10n.t("Select")}</TooltipContent>
@@ -111,65 +127,20 @@ export function Sidebar() {
               <TooltipTrigger asChild>
                 <button
                   onClick={() => dispatch(createFolder(l10n.t("New Folder")))}
-                  className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
+                  className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
                 >
-                  <FolderPlusIcon className="w-4 h-4 text-muted-foreground" />
+                  <FolderPlusIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">{l10n.t("New Folder")}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={async () => {
-                    const conv = await dispatch(createNewConversation()).unwrap();
-                    dispatch(openTab(conv.id));
-                  }}
-                  className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
-                >
-                  <SquarePenIcon className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{l10n.t("New Chat")}</TooltipContent>
             </Tooltip>
           </div>
         )}
       </div>
 
-      {/* Search */}
-      {!selectMode && conversations.length > 0 && (
-        <div className="px-3 pb-2">
-          <div className="relative">
-            <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/60" />
-
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder={l10n.t("Search conversations...")}
-              className="w-full bg-sidebar-accent rounded-md pl-7 pr-6 py-1.5 text-[12px] text-sidebar-foreground placeholder:text-muted-foreground/50 outline-none border border-transparent focus:border-sidebar-border"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => handleSearchChange("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
-              >
-                <XIcon className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Middle: Conversation List */}
       <div className="flex-1 overflow-y-auto px-1">
-        <ConversationList
-          selectMode={selectMode}
-          onExitSelectMode={() => setSelectMode(false)}
-          searchQuery={searchQuery}
-          searchResults={searchResults}
-          isSearching={isSearching}
-        />
+        <ConversationList selectMode={selectMode} onExitSelectMode={() => setSelectMode(false)} />
       </div>
 
       {/* Bottom: Controls */}

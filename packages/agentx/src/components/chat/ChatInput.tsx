@@ -84,6 +84,7 @@ const MAX_ATTACHMENTS = 10;
 
 export interface ChatInputHandle {
   addFiles: (paths: string[]) => void;
+  focus: () => void;
 }
 
 export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, ref) {
@@ -194,7 +195,11 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     }
   }, []);
 
-  useImperativeHandle(ref, () => ({ addFiles }), [addFiles]);
+  const focus = useCallback(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  useImperativeHandle(ref, () => ({ addFiles, focus }), [addFiles, focus]);
 
   const removeAttachment = useCallback((path: string) => {
     setAttachments((prev) => prev.filter((a) => a.path !== path));
@@ -347,7 +352,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           onDrop={handleDrop}
           className={cn(
             "relative border rounded-xl overflow-hidden transition-all bg-card focus-within:border-foreground/20",
-            isDragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border",
+            isDragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/50",
           )}
         >
           {/* Drop overlay */}
@@ -386,7 +391,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             onPaste={handlePaste}
             placeholder={l10n.t("Message AgentX...")}
             rows={1}
-            className="w-full bg-transparent resize-none outline-none text-sm text-foreground placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-3.5 pt-2.5 pb-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-transparent resize-none outline-none text-sm text-foreground/70 placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-4 pt-3.5 pb-3 min-h-[52px] disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isStreaming}
           />
 
@@ -432,7 +437,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
 
             {/* Model label */}
             <div className="flex items-center gap-1.5 ml-1.5 text-xs tabular-nums">
-              <span className="text-muted-foreground/35 font-medium">{modelLabel}</span>
+              <span className="text-muted-foreground/45 font-medium">{modelLabel}</span>
               <TokenUsageInline sessionUsage={sessionUsage} conversationUsage={conversationUsage} />
             </div>
 
@@ -461,7 +466,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
                       "flex items-center justify-center w-7 h-7 rounded-full transition-all",
                       canSend
                         ? "bg-foreground text-background hover:opacity-90"
-                        : "bg-foreground/[0.08] text-muted-foreground/25",
+                        : "bg-foreground/[0.06] text-muted-foreground/25",
                     )}
                   >
                     <ArrowUpIcon className="w-3.5 h-3.5" />
@@ -645,8 +650,8 @@ function MoreToolsMenu({
         ref={btnRef}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors",
-          open && "bg-foreground/[0.06] text-foreground",
+          "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground/60 hover:text-muted-foreground/90 hover:bg-foreground/[0.05] transition-colors",
+          open && "bg-foreground/[0.05] text-muted-foreground/80",
         )}
       >
         <PlusIcon className="w-4 h-4" />
@@ -715,9 +720,9 @@ function MenuItemButton({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2.5 w-full px-3.5 py-2 text-[13px] text-foreground/80 hover:bg-foreground/[0.05] transition-colors"
+      className="flex items-center gap-2.5 w-full px-3.5 py-2 text-[13px] text-foreground/70 hover:text-foreground/90 hover:bg-foreground/[0.05] transition-colors"
     >
-      <Icon className={cn("w-4 h-4 text-muted-foreground/70", iconClassName)} />
+      <Icon className={cn("w-4 h-4 text-muted-foreground/60", iconClassName)} />
       {label}
     </button>
   );
@@ -735,7 +740,7 @@ function ToolbarButton({
   const btn = (
     <button
       onClick={onClick}
-      className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+      className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground/60 hover:text-muted-foreground/90 hover:bg-foreground/[0.05] transition-colors"
     >
       {children}
     </button>
@@ -777,13 +782,13 @@ function TokenUsageInline({
 
   return (
     <>
-      <span className="text-muted-foreground/25">·</span>
-      <span className="text-muted-foreground/50">
+      <span className="text-muted-foreground/30">·</span>
+      <span className="text-muted-foreground/45">
         {formatTokenCount(sessionUsage.inputTokens)} → {formatTokenCount(sessionUsage.outputTokens)}
       </span>
       {showTotal && (
         <>
-          <span className="text-muted-foreground/25">·</span>
+          <span className="text-muted-foreground/30">·</span>
           <span className="text-muted-foreground/35">
             {l10n.t("Total")} {formatTokenCount(conversationUsage.inputTokens)} →{" "}
             {formatTokenCount(conversationUsage.outputTokens)}

@@ -98,7 +98,7 @@ export function KnowledgeBaseConfig() {
               value={item.name}
               onChange={(e) => handleSave({ ...item, name: e.target.value })}
               placeholder={l10n.t("Entry name")}
-              className="h-7 text-[12px] rounded-md bg-secondary"
+              className="h-7 text-[12px] rounded-md bg-background"
             />
           </FieldRow>
 
@@ -117,7 +117,7 @@ export function KnowledgeBaseConfig() {
                 onChange={(e) => handleSave({ ...item, content: e.target.value })}
                 placeholder={l10n.t("Enter text content...")}
                 rows={4}
-                className="w-full rounded-md border border-border bg-secondary px-2.5 py-1.5 text-[12px] outline-none focus:ring-1 focus:ring-ring resize-y"
+                className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:ring-1 focus:ring-ring resize-y"
               />
             </FieldRow>
           )}

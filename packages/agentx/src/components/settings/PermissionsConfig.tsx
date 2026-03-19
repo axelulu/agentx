@@ -267,7 +267,7 @@ export function PermissionsConfig() {
       </p>
 
       {feedback && (
-        <div className="rounded-md bg-foreground/[0.05] border border-foreground/10 px-3 py-2">
+        <div className="rounded-md bg-foreground/[0.03] px-3 py-2">
           <p className="text-[12px] text-foreground/80">{feedback}</p>
         </div>
       )}
@@ -283,10 +283,10 @@ export function PermissionsConfig() {
             <div
               key={perm.type}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                 isGranted
-                  ? "border-foreground/15 bg-foreground/[0.04]"
-                  : "border-border bg-secondary/30 hover:bg-secondary/50",
+                  ? "bg-foreground/[0.03]"
+                  : "bg-foreground/[0.02] hover:bg-foreground/[0.04]",
               )}
             >
               <perm.icon

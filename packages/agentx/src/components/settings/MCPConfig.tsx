@@ -21,7 +21,7 @@ function StatusDot({ status }: { status: MCPServerState["status"] }) {
         ? "bg-yellow-500 animate-pulse"
         : status === "error"
           ? "bg-red-500"
-          : "bg-muted-foreground/30";
+          : "bg-foreground/[0.12]";
   return <span className={`inline-block w-2 h-2 rounded-full ${color}`} />;
 }
 
@@ -134,7 +134,7 @@ export function MCPConfig() {
                 value={server.name}
                 onChange={(e) => handleSave({ ...server, name: e.target.value })}
                 placeholder={l10n.t("Server name")}
-                className="h-7 text-[12px] rounded-md bg-secondary"
+                className="h-7 text-[12px] rounded-md bg-background"
               />
             </FieldRow>
 
@@ -145,7 +145,7 @@ export function MCPConfig() {
                     value={server.command ?? ""}
                     onChange={(e) => handleSave({ ...server, command: e.target.value })}
                     placeholder="npx"
-                    className="h-7 text-[12px] rounded-md bg-secondary"
+                    className="h-7 text-[12px] rounded-md bg-background"
                   />
                 </FieldRow>
                 <FieldRow label={l10n.t("Args")}>
@@ -158,7 +158,7 @@ export function MCPConfig() {
                       })
                     }
                     placeholder="-y @mcp/server-fs /path"
-                    className="h-7 text-[12px] rounded-md bg-secondary"
+                    className="h-7 text-[12px] rounded-md bg-background"
                   />
                 </FieldRow>
               </>
@@ -170,7 +170,7 @@ export function MCPConfig() {
                   value={server.url ?? ""}
                   onChange={(e) => handleSave({ ...server, url: e.target.value })}
                   placeholder="http://localhost:3001/sse"
-                  className="h-7 text-[12px] rounded-md bg-secondary"
+                  className="h-7 text-[12px] rounded-md bg-background"
                 />
               </FieldRow>
             )}
@@ -239,19 +239,19 @@ function EnvEditor({
               value={key}
               onChange={(e) => handleKeyChange(key, e.target.value)}
               placeholder="KEY"
-              className="h-7 text-[11px] rounded-md w-28 font-mono bg-secondary"
+              className="h-7 text-[11px] rounded-md w-28 font-mono bg-background"
             />
             <span className="text-[11px] text-muted-foreground/50">=</span>
             <InputBox
               value={value}
               onChange={(e) => handleValueChange(key, e.target.value)}
               placeholder="value"
-              className="h-7 text-[11px] rounded-md flex-1 font-mono bg-secondary"
+              className="h-7 text-[11px] rounded-md flex-1 font-mono bg-background"
             />
             <button
               type="button"
               onClick={() => handleRemove(key)}
-              className="p-1 text-muted-foreground/40 hover:text-muted-foreground hover:bg-foreground/5 rounded transition-colors"
+              className="p-1 text-muted-foreground/40 hover:text-muted-foreground hover:bg-background rounded transition-colors"
             >
               <XIcon className="w-3 h-3" />
             </button>

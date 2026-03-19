@@ -7,6 +7,7 @@ import { ContextMenu, type ContextMenuState } from "@/components/ui/ContextMenu"
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
 import { XIcon, Loader2Icon } from "lucide-react";
+import { ExportMenu } from "./ExportMenu";
 
 export function TabBar() {
   const dispatch = useDispatch<AppDispatch>();
@@ -46,42 +47,58 @@ export function TabBar() {
     setContextMenu({ x: e.clientX, y: e.clientY, targetId: id });
   }, []);
 
-  // Only show when there are 2+ tabs
-  if (openTabs.length <= 1) return null;
-
   return (
-    <div className="flex items-center bg-background border-b border-border shrink-0 gap-0 overflow-x-auto tab-scrollbar">
-      {openTabs.map((tabId) => {
-        const isActive = tabId === currentConversationId;
-        const isRunning = runningSessions.includes(tabId);
-        return (
-          <button
-            key={tabId}
-            onClick={() => handleTabClick(tabId)}
-            onContextMenu={(e) => handleContextMenu(e, tabId)}
-            className={cn(
-              "group relative flex items-center gap-1.5 px-3 py-1.5 text-[12px] max-w-[180px] shrink-0 transition-colors border-b-2",
-              isActive
-                ? "text-foreground border-foreground"
-                : "text-muted-foreground hover:text-foreground border-transparent hover:bg-foreground/[0.04]",
-            )}
-          >
-            {isRunning && <Loader2Icon className="w-3 h-3 shrink-0 animate-spin text-foreground" />}
-            <span className="truncate">{getTitle(tabId)}</span>
-            <span
-              onClick={(e) => handleClose(e, tabId)}
+    <div
+      className="flex items-center px-2 pt-1.5 pb-0.5 shrink-0"
+      style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+    >
+      <div className="flex items-center gap-0.5 overflow-x-auto tab-scrollbar min-w-0">
+        {openTabs.map((tabId) => {
+          const isActive = tabId === currentConversationId;
+          const isRunning = runningSessions.includes(tabId);
+          return (
+            <button
+              key={tabId}
+              onClick={() => handleTabClick(tabId)}
+              onContextMenu={(e) => handleContextMenu(e, tabId)}
+              style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
               className={cn(
-                "shrink-0 p-0.5 rounded-sm transition-colors",
+                "group relative flex items-center gap-1.5 px-2.5 py-1 text-[11px] w-[140px] shrink-0 rounded-md transition-all",
                 isActive
-                  ? "hover:bg-foreground/[0.08]"
-                  : "opacity-0 group-hover:opacity-100 hover:bg-foreground/[0.08]",
+                  ? "bg-foreground/[0.07] text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]",
               )}
             >
-              <XIcon className="w-3 h-3" />
-            </span>
-          </button>
-        );
-      })}
+              {isRunning && (
+                <Loader2Icon className="w-2.5 h-2.5 shrink-0 animate-spin text-foreground/70" />
+              )}
+              <span className="truncate flex-1">{getTitle(tabId)}</span>
+              <span
+                onClick={(e) => handleClose(e, tabId)}
+                className={cn(
+                  "shrink-0 ml-auto p-0.5 rounded-sm transition-colors",
+                  isActive
+                    ? "text-foreground/40 hover:text-foreground hover:bg-foreground/[0.08]"
+                    : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-foreground/[0.08]",
+                )}
+              >
+                <XIcon className="w-2.5 h-2.5" />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Spacer to push export to the right */}
+      <div className="flex-1" style={{ WebkitAppRegion: "drag" } as React.CSSProperties} />
+
+      {/* Export button */}
+      <div
+        className="shrink-0 pr-0.5"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
+        <ExportMenu />
+      </div>
 
       {contextMenu && (
         <ContextMenu

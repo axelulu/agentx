@@ -11,6 +11,7 @@ import { l10n } from "@agentx/l10n";
 import { InputBox } from "@/components/ui/InputBox";
 import { v4 as uuidv4 } from "uuid";
 import { AccordionSection, AccordionCard, FieldRow } from "./SettingsAccordion";
+import { Select } from "@/components/ui/Select";
 
 const OPENAI_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"];
 
@@ -73,23 +74,18 @@ export function ProviderConfig() {
               value={provider.apiKey}
               onChange={(e) => handleSave({ ...provider, apiKey: e.target.value })}
               placeholder="sk-..."
-              className="h-7 text-[12px] rounded-md bg-secondary"
+              className="h-7 text-[12px] rounded-md bg-background"
             />
           </FieldRow>
 
           {provider.type === "openai" && (
             <FieldRow label={l10n.t("Model")}>
-              <select
+              <Select
                 value={provider.defaultModel ?? "gpt-4o"}
-                onChange={(e) => handleSave({ ...provider, defaultModel: e.target.value })}
-                className="w-full h-7 rounded-md border border-border bg-secondary px-2 text-[12px] text-foreground outline-none focus:ring-1 focus:ring-ring"
-              >
-                {OPENAI_MODELS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => handleSave({ ...provider, defaultModel: v })}
+                options={OPENAI_MODELS.map((m) => ({ value: m, label: m }))}
+                className="w-full h-7"
+              />
             </FieldRow>
           )}
 
@@ -100,7 +96,7 @@ export function ProviderConfig() {
                   value={provider.baseUrl ?? ""}
                   onChange={(e) => handleSave({ ...provider, baseUrl: e.target.value })}
                   placeholder="https://api.example.com/v1"
-                  className="h-7 text-[12px] rounded-md bg-secondary"
+                  className="h-7 text-[12px] rounded-md bg-background"
                 />
               </FieldRow>
               <FieldRow label={l10n.t("Model")}>
@@ -108,7 +104,7 @@ export function ProviderConfig() {
                   value={provider.defaultModel ?? ""}
                   onChange={(e) => handleSave({ ...provider, defaultModel: e.target.value })}
                   placeholder={l10n.t("e.g. gpt-4o")}
-                  className="h-7 text-[12px] rounded-md bg-secondary"
+                  className="h-7 text-[12px] rounded-md bg-background"
                 />
               </FieldRow>
             </>

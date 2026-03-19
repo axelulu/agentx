@@ -55,6 +55,14 @@
     @apply border-border;
   }
 
+  /* Prevent border-color from leaking into scrollbar pseudo-elements */
+  ::-webkit-scrollbar,
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-thumb,
+  ::-webkit-scrollbar-corner {
+    border-color: transparent;
+  }
+
   html {
     font-family:
       "Inter",
@@ -116,31 +124,67 @@
   backdrop-filter: saturate(180%) blur(20px);
 }
 
-/* Scrollbar styling */
+/*
+ * Scrollbar styling for WKWebView (Tauri on macOS).
+ *
+ * We use ::-webkit-scrollbar pseudo-elements to fully control appearance.
+ * The track and gutter are transparent; only the thumb is visible.
+ * The `border: none` overrides any inherited border-color from Tailwind's
+ * `* { border-color: ... }` reset.
+ */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 6px !important;
+  height: 6px !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: transparent !important;
+  border: none !important;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1) !important;
+  border-radius: 3px !important;
+  border: none !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent !important;
+  border: none !important;
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+}
+
+.dark ::-webkit-scrollbar {
+  background: transparent !important;
+  border: none !important;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: none !important;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+.dark ::-webkit-scrollbar-corner {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Tab bar — hidden scrollbar */

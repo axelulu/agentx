@@ -4,6 +4,8 @@ import type { RootState, AppDispatch } from "@/slices/store";
 import { setVoiceSettings } from "@/slices/settingsSlice";
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/ui/Select";
+import { Slider } from "@/components/ui/Slider";
 
 const STT_LANGUAGES = [
   { value: "", label: () => l10n.t("Auto-detect") },
@@ -62,7 +64,7 @@ export function VoiceConfig() {
             value={voice.sttApiUrl}
             onChange={(e) => dispatch(setVoiceSettings({ sttApiUrl: e.target.value }))}
             placeholder="https://api.groq.com/openai/v1"
-            className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+            className="w-full bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
           />
         </div>
 
@@ -74,7 +76,7 @@ export function VoiceConfig() {
             value={voice.sttApiKey}
             onChange={(e) => dispatch(setVoiceSettings({ sttApiKey: e.target.value }))}
             placeholder="sk-..."
-            className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+            className="w-full bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
           />
         </div>
 
@@ -86,17 +88,11 @@ export function VoiceConfig() {
               {l10n.t("Language hint for transcription")}
             </p>
           </div>
-          <select
+          <Select
             value={voice.sttLanguage}
-            onChange={(e) => dispatch(setVoiceSettings({ sttLanguage: e.target.value }))}
-            className="bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring"
-          >
-            {STT_LANGUAGES.map((lang) => (
-              <option key={lang.value} value={lang.value}>
-                {lang.label()}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => dispatch(setVoiceSettings({ sttLanguage: v }))}
+            options={STT_LANGUAGES.map((lang) => ({ value: lang.value, label: lang.label() }))}
+          />
         </div>
       </div>
 
@@ -112,18 +108,15 @@ export function VoiceConfig() {
             <p className="text-sm text-foreground">{l10n.t("Voice")}</p>
             <p className="text-[12px] text-muted-foreground mt-0.5">{l10n.t("Voice selection")}</p>
           </div>
-          <select
+          <Select
             value={voice.ttsVoice}
-            onChange={(e) => dispatch(setVoiceSettings({ ttsVoice: e.target.value }))}
-            className="bg-secondary border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring max-w-[200px]"
-          >
-            <option value="">{l10n.t("System default")}</option>
-            {voices.map((v) => (
-              <option key={v.name} value={v.name}>
-                {v.name} ({v.lang})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => dispatch(setVoiceSettings({ ttsVoice: v }))}
+            options={[
+              { value: "", label: l10n.t("System default") },
+              ...voices.map((v) => ({ value: v.name, label: `${v.name} (${v.lang})` })),
+            ]}
+            className="max-w-[200px]"
+          />
         </div>
 
         {/* Rate slider */}
@@ -131,20 +124,13 @@ export function VoiceConfig() {
           <div>
             <p className="text-sm text-foreground">{l10n.t("Rate")}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={voice.ttsRate}
-              onChange={(e) => dispatch(setVoiceSettings({ ttsRate: parseFloat(e.target.value) }))}
-              className="w-24 accent-foreground"
-            />
-            <span className="text-[12px] text-muted-foreground w-8 text-right tabular-nums">
-              {voice.ttsRate.toFixed(1)}
-            </span>
-          </div>
+          <Slider
+            value={voice.ttsRate}
+            onChange={(v) => dispatch(setVoiceSettings({ ttsRate: v }))}
+            min={0.5}
+            max={2}
+            step={0.1}
+          />
         </div>
 
         {/* Pitch slider */}
@@ -152,20 +138,13 @@ export function VoiceConfig() {
           <div>
             <p className="text-sm text-foreground">{l10n.t("Pitch")}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value={voice.ttsPitch}
-              onChange={(e) => dispatch(setVoiceSettings({ ttsPitch: parseFloat(e.target.value) }))}
-              className="w-24 accent-foreground"
-            />
-            <span className="text-[12px] text-muted-foreground w-8 text-right tabular-nums">
-              {voice.ttsPitch.toFixed(1)}
-            </span>
-          </div>
+          <Slider
+            value={voice.ttsPitch}
+            onChange={(v) => dispatch(setVoiceSettings({ ttsPitch: v }))}
+            min={0.5}
+            max={2}
+            step={0.1}
+          />
         </div>
 
         {/* Test button */}
@@ -177,7 +156,7 @@ export function VoiceConfig() {
             onClick={handleTest}
             className={cn(
               "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-              "bg-foreground/10 text-foreground hover:bg-foreground/15",
+              "bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.08]",
             )}
           >
             {l10n.t("Test voice")}
@@ -196,7 +175,7 @@ export function VoiceConfig() {
             onClick={() => dispatch(setVoiceSettings({ autoReadReplies: !voice.autoReadReplies }))}
             className={cn(
               "relative w-9 h-5 rounded-full transition-colors",
-              voice.autoReadReplies ? "bg-primary" : "bg-foreground/20",
+              voice.autoReadReplies ? "bg-primary" : "bg-foreground/[0.12]",
             )}
           >
             <span

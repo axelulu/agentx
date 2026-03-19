@@ -9,8 +9,6 @@ export type SettingsSection =
   | "providers"
   | "knowledgeBase"
   | "mcp"
-  | "skills"
-  | "scheduledTasks"
   | "memory"
   | "permissions"
   | "about";
@@ -20,6 +18,7 @@ export interface UIState {
   settingsOpen: boolean;
   settingsSection: SettingsSection;
   activePanel: "chat" | "settings";
+  activeView: "chat" | "automation" | "skills";
   searchOpen: boolean;
   openTabs: string[];
   collapsedFolderIds: string[];
@@ -36,6 +35,7 @@ const initialState: UIState = {
   settingsOpen: false,
   settingsSection: "providers",
   activePanel: "chat",
+  activeView: "chat",
   searchOpen: false,
   openTabs: [],
   collapsedFolderIds: [],
@@ -93,6 +93,9 @@ const uiSlice = createSlice({
     toggleSearch(state) {
       state.searchOpen = !state.searchOpen;
     },
+    setActiveView(state, action: PayloadAction<"chat" | "automation" | "skills">) {
+      state.activeView = action.payload;
+    },
 
     // Tab management
     openTab(state, action: PayloadAction<string>) {
@@ -148,6 +151,7 @@ export const {
   setActivePanel,
   setSearchOpen,
   toggleSearch,
+  setActiveView,
   openTab,
   closeTab,
   closeOtherTabs,

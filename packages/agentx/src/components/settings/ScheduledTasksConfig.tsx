@@ -12,6 +12,7 @@ import { InputBox } from "@/components/ui/InputBox";
 import { v4 as uuidv4 } from "uuid";
 import { PlayIcon } from "lucide-react";
 import { AccordionSection, AccordionCard, FieldRow, ToggleSwitch } from "./SettingsAccordion";
+import { Select } from "@/components/ui/Select";
 
 function formatRelativeTime(ms: number): string {
   const now = Date.now();
@@ -151,7 +152,7 @@ export function ScheduledTasksConfig() {
                     ? "bg-red-500"
                     : task.lastRunAt
                       ? "bg-green-500"
-                      : "bg-muted-foreground/30"
+                      : "bg-foreground/[0.12]"
                 }`}
               />
               {actionTypeLabel(task.action.type)} / {scheduleLabel(task)}
@@ -164,7 +165,7 @@ export function ScheduledTasksConfig() {
               value={task.title}
               onChange={(e) => handleSave({ ...task, title: e.target.value })}
               placeholder={l10n.t("Task title")}
-              className="h-7 text-[12px] rounded-md bg-secondary"
+              className="h-7 text-[12px] rounded-md bg-background"
             />
           </FieldRow>
 
@@ -173,31 +174,30 @@ export function ScheduledTasksConfig() {
               value={task.description}
               onChange={(e) => handleSave({ ...task, description: e.target.value })}
               placeholder={l10n.t("Optional description")}
-              className="h-7 text-[12px] rounded-md bg-secondary"
+              className="h-7 text-[12px] rounded-md bg-background"
             />
           </FieldRow>
 
           {/* Schedule config */}
           <FieldRow label={l10n.t("Schedule")}>
-            <div className="flex items-center gap-2">
-              <select
-                value={task.schedule.type}
-                onChange={(e) =>
-                  handleSave({
-                    ...task,
-                    schedule: {
-                      ...task.schedule,
-                      type: e.target.value as "cron" | "interval" | "once",
-                    },
-                  })
-                }
-                className="h-7 bg-secondary border border-border rounded-md px-2 text-[12px] text-foreground outline-none"
-              >
-                <option value="cron">{l10n.t("Cron")}</option>
-                <option value="interval">{l10n.t("Interval")}</option>
-                <option value="once">{l10n.t("Once")}</option>
-              </select>
-            </div>
+            <Select
+              value={task.schedule.type}
+              onChange={(v) =>
+                handleSave({
+                  ...task,
+                  schedule: {
+                    ...task.schedule,
+                    type: v as "cron" | "interval" | "once",
+                  },
+                })
+              }
+              options={[
+                { value: "cron", label: l10n.t("Cron") },
+                { value: "interval", label: l10n.t("Interval") },
+                { value: "once", label: l10n.t("Once") },
+              ]}
+              className="h-7"
+            />
           </FieldRow>
 
           {task.schedule.type === "cron" && (
@@ -211,7 +211,7 @@ export function ScheduledTasksConfig() {
                   })
                 }
                 placeholder="*/5 * * * *"
-                className="h-7 text-[12px] rounded-md bg-secondary font-mono"
+                className="h-7 text-[12px] rounded-md bg-background font-mono"
               />
             </FieldRow>
           )}
@@ -231,7 +231,7 @@ export function ScheduledTasksConfig() {
                       },
                     })
                   }
-                  className="h-7 text-[12px] rounded-md bg-secondary w-20"
+                  className="h-7 text-[12px] rounded-md bg-background w-20"
                   min={1}
                 />
                 <span className="text-[11px] text-muted-foreground">{l10n.t("minutes")}</span>
@@ -253,26 +253,27 @@ export function ScheduledTasksConfig() {
                     },
                   })
                 }
-                className="h-7 text-[12px] rounded-md bg-secondary"
+                className="h-7 text-[12px] rounded-md bg-background"
               />
             </FieldRow>
           )}
 
           {/* Action config */}
           <FieldRow label={l10n.t("Action")}>
-            <select
+            <Select
               value={task.action.type}
-              onChange={(e) =>
+              onChange={(v) =>
                 handleSave({
                   ...task,
-                  action: { ...task.action, type: e.target.value as "shell" | "prompt" },
+                  action: { ...task.action, type: v as "shell" | "prompt" },
                 })
               }
-              className="h-7 bg-secondary border border-border rounded-md px-2 text-[12px] text-foreground outline-none"
-            >
-              <option value="shell">{l10n.t("Shell")}</option>
-              <option value="prompt">{l10n.t("Prompt")}</option>
-            </select>
+              options={[
+                { value: "shell", label: l10n.t("Shell") },
+                { value: "prompt", label: l10n.t("Prompt") },
+              ]}
+              className="h-7"
+            />
           </FieldRow>
 
           {task.action.type === "shell" && (
@@ -286,7 +287,7 @@ export function ScheduledTasksConfig() {
                   })
                 }
                 placeholder="echo hello"
-                className="h-7 text-[12px] rounded-md bg-secondary font-mono"
+                className="h-7 text-[12px] rounded-md bg-background font-mono"
               />
             </FieldRow>
           )}
@@ -302,7 +303,7 @@ export function ScheduledTasksConfig() {
                   })
                 }
                 placeholder={l10n.t("Agent prompt text...")}
-                className="h-7 text-[12px] rounded-md bg-secondary"
+                className="h-7 text-[12px] rounded-md bg-background"
               />
             </FieldRow>
           )}
@@ -335,7 +336,7 @@ export function ScheduledTasksConfig() {
               <button
                 type="button"
                 onClick={() => handleRunNow(task.id)}
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-foreground/5 transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-background transition-colors"
               >
                 <PlayIcon className="w-3 h-3" />
                 {l10n.t("Run Now")}
@@ -348,7 +349,7 @@ export function ScheduledTasksConfig() {
               </div>
             )}
             {task.lastRunResult && !task.lastRunError && (
-              <div className="px-2 py-1 rounded bg-foreground/5 text-[10px] font-mono text-muted-foreground break-all max-h-20 overflow-y-auto">
+              <div className="px-2 py-1 rounded bg-background text-[10px] font-mono text-muted-foreground break-all max-h-20 overflow-y-auto">
                 {task.lastRunResult}
               </div>
             )}

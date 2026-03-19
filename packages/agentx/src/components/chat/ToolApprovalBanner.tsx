@@ -72,7 +72,7 @@ export function ToolApprovalBanner() {
   const detail = formatArgs(pendingApproval.toolName, pendingApproval.arguments);
 
   return (
-    <div className="mx-4 mb-3 animate-in slide-in-from-bottom-2 duration-200">
+    <div className="mx-4 mb-3">
       <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-yellow-500/20">

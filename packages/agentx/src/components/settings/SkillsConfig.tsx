@@ -35,7 +35,7 @@ export function SkillsConfig() {
           {installedSkills.map((skill) => (
             <div
               key={skill.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border hover:bg-accent/30 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-foreground/[0.02] hover:bg-foreground/[0.04] transition-colors"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-medium text-foreground truncate">{skill.title}</p>

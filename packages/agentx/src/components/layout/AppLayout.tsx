@@ -6,6 +6,8 @@ import { switchConversation } from "@/slices/chatSlice";
 import { TitleBar } from "./TitleBar";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { AutomationPanel } from "@/components/automation/AutomationPanel";
+import { SkillsPanel } from "@/components/skills/SkillsPanel";
 import { TabBar } from "@/components/chat/TabBar";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
@@ -18,7 +20,7 @@ import { l10n } from "@agentx/l10n";
 
 export function AppLayout() {
   const dispatch = useDispatch<AppDispatch>();
-  const { sidebarOpen, settingsOpen } = useSelector((state: RootState) => state.ui);
+  const { sidebarOpen, settingsOpen, activeView } = useSelector((state: RootState) => state.ui);
   useUpdateListener();
   useShortcuts();
 
@@ -63,10 +65,16 @@ export function AppLayout() {
 
         {/* Right column: opaque content area */}
         <div className="flex flex-col flex-1 overflow-hidden bg-background">
+          {activeView === "chat" && <TabBar />}
           <TitleBar />
           <UpdateDialog />
-          <TabBar />
-          <ChatPanel />
+          {activeView === "automation" ? (
+            <AutomationPanel />
+          ) : activeView === "skills" ? (
+            <SkillsPanel />
+          ) : (
+            <ChatPanel />
+          )}
         </div>
       </div>
 

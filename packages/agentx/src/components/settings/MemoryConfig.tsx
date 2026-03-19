@@ -20,22 +20,22 @@ const CATEGORY_META: Record<string, { icon: React.ElementType; color: string; bg
   preference: {
     icon: SparklesIcon,
     color: "text-foreground/70",
-    bg: "bg-foreground/[0.06]",
+    bg: "bg-foreground/[0.04]",
   },
   project: {
     icon: CodeIcon,
     color: "text-foreground/70",
-    bg: "bg-foreground/[0.06]",
+    bg: "bg-foreground/[0.04]",
   },
   pattern: {
     icon: LightbulbIcon,
     color: "text-foreground/70",
-    bg: "bg-foreground/[0.06]",
+    bg: "bg-foreground/[0.04]",
   },
   instruction: {
     icon: WrenchIcon,
     color: "text-foreground/70",
-    bg: "bg-foreground/[0.06]",
+    bg: "bg-foreground/[0.04]",
   },
 };
 
@@ -115,10 +115,10 @@ export function MemoryConfig() {
   return (
     <div className="space-y-4">
       {/* Hero card — enable/disable + stats */}
-      <div className="rounded-xl border border-border bg-gradient-to-br from-foreground/[0.02] to-foreground/[0.05] p-4">
+      <div className="rounded-xl bg-gradient-to-br from-foreground/[0.01] to-foreground/[0.03] p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
+            <div className="mt-0.5 w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
               <BrainIcon className="w-4 h-4 text-accent" />
             </div>
             <div>
@@ -182,7 +182,7 @@ export function MemoryConfig() {
           </div>
 
           {/* Tab content */}
-          <div className="rounded-lg border border-border/60 bg-card overflow-hidden">
+          <div className="rounded-lg bg-foreground/[0.02] overflow-hidden">
             {activeTab === "facts" && (
               <div className="max-h-[240px] overflow-y-auto divide-y divide-border/40">
                 {facts.length === 0 ? (
@@ -223,18 +223,18 @@ export function MemoryConfig() {
                                   if (e.key === "Enter") saveEditFact();
                                   if (e.key === "Escape") setEditingFactId(null);
                                 }}
-                                className="flex-1 text-[12px] bg-background border border-border rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
+                                className="flex-1 text-[12px] bg-background border border-border/60 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
                                 autoFocus
                               />
                               <button
                                 onClick={saveEditFact}
-                                className="p-1.5 rounded-md text-foreground hover:bg-foreground/10 transition-colors"
+                                className="p-1.5 rounded-md text-foreground hover:bg-foreground/[0.06] transition-colors"
                               >
                                 <CheckIcon className="w-3 h-3" />
                               </button>
                               <button
                                 onClick={() => setEditingFactId(null)}
-                                className="p-1.5 rounded-md text-muted-foreground hover:bg-foreground/5 transition-colors"
+                                className="p-1.5 rounded-md text-muted-foreground hover:bg-foreground/[0.03] transition-colors"
                               >
                                 <XIcon className="w-3 h-3" />
                               </button>
@@ -262,7 +262,7 @@ export function MemoryConfig() {
                           <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => startEditFact(fact)}
-                              className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                              className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-foreground/[0.03] transition-colors"
                               title="Edit"
                             >
                               <PencilIcon className="w-3 h-3" />
@@ -299,7 +299,7 @@ export function MemoryConfig() {
                       className="group flex items-start gap-2.5 px-3 py-2.5 hover:bg-foreground/[0.03] transition-colors"
                     >
                       {/* Icon */}
-                      <div className="mt-px w-5 h-5 rounded bg-foreground/[0.06] flex items-center justify-center shrink-0">
+                      <div className="mt-px w-5 h-5 rounded bg-foreground/[0.04] flex items-center justify-center shrink-0">
                         <MessageSquareIcon className="w-3 h-3 text-muted-foreground" />
                       </div>
 
@@ -324,7 +324,7 @@ export function MemoryConfig() {
                             {summary.topics.map((topic, i) => (
                               <span
                                 key={i}
-                                className="text-[10px] px-1.5 py-px rounded-full bg-foreground/[0.06] text-muted-foreground/70"
+                                className="text-[10px] px-1.5 py-px rounded-full bg-foreground/[0.04] text-muted-foreground/70"
                               >
                                 {topic}
                               </span>
@@ -380,7 +380,7 @@ function StatPill({
 }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
-    <div className="flex items-center gap-2.5 rounded-lg bg-foreground/[0.04] border border-border/40 px-3 py-1.5">
+    <div className="flex items-center gap-2.5 rounded-lg bg-foreground/[0.04] px-3 py-1.5">
       <div className="flex flex-col items-start">
         <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider leading-none">
           {label}
@@ -435,8 +435,8 @@ function TabButton({
       className={cn(
         "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all",
         active
-          ? "bg-foreground/[0.08] text-foreground"
-          : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05]",
+          ? "bg-foreground/[0.05] text-foreground"
+          : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]",
       )}
     >
       <Icon className="w-3.5 h-3.5" />
@@ -445,8 +445,8 @@ function TabButton({
         className={cn(
           "ml-0.5 text-[10px] tabular-nums px-1.5 py-px rounded-full",
           active
-            ? "bg-foreground/10 text-foreground/70"
-            : "bg-foreground/[0.06] text-muted-foreground",
+            ? "bg-foreground/[0.06] text-foreground/70"
+            : "bg-foreground/[0.04] text-muted-foreground",
         )}
       >
         {count}
