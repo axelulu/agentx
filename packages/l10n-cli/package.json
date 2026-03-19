@@ -33,7 +33,7 @@
     "typescript"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@agentx/l10n": "workspace:*",

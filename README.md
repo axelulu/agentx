@@ -35,6 +35,16 @@
 
 ---
 
+## Screenshots
+
+![Chat](docs/screenshots/welcome.png)
+
+![Automation](docs/screenshots/automation.png)
+
+![Settings & Memory](docs/screenshots/settings-memory.png)
+
+---
+
 ## Download
 
 Download the latest version for your platform from the [Releases page](https://github.com/axelulu/agentx/releases/latest):
@@ -367,4 +377,4 @@ The project uses:
 
 ## License
 
-[MIT](LICENSE) — use it however you want.
+[Apache-2.0](LICENSE)

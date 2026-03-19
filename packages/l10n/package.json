@@ -54,7 +54,7 @@
     "typescript"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.0.0",
