@@ -71,6 +71,10 @@ pub fn run() {
                 // Show the window
                 let _ = win.show();
                 let _ = win.set_focus();
+
+                // Position macOS traffic lights to align with sidebar toggle
+                #[cfg(target_os = "macos")]
+                window::position_traffic_lights(&win);
             }
 
             Ok(())

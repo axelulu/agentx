@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
-import { openTab } from "@/slices/uiSlice";
+import { openTab, toggleSidebar } from "@/slices/uiSlice";
 import { switchConversation } from "@/slices/chatSlice";
 import { TitleBar } from "./TitleBar";
 import { Sidebar } from "@/components/sidebar/Sidebar";
@@ -12,6 +12,9 @@ import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { SearchDialog } from "@/components/search/SearchDialog";
 import { useUpdateListener } from "@/hooks/useUpdateListener";
 import { useShortcuts } from "@/hooks/useShortcuts";
+import { PanelLeftIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+import { l10n } from "@agentx/l10n";
 
 export function AppLayout() {
   const dispatch = useDispatch<AppDispatch>();
@@ -29,6 +32,20 @@ export function AppLayout() {
 
   return (
     <div className="h-full text-foreground relative overflow-hidden">
+      {/* Fixed sidebar toggle — always top-left, right of macOS traffic lights */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => dispatch(toggleSidebar())}
+            className="fixed top-2 left-[78px] z-50 p-1 rounded-md hover:bg-accent/50 transition-colors"
+            style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+          >
+            <PanelLeftIcon className="w-4 h-4 text-foreground/80" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{l10n.t("Toggle Sidebar")}</TooltipContent>
+      </Tooltip>
+
       {/* App shell — columns first so frosted glass spans full height on left */}
       <div className="relative flex h-full">
         {/* Left column: transparent so native macOS vibrancy shows through */}
@@ -36,9 +53,9 @@ export function AppLayout() {
           className="flex flex-col shrink-0 overflow-hidden transition-all duration-200 ease-in-out frosted-glass border-r border-sidebar-border"
           style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
         >
-          {/* macOS traffic-light drag strip — must clear native buttons (~24px) + padding */}
+          {/* macOS traffic-light drag strip — match TitleBar height for alignment */}
           <div
-            className="h-7 shrink-0"
+            className="h-10 shrink-0"
             style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
           />
           <Sidebar />

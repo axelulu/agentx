@@ -30,6 +30,11 @@ tokio = { version = "1", features = ["full"] }
 base64 = "0.22"
 open = "5"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSButton", "NSControl", "NSView", "NSResponder"] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
+
 [profile.release]
 strip = true
 lto = true

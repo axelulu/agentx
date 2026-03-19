@@ -111,24 +111,26 @@ export function UpdateDialog() {
             <div className="flex items-center justify-between">
               <p className="text-[13px] font-medium text-foreground">{l10n.t("Downloading...")}</p>
               <span className="text-[11px] text-muted-foreground tabular-nums">
-                {progress ? `${progress.percent.toFixed(0)}%` : ""}
+                {progress ? `${progress.percent.toFixed(0)}%` : "0%"}
               </span>
             </div>
+            <div className="w-full h-1 rounded-full bg-secondary overflow-hidden">
+              {progress ? (
+                <div
+                  className="h-full rounded-full bg-foreground/40 transition-all duration-300"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              ) : (
+                <div className="h-full rounded-full bg-foreground/40 w-full animate-pulse" />
+              )}
+            </div>
             {progress && (
-              <>
-                <div className="w-full h-1 rounded-full bg-secondary overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-foreground/40 transition-all duration-300"
-                    style={{ width: `${progress.percent}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
-                  <span>
-                    {formatBytes(progress.transferred)} / {formatBytes(progress.total)}
-                  </span>
-                  <span>{formatSpeed(progress.bytesPerSecond)}</span>
-                </div>
-              </>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
+                <span>
+                  {formatBytes(progress.transferred)} / {formatBytes(progress.total)}
+                </span>
+                <span>{formatSpeed(progress.bytesPerSecond)}</span>
+              </div>
             )}
           </div>
         )}

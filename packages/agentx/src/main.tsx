@@ -16,7 +16,7 @@ document.addEventListener("contextmenu", (e) => e.preventDefault());
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Provider store={store}>
-      <TooltipProvider delayDuration={300}>
+      <TooltipProvider delayDuration={0}>
         <App />
       </TooltipProvider>
     </Provider>

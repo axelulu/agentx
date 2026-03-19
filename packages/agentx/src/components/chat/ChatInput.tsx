@@ -346,7 +346,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "relative border rounded-xl overflow-hidden transition-all bg-card focus-within:border-foreground/30",
+            "relative border rounded-xl overflow-hidden transition-all bg-card focus-within:border-foreground/20",
             isDragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border",
           )}
         >

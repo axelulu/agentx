@@ -33,9 +33,9 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         ],
     )?;
 
-    let icon = Image::from_path("icons/icon.png").unwrap_or_else(|_| {
+    let icon = Image::from_path("icons/tray-icon.png").unwrap_or_else(|_| {
         // Fallback: try resource path
-        Image::from_bytes(include_bytes!("../icons/icon.png")).unwrap_or_else(|_| {
+        Image::from_bytes(include_bytes!("../icons/tray-icon.png")).unwrap_or_else(|_| {
             // Create a minimal 1x1 PNG
             Image::new(&[0, 0, 0, 255], 1, 1)
         })
