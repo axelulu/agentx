@@ -66,6 +66,8 @@ export interface SkillDefinition {
   tags: string[];
   author: string;
   voteCount: number;
+  /** True for user-created skills (not from the Skill Store) */
+  isCustom?: boolean;
 }
 
 export interface Folder {
@@ -552,6 +554,14 @@ const settingsSlice = createSlice({
       }
       persistSkillInstall(skill);
     },
+    updateInstalledSkill(state, action: PayloadAction<SkillDefinition>) {
+      const skill = action.payload;
+      const idx = state.installedSkills.findIndex((s) => s.id === skill.id);
+      if (idx >= 0) {
+        state.installedSkills[idx] = skill;
+      }
+      persistSkillInstall(skill);
+    },
     removeInstalledSkill(state, action: PayloadAction<string>) {
       state.installedSkills = state.installedSkills.filter((s) => s.id !== action.payload);
       persistSkillUninstall(action.payload);
@@ -786,6 +796,7 @@ export const {
   deleteScheduledTask,
   replaceScheduledTasks,
   addInstalledSkill,
+  updateInstalledSkill,
   removeInstalledSkill,
   updateToolPermissions,
   setVoiceSettings,

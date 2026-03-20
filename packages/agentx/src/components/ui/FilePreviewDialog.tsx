@@ -1,7 +1,5 @@
-import { useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { XIcon } from "lucide-react";
 import { getPreviewType, fileUrl } from "@/lib/filePreview";
+import { Dialog, DialogContent } from "./Dialog";
 
 interface FilePreviewDialogProps {
   path: string | null;
@@ -9,64 +7,50 @@ interface FilePreviewDialogProps {
 }
 
 export function FilePreviewDialog({ path, onClose }: FilePreviewDialogProps) {
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
+  const open = !!path;
+  const type = path ? getPreviewType(path) : null;
+  const url = path ? fileUrl(path) : "";
+  const name = path ? (path.split("/").pop() ?? path) : "";
 
-  useEffect(() => {
-    if (!path) return;
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [path, handleKeyDown]);
-
-  if (!path) return null;
-
-  const type = getPreviewType(path);
-  const url = fileUrl(path);
-  const name = path.split("/").pop() ?? path;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={onClose}>
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/15" />
-
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent
+        maxWidth="4xl"
+        showCloseButton
+        className="bg-transparent border-none shadow-none p-0 gap-0"
+        overlayStyle={{ backgroundColor: "rgba(0,0,0,0.15)" }}
       >
-        <XIcon className="w-5 h-5" />
-      </button>
+        <div className="flex flex-col items-center gap-3">
+          {type === "image" && (
+            <img
+              src={url}
+              alt={name}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+          )}
+          {type === "video" && (
+            <video src={url} controls autoPlay className="max-w-full max-h-[85vh] rounded-lg" />
+          )}
+          {type === "audio" && (
+            <div className="bg-card border border-border rounded-xl p-6 min-w-[320px]">
+              <p className="text-sm text-foreground mb-4 truncate">{name}</p>
+              <audio src={url} controls autoPlay className="w-full" />
+            </div>
+          )}
 
-      {/* Content */}
-      <div
-        className="relative z-10 max-w-[90vw] max-h-[90vh] flex items-center justify-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {type === "image" && (
-          <img src={url} alt={name} className="max-w-full max-h-[90vh] object-contain rounded-lg" />
-        )}
-        {type === "video" && (
-          <video src={url} controls autoPlay className="max-w-full max-h-[90vh] rounded-lg" />
-        )}
-        {type === "audio" && (
-          <div className="bg-card border border-border rounded-xl p-6 min-w-[320px]">
-            <p className="text-sm text-foreground mb-4 truncate">{name}</p>
-            <audio src={url} controls autoPlay className="w-full" />
-          </div>
-        )}
-      </div>
-
-      {/* File name at bottom */}
-      {type !== "audio" && (
-        <div className="absolute bottom-4 z-10 px-3 py-1.5 rounded-full bg-black/50 text-white/70 text-[12px]">
-          {name}
+          {/* File name label */}
+          {type !== "audio" && name && (
+            <div className="px-3 py-1.5 rounded-full bg-black/50 text-white/70 text-[12px]">
+              {name}
+            </div>
+          )}
         </div>
-      )}
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   );
 }

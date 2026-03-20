@@ -52,8 +52,8 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
-      className={cn("fixed inset-0 z-50 bg-black/15", className)}
-      style={style}
+      className={cn("fixed inset-0 bg-black/15", className)}
+      style={{ zIndex: "var(--z-modal)", ...style }}
       {...props}
     />
   );
@@ -104,14 +104,30 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-card border border-border flex flex-col gap-4 rounded-2xl p-6 fixed top-[50%] left-[50%] z-50 w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] shadow-lg",
+          "bg-card border border-border flex flex-col gap-4 rounded-2xl p-6 fixed top-[50%] left-[50%] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] shadow-lg",
           maxWidthClasses[maxWidth],
           className,
         )}
-        style={style}
+        style={{ zIndex: "var(--z-modal)", ...style }}
         onPointerDownOutside={(e) => {
+          // Radix fires a custom event whose .target is the DismissableLayer itself.
+          // The real click target lives at .detail.originalEvent.target.
+          const realTarget = ((e as any).detail?.originalEvent?.target ?? e.target) as HTMLElement;
+          // If the click landed inside a portaled floating element (Select, Popover, etc.),
+          // it is NOT a true "outside" click — prevent the dialog from closing.
+          if (realTarget?.closest?.("[data-floating-ui]")) {
+            e.preventDefault();
+            return;
+          }
           if (closeOnClickOutside === false) e.preventDefault();
           onPointerDownOutside?.(e);
+        }}
+        onFocusOutside={(e) => {
+          // Same guard for focus events — portaled floating elements shouldn't dismiss.
+          const realTarget = ((e as any).detail?.originalEvent?.target ?? e.target) as HTMLElement;
+          if (realTarget?.closest?.("[data-floating-ui]")) {
+            e.preventDefault();
+          }
         }}
         onEscapeKeyDown={(e) => {
           if (closeOnEscape === false) e.preventDefault();

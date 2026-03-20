@@ -29,6 +29,7 @@ import {
   FolderTreeIcon,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+import { ImagePreviewOverlay } from "@/components/ui/ImagePreviewOverlay";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { ToolResultRenderer } from "./ToolResultRenderer";
 import { getPreviewType, fileUrl } from "@/lib/filePreview";
@@ -141,20 +142,21 @@ function MessageExportButton({
       {open && (
         <div
           className={cn(
-            "absolute z-50 min-w-[160px] rounded-lg border border-border bg-card shadow-lg py-1",
+            "absolute rounded-lg border border-border bg-card shadow-lg py-1",
             position === "bottom-left" ? "top-full mt-1 right-0" : "bottom-full mb-1 left-0",
           )}
+          style={{ zIndex: "var(--z-popover)" }}
         >
           <button
             onClick={() => handleExport("markdown")}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-foreground/[0.06] transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-foreground/[0.06] transition-colors whitespace-nowrap"
           >
             <FileTextIcon className="w-3.5 h-3.5 text-muted-foreground" />
             {l10n.t("Export as Markdown")}
           </button>
           <button
             onClick={() => handleExport("json")}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-foreground/[0.06] transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-foreground hover:bg-foreground/[0.06] transition-colors whitespace-nowrap"
           >
             <FileJsonIcon className="w-3.5 h-3.5 text-muted-foreground" />
             {l10n.t("Export as JSON")}
@@ -236,6 +238,34 @@ function parseAttachments(content: string): {
 }
 
 // ---------------------------------------------------------------------------
+// User image thumbnail with load-error fallback
+// ---------------------------------------------------------------------------
+
+function UserImageThumbnail({
+  src,
+  index,
+  onExpand,
+}: {
+  src: string;
+  index: number;
+  onExpand: (src: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => onExpand(src)}
+      className="block rounded-md hover:opacity-90 transition-opacity"
+    >
+      <img
+        src={src}
+        alt={`Image ${index + 1}`}
+        style={{ minWidth: 40, minHeight: 30 }}
+        className="max-w-[200px] max-h-[150px] object-cover rounded-md bg-foreground/[0.04]"
+      />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // User bubble — right-aligned, actions below-right
 // ---------------------------------------------------------------------------
 
@@ -276,23 +306,12 @@ function UserBubble({
         {hasImages && (
           <div className={cn("flex flex-wrap gap-2", (text || hasAttachments) && "mb-2")}>
             {imageParts.map((img, i) => {
+              if (!img.data) return null;
               // img.data may be a file path (loaded from persistence) or base64 data
-              const src = img.data?.startsWith("/")
+              const src = img.data.startsWith("/")
                 ? fileUrl(img.data)
                 : `data:${img.mimeType ?? "image/png"};base64,${img.data}`;
-              return (
-                <button
-                  key={i}
-                  onClick={() => setExpandedImage(src)}
-                  className="rounded-md overflow-hidden hover:opacity-90 transition-opacity"
-                >
-                  <img
-                    src={src}
-                    alt={`Image ${i + 1}`}
-                    className="max-w-[200px] max-h-[150px] object-cover rounded-md"
-                  />
-                </button>
-              );
+              return <UserImageThumbnail key={i} src={src} index={i} onExpand={setExpandedImage} />;
             })}
           </div>
         )}
@@ -362,18 +381,7 @@ function UserBubble({
       )}
 
       {/* Full-size image preview modal */}
-      {expandedImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/15"
-          onClick={() => setExpandedImage(null)}
-        >
-          <img
-            src={expandedImage}
-            alt="Full size preview"
-            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
-          />
-        </div>
-      )}
+      <ImagePreviewOverlay src={expandedImage} onClose={() => setExpandedImage(null)} />
     </div>
   );
 }

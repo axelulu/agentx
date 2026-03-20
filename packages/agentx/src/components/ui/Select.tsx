@@ -96,7 +96,10 @@ export function Select({ value, onChange, options, placeholder, className }: Sel
         createPortal(
           <div
             ref={panelRef}
-            className="fixed z-[9999] rounded-lg bg-popover border border-border/60 shadow-lg overflow-hidden"
+            data-floating-ui
+            onPointerDown={(e) => e.stopPropagation()}
+            className="fixed rounded-lg bg-popover border border-border/60 shadow-lg overflow-hidden"
+            style={{ zIndex: "var(--z-popover)", pointerEvents: "auto" }}
           >
             <div className="max-h-[240px] overflow-y-auto py-1">
               {options.map((opt) => {

@@ -35,6 +35,12 @@
   --radius-2xl: 1.5rem; /* 24px */
   --radius-3xl: 2rem; /* 32px */
 
+  /* ========== Z-Index Layers ========== */
+  --z-overlay: 50; /* overlays, settings panels, drag states */
+  --z-modal: 100; /* dialogs, file preview */
+  --z-popover: 200; /* dropdowns, selects, context menus, tooltips */
+  --z-popover-nested: 210; /* submenus, nested popups */
+
   /* ========== Animation ========== */
   --duration-150: 150ms;
   --duration-200: 200ms;

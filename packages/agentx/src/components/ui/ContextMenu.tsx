@@ -59,8 +59,9 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[9999] min-w-[160px] py-1 rounded-lg bg-popover border border-border shadow-lg"
-      style={{ left: x, top: y }}
+      data-floating-ui
+      className="fixed min-w-[160px] py-1 rounded-lg bg-popover border border-border shadow-lg"
+      style={{ left: x, top: y, zIndex: "var(--z-popover)", pointerEvents: "auto" }}
     >
       {items.map((item, i) =>
         item.submenu && item.submenu.length > 0 ? (
@@ -150,8 +151,8 @@ function SubmenuItem({ item, onClose }: { item: ContextMenuItem; onClose: () => 
             data-context-submenu
             onMouseEnter={show}
             onMouseLeave={hide}
-            className="fixed z-[10000] min-w-[140px] py-1 rounded-lg bg-popover border border-border shadow-lg"
-            style={{ left: 0, top: 0 }}
+            className="fixed min-w-[140px] py-1 rounded-lg bg-popover border border-border shadow-lg"
+            style={{ left: 0, top: 0, zIndex: "var(--z-popover-nested)", pointerEvents: "auto" }}
           >
             {item.submenu!.map((sub, j) => (
               <button

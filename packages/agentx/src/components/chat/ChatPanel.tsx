@@ -99,42 +99,37 @@ export function ChatPanel() {
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ scrollbarGutter: "stable" }}>
       {currentConversationId ? (
-        <>
-          <div
-            ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto"
-            style={{ scrollbarGutter: "stable" }}
-          >
-            <MessageList
-              messages={messages}
-              isStreaming={isStreaming}
-              streamingMessageId={streamingMessageId}
-              scrollContainerRef={scrollContainerRef}
-              onEditMessage={handleEdit}
-              onRegenerateMessage={handleRegenerate}
-              onSpeak={handleSpeak}
-              onStopSpeaking={stopSpeaking}
-              speakingMessageId={speakingMessageId}
-              branchInfo={branchInfo}
-              onSwitchBranch={handleSwitchBranch}
-            />
-          </div>
-          <ToolApprovalBanner />
-          <ChatInput ref={chatInputRef} />
-        </>
-      ) : (
-        <>
-          <WelcomePage
-            onSelectPrompt={(text) => {
-              dispatch(setInputValue(text));
-              // Allow Redux state to flush so the textarea renders the new value,
-              // then move the cursor to the end and focus.
-              requestAnimationFrame(() => chatInputRef.current?.focus());
-            }}
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto"
+          style={{ scrollbarGutter: "stable" }}
+        >
+          <MessageList
+            messages={messages}
+            isStreaming={isStreaming}
+            streamingMessageId={streamingMessageId}
+            scrollContainerRef={scrollContainerRef}
+            onEditMessage={handleEdit}
+            onRegenerateMessage={handleRegenerate}
+            onSpeak={handleSpeak}
+            onStopSpeaking={stopSpeaking}
+            speakingMessageId={speakingMessageId}
+            branchInfo={branchInfo}
+            onSwitchBranch={handleSwitchBranch}
           />
-          <ChatInput ref={chatInputRef} />
-        </>
+        </div>
+      ) : (
+        <WelcomePage
+          onSelectPrompt={(text) => {
+            dispatch(setInputValue(text));
+            // Allow Redux state to flush so the textarea renders the new value,
+            // then move the cursor to the end and focus.
+            requestAnimationFrame(() => chatInputRef.current?.focus());
+          }}
+        />
       )}
+      {currentConversationId && <ToolApprovalBanner />}
+      <ChatInput ref={chatInputRef} />
     </div>
   );
 }

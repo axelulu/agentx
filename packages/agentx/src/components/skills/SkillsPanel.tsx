@@ -12,8 +12,11 @@ import {
   ArrowLeftIcon,
   TagIcon,
   UserIcon,
+  PlusIcon,
+  PencilIcon,
 } from "lucide-react";
 import { SkillStoreDialog } from "@/components/skills/SkillStoreDialog";
+import { CustomSkillDialog } from "@/components/skills/CustomSkillDialog";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 
@@ -21,6 +24,8 @@ export function SkillsPanel() {
   const dispatch = useDispatch<AppDispatch>();
   const installedSkills = useSelector((s: RootState) => s.settings.installedSkills);
   const [storeOpen, setStoreOpen] = useState(false);
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<SkillDefinition | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillDefinition | null>(null);
   const [pendingUninstallId, setPendingUninstallId] = useState<string | null>(null);
 
@@ -107,16 +112,23 @@ export function SkillsPanel() {
                   </p>
                   {/* Meta row */}
                   <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+                    {activeSkill.isCustom && (
+                      <span className="px-1.5 py-px rounded text-[10px] font-semibold uppercase tracking-wider bg-accent text-accent-foreground">
+                        {l10n.t("Custom")}
+                      </span>
+                    )}
                     {activeSkill.author && (
                       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                         <UserIcon className="w-3 h-3" />
                         {activeSkill.author}
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <StarIcon className="w-3 h-3" />
-                      {activeSkill.voteCount}
-                    </span>
+                    {!activeSkill.isCustom && (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <StarIcon className="w-3 h-3" />
+                        {activeSkill.voteCount}
+                      </span>
+                    )}
                     {activeSkill.category && (
                       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                         <TagIcon className="w-3 h-3" />
@@ -126,13 +138,27 @@ export function SkillsPanel() {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => setPendingUninstallId(activeSkill.id)}
-                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/15 transition-colors"
-              >
-                <TrashIcon className="w-3 h-3" />
-                {l10n.t("Uninstall")}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {activeSkill.isCustom && (
+                  <button
+                    onClick={() => {
+                      setEditingSkill(activeSkill);
+                      setCustomDialogOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-foreground bg-foreground/[0.06] hover:bg-foreground/[0.1] transition-colors"
+                  >
+                    <PencilIcon className="w-3 h-3" />
+                    {l10n.t("Edit")}
+                  </button>
+                )}
+                <button
+                  onClick={() => setPendingUninstallId(activeSkill.id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/15 transition-colors"
+                >
+                  <TrashIcon className="w-3 h-3" />
+                  {l10n.t("Uninstall")}
+                </button>
+              </div>
             </div>
 
             {/* Tags */}
@@ -166,6 +192,14 @@ export function SkillsPanel() {
           </div>
         </div>
         {confirmDialog}
+        <CustomSkillDialog
+          open={customDialogOpen}
+          onOpenChange={(open) => {
+            setCustomDialogOpen(open);
+            if (!open) setEditingSkill(null);
+          }}
+          editSkill={editingSkill}
+        />
       </>
     );
   }
@@ -182,13 +216,25 @@ export function SkillsPanel() {
               {l10n.t("Extend your agent with installable skills")}
             </p>
           </div>
-          <button
-            onClick={() => setStoreOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium bg-foreground text-background hover:opacity-90 transition-opacity"
-          >
-            <ExternalLinkIcon className="w-3 h-3" />
-            {l10n.t("Skill Store")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setEditingSkill(null);
+                setCustomDialogOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.1] transition-colors"
+            >
+              <PlusIcon className="w-3 h-3" />
+              {l10n.t("Create Skill")}
+            </button>
+            <button
+              onClick={() => setStoreOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium bg-foreground text-background hover:opacity-90 transition-opacity"
+            >
+              <ExternalLinkIcon className="w-3 h-3" />
+              {l10n.t("Skill Store")}
+            </button>
+          </div>
         </div>
 
         {/* Skill cards */}
@@ -196,13 +242,25 @@ export function SkillsPanel() {
           <div className="border border-dashed border-border/40 rounded-xl flex flex-col items-center justify-center py-16 gap-3">
             <ZapIcon className="w-6 h-6 text-muted-foreground" />
             <p className="text-[12px] text-muted-foreground">{l10n.t("No skills installed")}</p>
-            <button
-              onClick={() => setStoreOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium bg-foreground text-background hover:opacity-90 transition-opacity mt-1"
-            >
-              <ExternalLinkIcon className="w-3 h-3" />
-              {l10n.t("Browse Skill Store")}
-            </button>
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={() => {
+                  setEditingSkill(null);
+                  setCustomDialogOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.1] transition-colors"
+              >
+                <PlusIcon className="w-3 h-3" />
+                {l10n.t("Create Skill")}
+              </button>
+              <button
+                onClick={() => setStoreOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium bg-foreground text-background hover:opacity-90 transition-opacity"
+              >
+                <ExternalLinkIcon className="w-3 h-3" />
+                {l10n.t("Browse Skill Store")}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
@@ -230,6 +288,14 @@ export function SkillsPanel() {
       </div>
 
       <SkillStoreDialog open={storeOpen} onOpenChange={setStoreOpen} />
+      <CustomSkillDialog
+        open={customDialogOpen}
+        onOpenChange={(open) => {
+          setCustomDialogOpen(open);
+          if (!open) setEditingSkill(null);
+        }}
+        editSkill={editingSkill}
+      />
       {confirmDialog}
     </div>
   );
@@ -264,10 +330,16 @@ function SkillCard({
           <p className="text-[13px] font-medium text-foreground group-hover:text-foreground leading-snug truncate transition-colors">
             {skill.title}
           </p>
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
-            <StarIcon className="w-2.5 h-2.5" />
-            {skill.voteCount}
-          </span>
+          {skill.isCustom ? (
+            <span className="shrink-0 px-1.5 py-px rounded text-[9px] font-semibold uppercase tracking-wider bg-accent text-accent-foreground">
+              {l10n.t("Custom")}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
+              <StarIcon className="w-2.5 h-2.5" />
+              {skill.voteCount}
+            </span>
+          )}
         </div>
         <p className="text-[11px] text-muted-foreground mt-0.5 truncate leading-relaxed">
           {skill.description}

@@ -36,9 +36,10 @@ import {
   type DragEvent,
   type ClipboardEvent,
 } from "react";
-import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
+import { DropdownMenu } from "@/components/ui/DropdownMenu";
+import { ImagePreviewOverlay } from "@/components/ui/ImagePreviewOverlay";
 import { SkillSelector } from "@/components/skills/SkillSelector";
 import { ConversationPromptButton } from "./ConversationPromptBar";
 
@@ -239,6 +240,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
   }, []);
 
   const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
@@ -312,9 +314,14 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     if (paths.length > 0) await addFiles(paths);
   };
 
-  const handleAttachClick = async () => {
+  const handleAttachFiles = async () => {
     const paths = await window.api.fs.selectFile({ multi: true });
     if (paths && paths.length > 0) await addFiles(paths);
+  };
+
+  const handleAttachDirectory = async () => {
+    const path = await window.api.fs.selectDirectory();
+    if (path) await addFiles([path]);
   };
 
   const handleScreenCapture = useCallback(async () => {
@@ -368,7 +375,12 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           {(attachments.length > 0 || imageAttachments.length > 0) && (
             <div className="flex flex-wrap gap-1.5 px-3 pt-3">
               {imageAttachments.map((img) => (
-                <ImageAttachmentChip key={img.id} image={img} onRemove={removeImageAttachment} />
+                <ImageAttachmentChip
+                  key={img.id}
+                  image={img}
+                  onRemove={removeImageAttachment}
+                  onPreview={setExpandedImage}
+                />
               ))}
               {attachments.map((file) => (
                 <AttachmentChip
@@ -381,6 +393,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             </div>
           )}
           <FilePreviewDialog path={previewPath} onClose={() => setPreviewPath(null)} />
+          <ImagePreviewOverlay src={expandedImage} onClose={() => setExpandedImage(null)} />
 
           {/* Textarea */}
           <textarea
@@ -421,9 +434,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
 
           {/* Toolbar */}
           <div className="flex items-center gap-1 px-2.5 pb-2">
-            <ToolbarButton title={l10n.t("Attach file")} onClick={handleAttachClick}>
-              <PaperclipIcon className="w-4 h-4" />
-            </ToolbarButton>
+            <AttachMenu onSelectFiles={handleAttachFiles} onSelectFolder={handleAttachDirectory} />
             <MoreToolsMenu
               onScreenCapture={handleScreenCapture}
               onKnowledgeBase={() => dispatch(openSettingsSection("knowledgeBase"))}
@@ -551,19 +562,21 @@ function AttachmentChip({
 function ImageAttachmentChip({
   image,
   onRemove,
+  onPreview,
 }: {
   image: ImageAttachment;
   onRemove: (id: string) => void;
+  onPreview: (src: string) => void;
 }) {
+  const src = `data:${image.mimeType};base64,${image.data}`;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.05] hover:bg-foreground/[0.08] text-[12px] text-foreground/70 max-w-[280px] group transition-colors">
-          <img
-            src={`data:${image.mimeType};base64,${image.data}`}
-            alt=""
-            className="w-5 h-5 object-cover rounded shrink-0"
-          />
+        <div
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/[0.05] hover:bg-foreground/[0.08] text-[12px] text-foreground/70 max-w-[280px] group transition-colors cursor-pointer"
+          onClick={() => onPreview(src)}
+        >
+          <img src={src} alt="" className="w-5 h-5 object-cover rounded shrink-0" />
           <span className="truncate font-medium">{image.name}</span>
           <button
             onClick={(e) => {
@@ -577,13 +590,44 @@ function ImageAttachmentChip({
         </div>
       </TooltipTrigger>
       <TooltipContent side="top">
-        <img
-          src={`data:${image.mimeType};base64,${image.data}`}
-          alt={image.name}
-          className="max-w-[200px] max-h-[150px] rounded"
-        />
+        <img src={src} alt={image.name} className="max-w-[200px] max-h-[150px] rounded" />
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function AttachMenu({
+  onSelectFiles,
+  onSelectFolder,
+}: {
+  onSelectFiles: () => void;
+  onSelectFolder: () => void;
+}) {
+  return (
+    <DropdownMenu
+      placement="top-start"
+      items={[
+        { icon: FileIcon, label: l10n.t("Select Files"), onClick: onSelectFiles },
+        { icon: FolderIcon, label: l10n.t("Select Folder"), onClick: onSelectFolder },
+      ]}
+      trigger={({ ref, onClick, isOpen }) => (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              ref={ref}
+              onClick={onClick}
+              className={cn(
+                "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground/60 hover:text-muted-foreground/90 hover:bg-foreground/[0.05] transition-colors",
+                isOpen && "bg-foreground/[0.05] text-muted-foreground/80",
+              )}
+            >
+              <PaperclipIcon className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{l10n.t("Attach")}</TooltipContent>
+        </Tooltip>
+      )}
+    />
   );
 }
 
@@ -602,129 +646,33 @@ function MoreToolsMenu({
   isRecording: boolean;
   isTranscribing: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (btnRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const handleEscape = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
-
-  // Position the menu above the button, adjusting for viewport edges
-  useEffect(() => {
-    if (!open || !btnRef.current || !menuRef.current) return;
-    const btnRect = btnRef.current.getBoundingClientRect();
-    const menu = menuRef.current;
-    const vw = window.innerWidth;
-
-    let left = btnRect.left;
-    const bottom = window.innerHeight - btnRect.top + 6;
-
-    // Keep within viewport horizontally
-    if (left + menu.offsetWidth > vw - 8) {
-      left = Math.max(8, vw - menu.offsetWidth - 8);
-    }
-
-    menu.style.left = `${left}px`;
-    menu.style.bottom = `${bottom}px`;
-  }, [open]);
-
   return (
-    <>
-      <button
-        ref={btnRef}
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground/60 hover:text-muted-foreground/90 hover:bg-foreground/[0.05] transition-colors",
-          open && "bg-foreground/[0.05] text-muted-foreground/80",
-        )}
-      >
-        <PlusIcon className="w-4 h-4" />
-      </button>
-      {open &&
-        createPortal(
-          <div
-            ref={menuRef}
-            className="fixed z-[9999] min-w-[180px] rounded-xl border border-border bg-popover shadow-lg py-1.5"
-            style={{ left: 0, bottom: 0 }}
-          >
-            <MenuItemButton
-              icon={CameraIcon}
-              label={l10n.t("Screenshot")}
-              onClick={() => {
-                onScreenCapture();
-                setOpen(false);
-              }}
-            />
-            <MenuItemButton
-              icon={BookOpenIcon}
-              label={l10n.t("Knowledge Base")}
-              onClick={() => {
-                onKnowledgeBase();
-                setOpen(false);
-              }}
-            />
-            <MenuItemButton
-              icon={PlugIcon}
-              label={l10n.t("MCP Servers")}
-              onClick={() => {
-                onMCP();
-                setOpen(false);
-              }}
-            />
-            <MenuItemButton
-              icon={isTranscribing ? Loader2Icon : MicIcon}
-              label={isRecording ? l10n.t("Stop recording") : l10n.t("Voice input")}
-              onClick={() => {
-                onMic();
-                setOpen(false);
-              }}
-              iconClassName={cn(
-                isRecording && "text-destructive",
-                isTranscribing && "animate-spin",
-              )}
-            />
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
-
-function MenuItemButton({
-  icon: Icon,
-  label,
-  onClick,
-  iconClassName,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  onClick: () => void;
-  iconClassName?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2.5 w-full px-3.5 py-2 text-[13px] text-foreground/70 hover:text-foreground/90 hover:bg-foreground/[0.05] transition-colors"
-    >
-      <Icon className={cn("w-4 h-4 text-muted-foreground/60", iconClassName)} />
-      {label}
-    </button>
+    <DropdownMenu
+      placement="top-start"
+      items={[
+        { icon: CameraIcon, label: l10n.t("Screenshot"), onClick: onScreenCapture },
+        { icon: BookOpenIcon, label: l10n.t("Knowledge Base"), onClick: onKnowledgeBase },
+        { icon: PlugIcon, label: l10n.t("MCP Servers"), onClick: onMCP },
+        {
+          icon: isTranscribing ? Loader2Icon : MicIcon,
+          label: isRecording ? l10n.t("Stop recording") : l10n.t("Voice input"),
+          onClick: onMic,
+          iconClassName: cn(isRecording && "text-destructive", isTranscribing && "animate-spin"),
+        },
+      ]}
+      trigger={({ ref, onClick, isOpen }) => (
+        <button
+          ref={ref}
+          onClick={onClick}
+          className={cn(
+            "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground/60 hover:text-muted-foreground/90 hover:bg-foreground/[0.05] transition-colors",
+            isOpen && "bg-foreground/[0.05] text-muted-foreground/80",
+          )}
+        >
+          <PlusIcon className="w-4 h-4" />
+        </button>
+      )}
+    />
   );
 }
 

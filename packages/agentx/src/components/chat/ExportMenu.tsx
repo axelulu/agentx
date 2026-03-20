@@ -67,7 +67,10 @@ export function ExportMenu() {
       </Tooltip>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-lg border border-border bg-card shadow-lg py-1">
+        <div
+          className="absolute right-0 top-full mt-1 min-w-[180px] rounded-lg border border-border bg-card shadow-lg py-1"
+          style={{ zIndex: "var(--z-popover)" }}
+        >
           <MenuItem
             icon={FileTextIcon}
             label={l10n.t("Export as Markdown")}
