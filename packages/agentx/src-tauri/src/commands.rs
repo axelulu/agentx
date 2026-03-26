@@ -1028,6 +1028,46 @@ pub async fn window_show(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn window_show_and_emit(app: AppHandle, event: String) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("main") {
+        win.show().map_err(|e| e.to_string())?;
+        win.set_focus().map_err(|e| e.to_string())?;
+        // Use eval to directly dispatch in the main window's JS context.
+        // This is more reliable than cross-window Tauri events after show().
+        let js = format!(
+            "window.__QUICKCHAT_ACTION__ && window.__QUICKCHAT_ACTION__('{}')",
+            event
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let _ = win.eval(&js);
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Translate commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn translate_run(
+    state: State<'_, SidecarState>,
+    text: String,
+    target_lang: String,
+) -> Result<Value, String> {
+    sidecar_call(
+        &state,
+        "translate:run",
+        serde_json::json!([text, target_lang]),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn translate_get_selected_text() -> Result<String, String> {
+    crate::translate::get_selected_text()
+}
+
 // ---------------------------------------------------------------------------
 // Helper: macOS permission status check
 // ---------------------------------------------------------------------------

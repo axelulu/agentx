@@ -353,5 +353,12 @@
   "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.": "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.",
   "Clear All Conversations": "Clear All Conversations",
   "Delete all conversations permanently": "Delete all conversations permanently",
-  "All conversations will be permanently deleted. This action cannot be undone.": "All conversations will be permanently deleted. This action cannot be undone."
+  "All conversations will be permanently deleted. This action cannot be undone.": "All conversations will be permanently deleted. This action cannot be undone.",
+  "Quick Chat": "Quick Chat",
+  "New conversation": "New conversation",
+  "Ask anything...": "Ask anything...",
+  "Type a message...": "Type a message...",
+  "Open AgentX": "Open AgentX",
+  "Quit": "Quit",
+  "Esc to close": "Esc to close"
 }

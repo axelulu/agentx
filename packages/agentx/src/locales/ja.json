@@ -330,5 +330,12 @@
   "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.": "すべての設定がデフォルト値に戻されます。AIプロバイダー、MCPサーバー、ナレッジベース、スキル、スケジュールタスクを含みます。この操作は取り消せません。",
   "Clear All Conversations": "すべての会話を削除",
   "Delete all conversations permanently": "すべての会話を完全に削除します",
-  "All conversations will be permanently deleted. This action cannot be undone.": "すべての会話が完全に削除されます。この操作は取り消せません。"
+  "All conversations will be permanently deleted. This action cannot be undone.": "すべての会話が完全に削除されます。この操作は取り消せません。",
+  "Quick Chat": "クイックチャット",
+  "New conversation": "新しい会話",
+  "Ask anything...": "何でも聞いてください...",
+  "Type a message...": "メッセージを入力...",
+  "Open AgentX": "AgentX を開く",
+  "Quit": "終了",
+  "Esc to close": "Esc で閉じる"
 }

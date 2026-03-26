@@ -347,5 +347,12 @@
   "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.": "所有设置将恢复为默认值，包括 AI 服务商、MCP 服务器、知识库、技能和定时任务。此操作无法撤销。",
   "Clear All Conversations": "清空所有对话",
   "Delete all conversations permanently": "永久删除所有对话",
-  "All conversations will be permanently deleted. This action cannot be undone.": "所有对话将被永久删除。此操作无法撤销。"
+  "All conversations will be permanently deleted. This action cannot be undone.": "所有对话将被永久删除。此操作无法撤销。",
+  "Quick Chat": "快捷聊天",
+  "New conversation": "新建对话",
+  "Ask anything...": "随便问点什么...",
+  "Type a message...": "输入消息...",
+  "Open AgentX": "打开 AgentX",
+  "Quit": "退出",
+  "Esc to close": "按 Esc 关闭"
 }

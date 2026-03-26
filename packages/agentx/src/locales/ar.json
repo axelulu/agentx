@@ -330,5 +330,12 @@
   "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.": "ستتم استعادة جميع الإعدادات إلى قيمها الافتراضية. يشمل ذلك مزودي الخدمة وخوادم MCP وقاعدة المعرفة والمهارات والمهام المجدولة. لا يمكن التراجع عن هذا الإجراء.",
   "Clear All Conversations": "حذف جميع المحادثات",
   "Delete all conversations permanently": "حذف جميع المحادثات نهائياً",
-  "All conversations will be permanently deleted. This action cannot be undone.": "سيتم حذف جميع المحادثات نهائياً. لا يمكن التراجع عن هذا الإجراء."
+  "All conversations will be permanently deleted. This action cannot be undone.": "سيتم حذف جميع المحادثات نهائياً. لا يمكن التراجع عن هذا الإجراء.",
+  "Quick Chat": "دردشة سريعة",
+  "New conversation": "محادثة جديدة",
+  "Ask anything...": "اسأل أي شيء...",
+  "Type a message...": "اكتب رسالة...",
+  "Open AgentX": "فتح AgentX",
+  "Quit": "خروج",
+  "Esc to close": "Esc للإغلاق"
 }

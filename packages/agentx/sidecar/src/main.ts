@@ -591,6 +591,114 @@ async function main() {
 
     // Notifications config (no-op, handled by Rust side)
     "notifications:config": () => null,
+
+    // Translate
+    "translate:run": async (text: string, targetLang: string) => {
+      try {
+        const providers = readJsonFile<ProviderConfig[]>(providersPath, []);
+        const activeProvider = providers.find((p) => p.isActive) || providers[0];
+
+        if (!activeProvider) {
+          return {
+            text: "",
+            error: "No AI provider configured. Please set up a provider in Settings.",
+          };
+        }
+
+        // Build the provider's StreamFn via ProviderManager
+        const pm = runtime as unknown as { providerManager?: unknown };
+        // Use runtime's provider directly by making a simple API call
+        const langNames: Record<string, string> = {
+          zh: "Chinese (Simplified)",
+          en: "English",
+          ja: "Japanese",
+          ko: "Korean",
+          fr: "French",
+          de: "German",
+          es: "Spanish",
+          ru: "Russian",
+          pt: "Portuguese",
+          ar: "Arabic",
+        };
+        const targetName = langNames[targetLang] || targetLang;
+
+        const systemPrompt = `You are a professional translator. Translate the given text to ${targetName}. Only output the translated text, nothing else. Do not add explanations, quotes, or formatting. Preserve the original formatting (line breaks, paragraphs, etc).`;
+
+        // Determine API details based on provider type
+        let apiUrl: string;
+        let headers: Record<string, string>;
+        let body: unknown;
+
+        if (activeProvider.type === "anthropic") {
+          apiUrl =
+            (activeProvider.baseUrl || "https://api.anthropic.com").replace(/\/+$/, "") +
+            "/v1/messages";
+          headers = {
+            "Content-Type": "application/json",
+            "x-api-key": activeProvider.apiKey,
+            "anthropic-version": "2023-06-01",
+          };
+          body = {
+            model: activeProvider.defaultModel || "claude-sonnet-4-20250514",
+            max_tokens: 4096,
+            temperature: 0.2,
+            system: systemPrompt,
+            messages: [{ role: "user", content: text }],
+          };
+        } else {
+          // OpenAI-compatible (openai, gemini, custom)
+          let baseUrl = (activeProvider.baseUrl || "https://api.openai.com/v1").replace(/\/+$/, "");
+          if (activeProvider.type === "gemini" && !activeProvider.baseUrl) {
+            baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
+          }
+          apiUrl = `${baseUrl}/chat/completions`;
+          headers = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${activeProvider.apiKey}`,
+          };
+          const defaultModel =
+            activeProvider.type === "gemini"
+              ? "gemini-2.0-flash"
+              : activeProvider.defaultModel || "gpt-4o";
+          body = {
+            model: activeProvider.defaultModel || defaultModel,
+            temperature: 0.2,
+            max_tokens: 4096,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: text },
+            ],
+          };
+        }
+
+        const resp = await fetch(apiUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        });
+
+        const respText = await resp.text();
+        if (!resp.ok) {
+          return { text: "", error: `API error (${resp.status}): ${respText.slice(0, 200)}` };
+        }
+
+        const json = JSON.parse(respText);
+
+        let translatedText: string;
+        if (activeProvider.type === "anthropic") {
+          translatedText =
+            json.content?.[0]?.text ||
+            json.content?.map((c: { text: string }) => c.text).join("") ||
+            "";
+        } else {
+          translatedText = json.choices?.[0]?.message?.content || "";
+        }
+
+        return { text: translatedText.trim() };
+      } catch (err) {
+        return { text: "", error: err instanceof Error ? err.message : "Translation failed" };
+      }
+    },
   };
 
   // ---------------------------------------------------------------------------

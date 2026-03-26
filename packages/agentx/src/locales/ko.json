@@ -330,5 +330,12 @@
   "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.": "모든 설정이 기본값으로 복원됩니다. AI 제공자, MCP 서버, 지식 베이스, 스킬, 예약 작업이 포함됩니다. 이 작업은 되돌릴 수 없습니다.",
   "Clear All Conversations": "모든 대화 삭제",
   "Delete all conversations permanently": "모든 대화를 영구적으로 삭제합니다",
-  "All conversations will be permanently deleted. This action cannot be undone.": "모든 대화가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+  "All conversations will be permanently deleted. This action cannot be undone.": "모든 대화가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "Quick Chat": "빠른 채팅",
+  "New conversation": "새 대화",
+  "Ask anything...": "무엇이든 물어보세요...",
+  "Type a message...": "메시지를 입력하세요...",
+  "Open AgentX": "AgentX 열기",
+  "Quit": "종료",
+  "Esc to close": "Esc로 닫기"
 }

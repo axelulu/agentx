@@ -330,5 +330,12 @@
   "All settings will be restored to their default values. This includes providers, MCP servers, knowledge base, skills, and scheduled tasks. This action cannot be undone.": "Все настройки будут восстановлены до значений по умолчанию. Это включает провайдеров, серверы MCP, базу знаний, навыки и запланированные задачи. Это действие нельзя отменить.",
   "Clear All Conversations": "Удалить все диалоги",
   "Delete all conversations permanently": "Безвозвратно удалить все диалоги",
-  "All conversations will be permanently deleted. This action cannot be undone.": "Все диалоги будут безвозвратно удалены. Это действие нельзя отменить."
+  "All conversations will be permanently deleted. This action cannot be undone.": "Все диалоги будут безвозвратно удалены. Это действие нельзя отменить.",
+  "Quick Chat": "Быстрый чат",
+  "New conversation": "Новый разговор",
+  "Ask anything...": "Спрашивайте что угодно...",
+  "Type a message...": "Введите сообщение...",
+  "Open AgentX": "Открыть AgentX",
+  "Quit": "Выйти",
+  "Esc to close": "Esc для закрытия"
 }

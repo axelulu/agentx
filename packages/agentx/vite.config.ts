@@ -16,6 +16,13 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        translator: resolve(__dirname, "translator.html"),
+        quickchat: resolve(__dirname, "quickchat.html"),
+      },
+    },
   },
   server: {
     port: 1420,

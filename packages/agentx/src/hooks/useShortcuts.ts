@@ -27,8 +27,22 @@ export function useShortcuts() {
       }),
     ];
 
+    // Handler for quickchat cross-window actions (called via eval from Rust)
+    (window as unknown as Record<string, unknown>).__QUICKCHAT_ACTION__ = (event: string) => {
+      if (event === "shortcut:settings") {
+        dispatch(toggleSettings());
+      } else if (event === "shortcut:new-conversation") {
+        dispatch(createNewConversation()).then((action) => {
+          if (createNewConversation.fulfilled.match(action)) {
+            dispatch(openTab(action.payload.id));
+          }
+        });
+      }
+    };
+
     return () => {
       unsubs.forEach((unsub) => unsub());
+      delete (window as unknown as Record<string, unknown>).__QUICKCHAT_ACTION__;
     };
   }, [dispatch]);
 

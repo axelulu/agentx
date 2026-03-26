@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/nicegoodthings/nicebeta/main/tauri-permission-schema.json",
   "identifier": "default",
   "description": "Default capabilities for AgentX",
-  "windows": ["main"],
+  "windows": ["main", "translator", "quickchat"],
   "permissions": [
     "core:default",
     "core:window:default",
@@ -43,6 +43,8 @@
     "fs:allow-stat",
     "process:default",
     "process:allow-exit",
-    "process:allow-restart"
+    "process:allow-restart",
+    "core:window:allow-create",
+    "core:webview:allow-create-webview-window"
   ]
 }

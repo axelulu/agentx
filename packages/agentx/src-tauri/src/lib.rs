@@ -1,5 +1,7 @@
 mod commands;
+mod quickchat;
 mod sidecar;
+mod translate;
 mod tray;
 mod menu;
 mod window;
@@ -60,6 +62,11 @@ pub fn run() {
 
             // Register global shortcut (Alt+Space)
             window::register_global_shortcut(app.handle())?;
+
+            // Register translation shortcut (Option+D)
+            if let Err(e) = translate::register_translate_shortcut(app.handle()) {
+                eprintln!("[Translate] Failed to register shortcut: {}", e);
+            }
 
             // Set up window event handling and show when ready
             if let Some(win) = app.get_webview_window("main") {
@@ -163,6 +170,10 @@ pub fn run() {
             commands::window_maximize,
             commands::window_close,
             commands::window_show,
+            commands::window_show_and_emit,
+            // Translate commands
+            commands::translate_run,
+            commands::translate_get_selected_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
