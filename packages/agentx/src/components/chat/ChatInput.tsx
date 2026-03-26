@@ -90,9 +90,8 @@ export interface ChatInputHandle {
 
 export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, ref) {
   const dispatch = useDispatch<AppDispatch>();
-  const { inputValue, isStreaming, error, sessionUsage, conversationUsage } = useSelector(
-    (state: RootState) => state.chat,
-  );
+  const { inputValue, isStreaming, error, sessionUsage, conversationUsage, currentConversationId } =
+    useSelector((state: RootState) => state.chat);
   const { providers, voice } = useSelector((state: RootState) => state.settings);
   const { sendMessage, abort } = useAgent();
   const {
@@ -128,6 +127,12 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
       textareaRef.current?.focus();
     }
   }, [providers, voice, isRecording, toggleRecording, dispatch, inputValue]);
+
+  // Reset local attachments when conversation changes
+  useEffect(() => {
+    setAttachments([]);
+    setImageAttachments([]);
+  }, [currentConversationId]);
 
   // Auto-focus textarea on mount and when streaming ends
   useEffect(() => {

@@ -505,7 +505,13 @@ const chatSlice = createSlice({
       state.currentConversationId = null;
       state.messages = [];
       state.inputValue = "";
+      state.isStreaming = false;
+      state.streamingMessageId = null;
+      state.activeAgentMessageId = null;
+      state.pendingApproval = null;
       state.error = null;
+      state.sessionUsage = { ...EMPTY_USAGE };
+      state.conversationUsage = { ...EMPTY_USAGE };
       state.branchInfo = {};
       state.enabledSkills = [];
     },

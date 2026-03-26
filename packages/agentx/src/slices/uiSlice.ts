@@ -1,6 +1,11 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
 import { loadPreferences } from "./settingsSlice";
-import { switchConversation, removeConversation, removeConversations } from "./chatSlice";
+import {
+  switchConversation,
+  resetToWelcome,
+  removeConversation,
+  removeConversations,
+} from "./chatSlice";
 
 export type SettingsSection =
   | "general"
@@ -49,12 +54,16 @@ export const closeTabAndSwitch = createAsyncThunk(
     const currentId = state.chat.currentConversationId;
     const idx = openTabs.indexOf(tabId);
 
-    // If closing the active tab, switch to an adjacent one
-    if (tabId === currentId && openTabs.length > 1 && idx !== -1) {
-      const nextIdx = idx === openTabs.length - 1 ? idx - 1 : idx + 1;
-      const nextId = openTabs[nextIdx];
-      if (nextId) {
-        dispatch(switchConversation(nextId));
+    // If closing the active tab, switch to an adjacent one or go to welcome
+    if (tabId === currentId && idx !== -1) {
+      if (openTabs.length > 1) {
+        const nextIdx = idx === openTabs.length - 1 ? idx - 1 : idx + 1;
+        const nextId = openTabs[nextIdx];
+        if (nextId) {
+          dispatch(switchConversation(nextId));
+        }
+      } else {
+        dispatch(resetToWelcome());
       }
     }
 

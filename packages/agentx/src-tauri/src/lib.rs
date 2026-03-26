@@ -60,6 +60,12 @@ pub fn run() {
                 });
             });
 
+            // Listen for quit requests from frontend (e.g. QuickChat panel)
+            let quit_handle = app.handle().clone();
+            app.listen("app:quit-requested", move |_| {
+                quit_handle.exit(0);
+            });
+
             // Register global shortcut (Alt+Space)
             window::register_global_shortcut(app.handle())?;
 

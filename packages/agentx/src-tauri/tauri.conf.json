@@ -35,10 +35,7 @@
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https://*.openai.com https://*.anthropic.com https://*.googleapis.com https://*.openrouter.ai; img-src 'self' data: https: asset: http://asset.localhost; media-src 'self' asset: http://asset.localhost; font-src 'self' data:"
     },
-    "trayIcon": {
-      "iconPath": "icons/tray-icon.png",
-      "iconAsTemplate": true
-    }
+    "trayIcon": null
   },
   "bundle": {
     "active": true,
