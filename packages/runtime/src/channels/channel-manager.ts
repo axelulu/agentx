@@ -59,7 +59,17 @@ export class ChannelManager {
           string,
           string
         >;
-        this.conversationMap = new Map(Object.entries(data));
+        // Migrate old ":lobby:" keys to new canonical format
+        const migrated: Record<string, string> = {};
+        for (const [key, value] of Object.entries(data)) {
+          const lobbyMatch = key.match(/^(\w+):lobby:(.+)$/);
+          if (lobbyMatch) {
+            migrated[`${lobbyMatch[1]}:${lobbyMatch[2]}`] = value;
+          } else {
+            migrated[key] = value;
+          }
+        }
+        this.conversationMap = new Map(Object.entries(migrated));
       }
     } catch {
       // ignore corrupted file
@@ -176,12 +186,18 @@ export class ChannelManager {
   // Ensure a pinned conversation exists for a channel on connect
   // ---------------------------------------------------------------------------
 
+  /** Canonical platformKey for a channel — all messages share a single conversation. */
+  private channelPlatformKey(config: ChannelConfig): string {
+    return `${config.type}:${config.id}`;
+  }
+
   private async ensureChannelConversation(
     config: ChannelConfig,
     adapter: ChannelAdapter,
   ): Promise<void> {
-    const platformKey = `${config.type}:lobby:${config.id}`;
-    const platformName = config.type === "telegram" ? "Telegram" : "Discord";
+    const platformKey = this.channelPlatformKey(config);
+    const platformName =
+      config.type === "telegram" ? "Telegram" : config.type === "discord" ? "Discord" : config.type;
     const displayName = adapter.getState().displayName;
     const title = displayName ? `${platformName} · ${displayName}` : platformName;
     await this.resolveConversation(config, platformKey, title);
@@ -221,15 +237,26 @@ export class ChannelManager {
 
   private async handleInboundMessage(config: ChannelConfig, msg: InboundMessage): Promise<void> {
     try {
-      const platformName = config.type === "telegram" ? "Telegram" : "Discord";
+      // Use the same canonical key as ensureChannelConversation so all messages
+      // for a channel go to the single conversation created on connect.
+      const platformKey = this.channelPlatformKey(config);
+      const platformName =
+        config.type === "telegram"
+          ? "Telegram"
+          : config.type === "discord"
+            ? "Discord"
+            : config.type;
       const title = `${platformName} · ${msg.senderName}`;
-      const conversationId = await this.resolveConversation(config, msg.platformKey, title);
+      const conversationId = await this.resolveConversation(config, platformKey, title);
 
       // Send typing indicator if available
       msg.sendTyping?.().catch(() => {});
 
+      // Prepend sender name so the AI knows who is talking
+      const messageText = `[${msg.senderName}] ${msg.text}`;
+
       // Send message to runtime
-      await this.runtime.sendMessage(conversationId, msg.text);
+      await this.runtime.sendMessage(conversationId, messageText);
 
       // Subscribe to events and collect the full response
       await this.collectAndReply(conversationId, msg);
