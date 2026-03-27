@@ -191,15 +191,20 @@ export class ChannelManager {
     return `${config.type}:${config.id}`;
   }
 
+  /** Consistent conversation title derived from the bot's display name, not the message sender. */
+  private channelConversationTitle(config: ChannelConfig, adapter?: ChannelAdapter): string {
+    const platformName =
+      config.type === "telegram" ? "Telegram" : config.type === "discord" ? "Discord" : config.type;
+    const displayName = adapter?.getState().displayName;
+    return displayName ? `${platformName} · ${displayName}` : platformName;
+  }
+
   private async ensureChannelConversation(
     config: ChannelConfig,
     adapter: ChannelAdapter,
   ): Promise<void> {
     const platformKey = this.channelPlatformKey(config);
-    const platformName =
-      config.type === "telegram" ? "Telegram" : config.type === "discord" ? "Discord" : config.type;
-    const displayName = adapter.getState().displayName;
-    const title = displayName ? `${platformName} · ${displayName}` : platformName;
+    const title = this.channelConversationTitle(config, adapter);
     await this.resolveConversation(config, platformKey, title);
   }
 
@@ -240,13 +245,10 @@ export class ChannelManager {
       // Use the same canonical key as ensureChannelConversation so all messages
       // for a channel go to the single conversation created on connect.
       const platformKey = this.channelPlatformKey(config);
-      const platformName =
-        config.type === "telegram"
-          ? "Telegram"
-          : config.type === "discord"
-            ? "Discord"
-            : config.type;
-      const title = `${platformName} · ${msg.senderName}`;
+      // Use the bot/adapter display name for the title (not the sender's name)
+      // so recreated conversations match the one created on connect.
+      const adapter = this.adapters.get(config.id);
+      const title = this.channelConversationTitle(config, adapter);
       const conversationId = await this.resolveConversation(config, platformKey, title);
 
       // Send typing indicator if available
