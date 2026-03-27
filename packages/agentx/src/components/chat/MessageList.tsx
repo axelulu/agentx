@@ -96,7 +96,7 @@ export function MessageList({
   const needsStandaloneIndicator = isStreaming && lastMessage?.role === "user";
 
   return (
-    <div className="flex flex-col px-8 py-10 max-w-3xl mx-auto w-full">
+    <div className="flex flex-col px-8 pt-4 pb-10 max-w-3xl mx-auto w-full">
       {messages.map((message, idx) => {
         const prev = idx > 0 ? messages[idx - 1] : null;
         const isConsecutiveAssistant = message.role === "assistant" && prev?.role === "assistant";

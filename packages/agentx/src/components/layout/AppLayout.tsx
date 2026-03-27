@@ -66,7 +66,7 @@ export function AppLayout() {
         {/* Right column: opaque content area */}
         <div className="flex flex-col flex-1 overflow-hidden bg-background">
           {activeView === "chat" && <TabBar />}
-          <TitleBar />
+          {activeView !== "chat" && <TitleBar />}
           <UpdateDialog />
           {activeView === "automation" ? (
             <AutomationPanel />

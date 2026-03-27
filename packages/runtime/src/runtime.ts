@@ -588,6 +588,14 @@ export class AgentRuntime {
     await this.conversationManager.saveConversation(data);
   }
 
+  async setConversationSource(conversationId: string, source: string): Promise<void> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    if (!data) throw new Error(`Conversation not found: ${conversationId}`);
+    data.source = source || undefined;
+    data.updatedAt = Date.now();
+    await this.conversationManager.saveConversation(data);
+  }
+
   // ---------------------------------------------------------------------------
   // Conversation search
   // ---------------------------------------------------------------------------

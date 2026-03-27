@@ -14,6 +14,7 @@ export type SettingsSection =
   | "providers"
   | "knowledgeBase"
   | "mcp"
+  | "channels"
   | "memory"
   | "permissions"
   | "about";

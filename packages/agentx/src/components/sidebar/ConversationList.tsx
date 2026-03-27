@@ -32,6 +32,8 @@ import {
   ZapIcon,
   BookOpenIcon,
   LayersIcon,
+  SendIcon,
+  SmartphoneIcon,
   CheckIcon,
   ChevronRightIcon,
   Loader2Icon,
@@ -57,6 +59,8 @@ import { useConversationDnd } from "@/hooks/useConversationDnd";
 // ---------------------------------------------------------------------------
 
 const ICON_RULES: Array<{ keywords: string[]; icon: LucideIcon }> = [
+  { keywords: ["telegram ·", "telegram:"], icon: SendIcon },
+  { keywords: ["discord ·", "discord:"], icon: SmartphoneIcon },
   { keywords: ["bug", "fix", "error", "issue", "debug", "crash"], icon: BugIcon },
   {
     keywords: ["code", "function", "implement", "refactor", "class", "typescript", "javascript"],

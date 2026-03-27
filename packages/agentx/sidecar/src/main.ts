@@ -21,7 +21,9 @@ import type {
   SkillDefinition,
   ToolPermissions,
   ScheduledTask,
+  ChannelConfig,
 } from "@agentx/runtime";
+import { ChannelManager } from "@agentx/runtime";
 import { searchSkills } from "@agentx/runtime";
 
 // ---------------------------------------------------------------------------
@@ -101,9 +103,19 @@ function pushNotification(method: string, params: unknown): void {
 // ---------------------------------------------------------------------------
 
 function applyProxy(url: string | null): void {
-  // Dynamic import to avoid bundling issues
+  // Set env vars so all subsystems (channels, etc.) can detect proxy
+  if (url) {
+    process.env.HTTPS_PROXY = url;
+    process.env.HTTP_PROXY = url;
+  } else {
+    delete process.env.HTTPS_PROXY;
+    delete process.env.HTTP_PROXY;
+  }
+
   try {
-    const { setGlobalDispatcher, ProxyAgent, Agent } = require("undici");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const undici = require("undici");
+    const { setGlobalDispatcher, ProxyAgent, Agent } = undici;
     if (url) {
       setGlobalDispatcher(new ProxyAgent(url));
       console.error("[Sidecar/Proxy] Enabled:", url);
@@ -195,6 +207,38 @@ async function main() {
   runtime.setMCPStatusHandler((states) => {
     pushNotification("mcp:statusUpdate", states);
   });
+
+  // Restore channels
+  const channelsPath = join(resolvedDataDir, "channels.json");
+  const channelConversationsPath = join(resolvedDataDir, "channel-conversations.json");
+  const channelManager = new ChannelManager(runtime, {
+    configPath: channelsPath,
+    conversationMapPath: channelConversationsPath,
+    onStatusUpdate: (states) => {
+      pushNotification("channel:statusUpdate", states);
+    },
+    onQRCode: (channelId, qrDataUrl) => {
+      pushNotification("channel:qrCode", { channelId, qrDataUrl });
+    },
+    onConversationsChanged: () => {
+      pushNotification("channel:conversationsChanged", {});
+    },
+    onConfigUpdate: (channelId, settingsUpdate) => {
+      const configs = readJsonFile<ChannelConfig[]>(channelsPath, []);
+      const idx = configs.findIndex((c) => c.id === channelId);
+      if (idx >= 0) {
+        configs[idx]!.settings = { ...configs[idx]!.settings, ...settingsUpdate };
+        writeJsonFile(channelsPath, configs);
+      }
+    },
+  });
+
+  const savedChannels = readJsonFile<ChannelConfig[]>(channelsPath, []);
+  if (savedChannels.length > 0) {
+    channelManager.setConfigs(savedChannels).catch((err) => {
+      console.error("[Sidecar/Channels] Failed to restore:", err);
+    });
+  }
 
   // Restore scheduled tasks
   const schedulerPath = join(resolvedDataDir, "scheduled-tasks.json");
@@ -401,6 +445,30 @@ async function main() {
     "scheduler:runNow": async (id: string) => {
       const manager = runtime?.getScheduledTaskManager();
       if (manager) await manager.runNow(id);
+    },
+
+    // Channels
+    "channel:list": () => readJsonFile<ChannelConfig[]>(channelsPath, []),
+    "channel:set": async (config: { id: string }) => {
+      const configs = readJsonFile<ChannelConfig[]>(channelsPath, []);
+      const idx = configs.findIndex((c) => c.id === config.id);
+      if (idx >= 0) configs[idx] = config as ChannelConfig;
+      else configs.push(config as ChannelConfig);
+      writeJsonFile(channelsPath, configs);
+      await channelManager.setConfigs(configs);
+    },
+    "channel:remove": async (id: string) => {
+      const configs = readJsonFile<ChannelConfig[]>(channelsPath, []);
+      const remaining = configs.filter((c) => c.id !== id);
+      writeJsonFile(channelsPath, remaining);
+      await channelManager.setConfigs(remaining);
+    },
+    "channel:status": () => channelManager.getStates(),
+    "channel:start": async (id: string) => {
+      await channelManager.startChannel(id);
+    },
+    "channel:stop": async (id: string) => {
+      await channelManager.stopChannel(id);
     },
 
     // Memory
@@ -753,6 +821,7 @@ async function main() {
   rl.on("close", async () => {
     console.error("[Sidecar] stdin closed, shutting down...");
     try {
+      await channelManager.shutdown();
       await runtime?.shutdown();
     } catch (err) {
       console.error("[Sidecar] Shutdown error:", err);

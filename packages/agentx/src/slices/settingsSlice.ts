@@ -36,6 +36,14 @@ export interface MCPServerConfig {
   enabled: boolean;
 }
 
+export interface ChannelConfig {
+  id: string;
+  type: "telegram" | "discord";
+  name: string;
+  enabled: boolean;
+  settings: Record<string, unknown>;
+}
+
 export interface VoiceSettings {
   sttApiUrl: string;
   sttApiKey: string;
@@ -99,6 +107,7 @@ export interface SettingsState {
   providers: ProviderConfig[];
   knowledgeBase: KnowledgeBaseItem[];
   mcpServers: MCPServerConfig[];
+  channels: ChannelConfig[];
   scheduledTasks: ScheduledTaskConfig[];
   toolPermissions: ToolPermissionsState;
   voice: VoiceSettings;
@@ -184,6 +193,11 @@ export const searchSkillStore = createAsyncThunk(
     return result.skills as SkillDefinition[];
   },
 );
+
+export const loadChannels = createAsyncThunk("settings/loadChannels", async () => {
+  const configs = await window.api.channel.list();
+  return configs as ChannelConfig[];
+});
 
 export const loadScheduledTasks = createAsyncThunk("settings/loadScheduledTasks", async () => {
   const tasks = await window.api.scheduler.list();
@@ -359,6 +373,18 @@ function persistSkillUninstall(id: string): void {
   });
 }
 
+function persistChannel(config: ChannelConfig): void {
+  window.api.channel.set(config as ChannelConfigData).catch((err: unknown) => {
+    console.error("[Channel] Failed to persist:", err);
+  });
+}
+
+function persistChannelRemove(id: string): void {
+  window.api.channel.remove(id).catch((err: unknown) => {
+    console.error("[Channel] Failed to remove:", err);
+  });
+}
+
 function persistScheduledTask(task: ScheduledTaskConfig): void {
   window.api.scheduler.set(task).catch((err: unknown) => {
     console.error("[Scheduler] Failed to persist task:", err);
@@ -396,6 +422,7 @@ const initialState: SettingsState = {
   providers: [],
   knowledgeBase: [],
   mcpServers: [],
+  channels: [],
   scheduledTasks: [],
   toolPermissions: {
     approvalMode: "smart",
@@ -496,6 +523,22 @@ const settingsSlice = createSlice({
     deleteMCPServer(state, action: PayloadAction<string>) {
       state.mcpServers = state.mcpServers.filter((m) => m.id !== action.payload);
       persistMCPRemove(action.payload);
+    },
+
+    // Channels — synchronous reducers for instant UI updates
+    upsertChannel(state, action: PayloadAction<ChannelConfig>) {
+      const config = action.payload;
+      const idx = state.channels.findIndex((c) => c.id === config.id);
+      if (idx >= 0) {
+        state.channels[idx] = config;
+      } else {
+        state.channels.push(config);
+      }
+      persistChannel(config);
+    },
+    deleteChannel(state, action: PayloadAction<string>) {
+      state.channels = state.channels.filter((c) => c.id !== action.payload);
+      persistChannelRemove(action.payload);
     },
 
     // Providers — synchronous reducers for instant UI updates
@@ -720,6 +763,10 @@ const settingsSlice = createSlice({
       .addCase(loadMCPServers.fulfilled, (state, action) => {
         state.mcpServers = action.payload;
       })
+      // Channels — load from disk
+      .addCase(loadChannels.fulfilled, (state, action) => {
+        state.channels = action.payload;
+      })
       // Scheduled Tasks — load from disk
       .addCase(loadScheduledTasks.fulfilled, (state, action) => {
         state.scheduledTasks = action.payload;
@@ -749,6 +796,7 @@ const settingsSlice = createSlice({
         state.providers = [];
         state.knowledgeBase = [];
         state.mcpServers = [];
+        state.channels = [];
         state.scheduledTasks = [];
         state.installedSkills = [];
         state.folders = [];
@@ -789,6 +837,8 @@ export const {
   deleteKBItem,
   upsertMCPServer,
   deleteMCPServer,
+  upsertChannel,
+  deleteChannel,
   upsertProvider,
   deleteProvider,
   activateProvider,

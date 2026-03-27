@@ -34,6 +34,10 @@ export type {
   OrchestratedResult,
 } from "./sub-agent/index.js";
 
+// Channels
+export { ChannelManager } from "./channels/index.js";
+export type { ChannelConfig, ChannelState, ChannelType, ChannelStatus } from "./channels/index.js";
+
 // Memory
 export { MemoryManager } from "./memory/index.js";
 export type {

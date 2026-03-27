@@ -126,6 +126,27 @@ const bridge: NativeAPI = {
     },
   },
 
+  channel: {
+    list: () => invoke("channel_list"),
+    set: (config: ChannelConfigData) => invoke("channel_set", { config }),
+    remove: (id: string) => invoke("channel_remove", { id }),
+    status: () => invoke("channel_status"),
+    start: (id: string) => invoke("channel_start", { id }),
+    stop: (id: string) => invoke("channel_stop", { id }),
+    onStatusUpdate: (callback: (states: ChannelStateData[]) => void) => {
+      return createEventListener("channel:statusUpdate", callback as (...args: unknown[]) => void);
+    },
+    onQRCode: (callback: (data: { channelId: string; qrDataUrl: string }) => void) => {
+      return createEventListener("channel:qrCode", callback as (...args: unknown[]) => void);
+    },
+    onConversationsChanged: (callback: () => void) => {
+      return createEventListener(
+        "channel:conversationsChanged",
+        callback as (...args: unknown[]) => void,
+      );
+    },
+  },
+
   scheduler: {
     list: () => invoke("scheduler_list"),
     set: (task: ScheduledTaskConfig) => invoke("scheduler_set", { task }),

@@ -76,6 +76,25 @@ interface LearnedFact {
   updatedAt: number;
 }
 
+type ChannelType = "telegram" | "discord";
+type ChannelStatus = "stopped" | "starting" | "running" | "error";
+
+interface ChannelConfigData {
+  id: string;
+  type: ChannelType;
+  name: string;
+  enabled: boolean;
+  settings: Record<string, unknown>;
+}
+
+interface ChannelStateData {
+  id: string;
+  type: ChannelType;
+  status: ChannelStatus;
+  displayName?: string;
+  error?: string;
+}
+
 type SystemPermissionType =
   | "accessibility"
   | "screen"
@@ -150,6 +169,17 @@ interface NativeAPI {
     status: () => Promise<MCPServerState[]>;
     reconnect: (id?: string) => Promise<void>;
     onStatusUpdate: (callback: (states: MCPServerState[]) => void) => () => void;
+  };
+  channel: {
+    list: () => Promise<ChannelConfigData[]>;
+    set: (config: ChannelConfigData) => Promise<void>;
+    remove: (id: string) => Promise<void>;
+    status: () => Promise<ChannelStateData[]>;
+    start: (id: string) => Promise<void>;
+    stop: (id: string) => Promise<void>;
+    onStatusUpdate: (callback: (states: ChannelStateData[]) => void) => () => void;
+    onQRCode: (callback: (data: { channelId: string; qrDataUrl: string }) => void) => () => void;
+    onConversationsChanged: (callback: () => void) => () => void;
   };
   scheduler: {
     list: () => Promise<ScheduledTaskConfig[]>;

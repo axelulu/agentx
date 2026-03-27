@@ -430,6 +430,40 @@ pub async fn scheduler_run_now(
 }
 
 // ---------------------------------------------------------------------------
+// Channel commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn channel_list(state: State<'_, SidecarState>) -> Result<Value, String> {
+    sidecar_call(&state, "channel:list", serde_json::json!([])).await
+}
+
+#[tauri::command]
+pub async fn channel_set(state: State<'_, SidecarState>, config: Value) -> Result<Value, String> {
+    sidecar_call(&state, "channel:set", serde_json::json!([config])).await
+}
+
+#[tauri::command]
+pub async fn channel_remove(state: State<'_, SidecarState>, id: String) -> Result<Value, String> {
+    sidecar_call(&state, "channel:remove", serde_json::json!([id])).await
+}
+
+#[tauri::command]
+pub async fn channel_status(state: State<'_, SidecarState>) -> Result<Value, String> {
+    sidecar_call(&state, "channel:status", serde_json::json!([])).await
+}
+
+#[tauri::command]
+pub async fn channel_start(state: State<'_, SidecarState>, id: String) -> Result<Value, String> {
+    sidecar_call(&state, "channel:start", serde_json::json!([id])).await
+}
+
+#[tauri::command]
+pub async fn channel_stop(state: State<'_, SidecarState>, id: String) -> Result<Value, String> {
+    sidecar_call(&state, "channel:stop", serde_json::json!([id])).await
+}
+
+// ---------------------------------------------------------------------------
 // Memory commands
 // ---------------------------------------------------------------------------
 

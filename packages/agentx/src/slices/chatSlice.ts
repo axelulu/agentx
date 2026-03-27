@@ -35,6 +35,7 @@ export interface ConversationSummary {
   messageCount: number;
   folderId?: string;
   isFavorite?: boolean;
+  source?: string;
 }
 
 export interface PendingApproval {

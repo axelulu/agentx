@@ -49,6 +49,14 @@ export function ChatPanel() {
     dispatch(loadInstalledSkills());
   }, [dispatch]);
 
+  // Refresh conversation list when a channel creates/recreates a conversation
+  useEffect(() => {
+    const unsub = window.api.channel.onConversationsChanged(() => {
+      dispatch(loadConversations());
+    });
+    return unsub;
+  }, [dispatch]);
+
   // Edit: populate input with the user message content + attachments
   const handleEdit = useCallback(
     (content: string, filePaths?: string[]) => {

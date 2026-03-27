@@ -174,6 +174,8 @@ export interface ConversationData {
   isFavorite?: boolean;
   /** Tracks which child is selected at each fork point (parentId → childId) */
   activeBranches?: Record<string, string>;
+  /** Origin of this conversation (e.g. "telegram", "wechat") — set for channel-created conversations */
+  source?: string;
 }
 
 export interface Folder {
