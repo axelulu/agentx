@@ -5,6 +5,8 @@
  * then scans a QR code with the Telegram mobile app to authenticate.
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import type { ChannelAdapter, ChannelConfig, ChannelState, InboundMessage } from "./types.js";
 
 export class TelegramAdapter implements ChannelAdapter {
@@ -55,7 +57,7 @@ export class TelegramAdapter implements ChannelAdapter {
         await this.client.signInUserWithQrCode(
           { apiId, apiHash },
           {
-            qrCode: async (code) => {
+            qrCode: async (code: any) => {
               try {
                 const token = code.token.toString("base64url");
                 const loginUrl = `tg://login?token=${token}`;
@@ -70,7 +72,7 @@ export class TelegramAdapter implements ChannelAdapter {
               if (password) return password;
               throw new Error("Two-factor authentication password required but not configured");
             },
-            onError: (err) => {
+            onError: (err: any) => {
               console.error("[TelegramAdapter] Login error:", err.message);
               return true; // continue retrying
             },
@@ -97,7 +99,7 @@ export class TelegramAdapter implements ChannelAdapter {
       console.error(`[TelegramAdapter] Logged in as ${displayName}`);
 
       // Listen for new messages
-      this.client.addEventHandler(async (event) => {
+      this.client.addEventHandler(async (event: any) => {
         const message = event.message;
         if (!message || !message.text) return;
 

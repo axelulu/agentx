@@ -5,6 +5,8 @@
  * for the frontend to display.
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import type { ChannelAdapter, ChannelConfig, ChannelState, InboundMessage } from "./types.js";
 
 export class WeChatAdapter implements ChannelAdapter {

@@ -5,7 +5,7 @@
  * each messaging platform implements a standardized interface.
  */
 
-export type ChannelType = "telegram" | "discord";
+export type ChannelType = "telegram" | "discord" | "wechat";
 export type ChannelStatus = "stopped" | "starting" | "running" | "error";
 
 export interface ChannelConfig {
