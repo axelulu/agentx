@@ -28,12 +28,14 @@ import {
   ScrollTextIcon,
   MicIcon,
   BrainIcon,
+  RadioIcon,
   RotateCcwIcon,
   Trash2Icon,
 } from "lucide-react";
 import { ProviderConfig } from "./ProviderConfig";
 import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
 import { MCPConfig } from "./MCPConfig";
+import { ChannelsConfig } from "./ChannelsConfig";
 import { PermissionsConfig } from "./PermissionsConfig";
 import { VoiceConfig } from "./VoiceConfig";
 import { MemoryConfig } from "./MemoryConfig";
@@ -55,6 +57,7 @@ export function SettingsPanel() {
     { id: "providers", label: l10n.t("AI Providers"), icon: CpuIcon },
     { id: "knowledgeBase", label: l10n.t("Knowledge Base"), icon: BookOpenIcon },
     { id: "mcp", label: l10n.t("MCP Servers"), icon: PlugIcon },
+    { id: "channels", label: l10n.t("Channels"), icon: RadioIcon },
     { id: "memory", label: l10n.t("Memory"), icon: BrainIcon },
     { id: "permissions", label: l10n.t("Permissions"), icon: ShieldCheckIcon },
     { id: "about", label: l10n.t("About"), icon: InfoIcon },
@@ -119,6 +122,7 @@ export function SettingsPanel() {
             {activeSection === "providers" && <ProviderConfig />}
             {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
             {activeSection === "mcp" && <MCPConfig />}
+            {activeSection === "channels" && <ChannelsConfig />}
             {activeSection === "memory" && <MemoryConfig />}
             {activeSection === "permissions" && <PermissionsConfig />}
             {activeSection === "about" && <AboutSection />}
@@ -254,8 +258,8 @@ function GeneralSection() {
                 className={cn(
                   "px-3 py-1.5 text-[12px] font-medium transition-colors",
                   theme === opt.value
-                    ? "bg-foreground/[0.06] text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]",
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]",
                 )}
               >
                 {opt.label}
@@ -279,8 +283,8 @@ function GeneralSection() {
                 className={cn(
                   "px-3 py-1.5 text-[12px] font-medium transition-colors",
                   fontSize === opt.value
-                    ? "bg-foreground/[0.06] text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]",
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]",
                 )}
               >
                 {opt.label}
@@ -303,8 +307,8 @@ function GeneralSection() {
                 className={cn(
                   "px-3 py-1.5 text-[12px] font-medium transition-colors",
                   layoutDensity === opt.value
-                    ? "bg-foreground/[0.06] text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]",
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]",
                 )}
               >
                 {opt.label}
@@ -475,7 +479,7 @@ function GeneralSection() {
             </button>
             <button
               onClick={() => pickDirectory((dir) => dispatch(setWorkspacePath(dir)))}
-              className="shrink-0 p-1.5 rounded-md bg-foreground/[0.04] hover:bg-foreground/[0.07] transition-colors text-muted-foreground hover:text-foreground"
+              className="shrink-0 p-1.5 rounded-md bg-foreground hover:bg-foreground/90 transition-colors text-background"
             >
               <FolderOpenIcon className="w-4 h-4" />
             </button>
@@ -504,7 +508,7 @@ function GeneralSection() {
             </button>
             <button
               onClick={() => pickDirectory((dir) => dispatch(setDataPath(dir)))}
-              className="shrink-0 p-1.5 rounded-md bg-foreground/[0.04] hover:bg-foreground/[0.07] transition-colors text-muted-foreground hover:text-foreground"
+              className="shrink-0 p-1.5 rounded-md bg-foreground hover:bg-foreground/90 transition-colors text-background"
             >
               <FolderOpenIcon className="w-4 h-4" />
             </button>
@@ -550,7 +554,7 @@ function DangerZoneSection() {
           </div>
           <button
             onClick={() => setResetConfirmOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/15 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-background bg-foreground hover:bg-foreground/90 transition-colors"
           >
             <RotateCcwIcon className="w-3.5 h-3.5" />
             {l10n.t("Reset")}
@@ -566,7 +570,7 @@ function DangerZoneSection() {
           </div>
           <button
             onClick={() => setClearConfirmOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/15 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-background bg-foreground hover:bg-foreground/90 transition-colors"
           >
             <Trash2Icon className="w-3.5 h-3.5" />
             {l10n.t("Clear")}
@@ -694,8 +698,8 @@ function AboutSection() {
             className={cn(
               "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
               isCheckDisabled
-                ? "bg-foreground/5 text-muted-foreground cursor-not-allowed"
-                : "bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.08]",
+                ? "bg-foreground/30 text-background cursor-not-allowed"
+                : "bg-foreground text-background hover:bg-foreground/90",
             )}
           >
             {l10n.t("Check for Updates")}

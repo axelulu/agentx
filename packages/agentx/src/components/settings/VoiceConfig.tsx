@@ -156,7 +156,7 @@ export function VoiceConfig() {
             onClick={handleTest}
             className={cn(
               "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
-              "bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.08]",
+              "bg-foreground text-background hover:bg-foreground/90",
             )}
           >
             {l10n.t("Test voice")}

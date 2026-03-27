@@ -183,7 +183,7 @@ export function AddButton({ label, onClick }: AddButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground/[0.04] text-[12px] font-medium text-foreground/70 hover:text-foreground hover:bg-foreground/[0.07] transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-[12px] font-medium text-background hover:bg-foreground/90 transition-colors"
     >
       <PlusIcon className="w-3 h-3" />
       {label}
