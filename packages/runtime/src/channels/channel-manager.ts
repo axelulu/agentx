@@ -42,6 +42,9 @@ export class ChannelManager {
   /** platformKey → AgentX conversationId */
   private conversationMap = new Map<string, string>();
 
+  /** Lock to prevent concurrent resolveConversation calls from creating duplicates */
+  private resolvingLocks = new Map<string, Promise<string>>();
+
   constructor(runtime: AgentRuntime, options: ChannelManagerOptions) {
     this.runtime = runtime;
     this.options = options;
@@ -212,8 +215,28 @@ export class ChannelManager {
   // Inbound message handling
   // ---------------------------------------------------------------------------
 
-  /** Resolve an existing conversation or create a new pinned one for a platform key. */
-  private async resolveConversation(
+  /**
+   * Resolve an existing conversation or create a new pinned one for a platform key.
+   * Uses a per-key lock so concurrent calls (e.g. ensureChannelConversation racing
+   * with an inbound message) don't create duplicate conversations.
+   */
+  private resolveConversation(
+    config: ChannelConfig,
+    platformKey: string,
+    title: string,
+  ): Promise<string> {
+    // If there's already a resolution in flight for this key, wait for it
+    const inflight = this.resolvingLocks.get(platformKey);
+    if (inflight) return inflight;
+
+    const promise = this.resolveConversationInner(config, platformKey, title).finally(() => {
+      this.resolvingLocks.delete(platformKey);
+    });
+    this.resolvingLocks.set(platformKey, promise);
+    return promise;
+  }
+
+  private async resolveConversationInner(
     config: ChannelConfig,
     platformKey: string,
     title: string,
