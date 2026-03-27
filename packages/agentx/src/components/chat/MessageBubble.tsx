@@ -442,8 +442,16 @@ function AssistantBubble({
           <TypingIndicator />
         ) : null}
 
+        {/* Cancellation notice */}
+        {message.isCancelled && (
+          <div className="flex items-center gap-1.5 mt-1 px-2.5 py-1.5 rounded-lg bg-destructive/[0.06] text-destructive text-xs">
+            <BanIcon className="w-3 h-3 shrink-0" />
+            <span>{l10n.t("Response stopped")}</span>
+          </div>
+        )}
+
         {/* Action buttons — visible on hover, hidden while streaming */}
-        {hasContent && (
+        {(hasContent || message.isCancelled) && (
           <div className="flex items-center gap-0.5 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150">
             <ActionButton
               icon={copied ? CheckIcon : CopyIcon}

@@ -176,6 +176,10 @@ export interface ConversationData {
   activeBranches?: Record<string, string>;
   /** Origin of this conversation (e.g. "telegram", "wechat") — set for channel-created conversations */
   source?: string;
+  /** Canonical channel key (e.g. "telegram:abc123") — used to guarantee one conversation per channel */
+  channelKey?: string;
+  /** AI-generated SVG icon for this conversation */
+  icon?: string;
 }
 
 export interface Folder {

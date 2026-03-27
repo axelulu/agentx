@@ -24,6 +24,8 @@ export interface Message {
   toolCalls?: ToolCallData[];
   toolCallId?: string;
   isError?: boolean;
+  /** Set when the user stopped/aborted the response */
+  isCancelled?: boolean;
   timestamp: number;
 }
 
@@ -36,6 +38,7 @@ export interface ConversationSummary {
   folderId?: string;
   isFavorite?: boolean;
   source?: string;
+  icon?: string;
 }
 
 export interface PendingApproval {
@@ -338,6 +341,7 @@ interface MessageDeltaEvent extends AgentEventBase {
   type: "message_delta";
   messageId: string;
   delta: string;
+  offset?: number;
 }
 
 interface MessageEndEvent extends AgentEventBase {
@@ -463,11 +467,10 @@ function findToolTargetMessage(
 
 /**
  * Clean up incomplete state after abort or error:
- * - Remove empty streaming messages (no content & no tool calls)
+ * - Mark empty streaming messages as cancelled (so the UI shows a notice)
  * - Mark still-running tool calls as "cancelled"
  */
-function cleanupPartialMessages(messages: Message[]): void {
-  // Walk backwards to safely remove empty messages
+function cleanupPartialMessages(messages: Message[], aborted: boolean): void {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.role !== "assistant") continue;
@@ -475,9 +478,15 @@ function cleanupPartialMessages(messages: Message[]): void {
     const hasContent = !!msg.content;
     const hasToolCalls = !!msg.toolCalls && msg.toolCalls.length > 0;
 
-    // Remove completely empty assistant messages (no content at all)
+    // Empty assistant message → mark as cancelled instead of removing,
+    // so the user sees feedback that the response was stopped.
     if (!hasContent && !hasToolCalls) {
-      messages.splice(i, 1);
+      if (aborted) {
+        msg.isCancelled = true;
+      } else {
+        // Non-abort cleanup (e.g. fatal error) — still remove truly empty messages
+        messages.splice(i, 1);
+      }
       continue;
     }
 
@@ -488,6 +497,11 @@ function cleanupPartialMessages(messages: Message[]): void {
           msg.toolCalls[j].status = "cancelled";
         }
       }
+    }
+
+    // Mark message as cancelled if it was being streamed when stopped
+    if (aborted) {
+      msg.isCancelled = true;
     }
   }
 }
@@ -590,7 +604,14 @@ const chatSlice = createSlice({
           const targetId = state.streamingMessageId ?? event.messageId;
           const msg = findDraftMessage(state.messages, targetId);
           if (msg) {
-            msg.content = (msg.content ?? "") + event.delta;
+            const current = msg.content ?? "";
+            // Idempotency: if offset is provided, only append when it matches
+            // the current content length. This prevents duplicate content when
+            // the same delta is delivered more than once (e.g. subscribe replay).
+            if (event.offset != null && event.offset < current.length) {
+              break; // Already applied — skip
+            }
+            msg.content = current + event.delta;
           }
           break;
         }
@@ -599,7 +620,12 @@ const chatSlice = createSlice({
           const targetId = state.streamingMessageId ?? event.messageId;
           const msg = findDraftMessage(state.messages, targetId);
           if (msg) {
-            msg.content = event.content;
+            // Always use message_end.content as the authoritative source.
+            // The agent-loop's contentAccum is the single source of truth,
+            // and it correctly handles retries (resets on each attempt).
+            if (event.content != null) {
+              msg.content = event.content;
+            }
           }
           state.streamingMessageId = null;
           break;
@@ -666,7 +692,7 @@ const chatSlice = createSlice({
             state.error = event.result.error;
           }
           // Clean up incomplete messages from abort or unexpected termination
-          cleanupPartialMessages(state.messages);
+          cleanupPartialMessages(state.messages, !!event.result.aborted);
           break;
 
         case "usage":
@@ -697,7 +723,7 @@ const chatSlice = createSlice({
             );
           }
           // Clean up incomplete messages from the error
-          cleanupPartialMessages(state.messages);
+          cleanupPartialMessages(state.messages, false);
           break;
       }
     },

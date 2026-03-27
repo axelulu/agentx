@@ -1,9 +1,11 @@
 /**
  * ChannelManager — manages channel adapter lifecycle and routes messages
  * between external platforms and AgentRuntime conversations.
+ *
+ * Each channel config stores its conversationId in config.settings.conversationId.
+ * This is the single source of truth — no separate map file needed.
  */
 
-import { readFileSync, writeFileSync, existsSync } from "fs";
 import type { AgentRuntime } from "../runtime.js";
 import type { ChannelConfig, ChannelState, ChannelAdapter, InboundMessage } from "./types.js";
 
@@ -39,49 +41,15 @@ export class ChannelManager {
   private adapters = new Map<string, ChannelAdapter>();
   private configs: ChannelConfig[] = [];
 
-  /** platformKey → AgentX conversationId */
-  private conversationMap = new Map<string, string>();
-
-  /** Lock to prevent concurrent resolveConversation calls from creating duplicates */
+  /** Per-config lock to prevent concurrent conversation creation */
   private resolvingLocks = new Map<string, Promise<string>>();
+
+  /** Serialization lock for setConfigs to prevent concurrent starts */
+  private configLock: Promise<void> = Promise.resolve();
 
   constructor(runtime: AgentRuntime, options: ChannelManagerOptions) {
     this.runtime = runtime;
     this.options = options;
-    this.loadConversationMap();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Conversation mapping persistence
-  // ---------------------------------------------------------------------------
-
-  private loadConversationMap(): void {
-    try {
-      if (existsSync(this.options.conversationMapPath)) {
-        const data = JSON.parse(readFileSync(this.options.conversationMapPath, "utf-8")) as Record<
-          string,
-          string
-        >;
-        // Migrate old ":lobby:" keys to new canonical format
-        const migrated: Record<string, string> = {};
-        for (const [key, value] of Object.entries(data)) {
-          const lobbyMatch = key.match(/^(\w+):lobby:(.+)$/);
-          if (lobbyMatch) {
-            migrated[`${lobbyMatch[1]}:${lobbyMatch[2]}`] = value;
-          } else {
-            migrated[key] = value;
-          }
-        }
-        this.conversationMap = new Map(Object.entries(migrated));
-      }
-    } catch {
-      // ignore corrupted file
-    }
-  }
-
-  private saveConversationMap(): void {
-    const obj = Object.fromEntries(this.conversationMap);
-    writeFileSync(this.options.conversationMapPath, JSON.stringify(obj, null, 2), "utf-8");
   }
 
   // ---------------------------------------------------------------------------
@@ -89,32 +57,45 @@ export class ChannelManager {
   // ---------------------------------------------------------------------------
 
   async setConfigs(configs: ChannelConfig[]): Promise<void> {
-    this.configs = configs;
+    // Serialize setConfigs calls so concurrent invocations (e.g. startup +
+    // frontend reconnect) don't race and create duplicate conversations.
+    const prev = this.configLock;
+    let release: () => void;
+    this.configLock = new Promise<void>((r) => {
+      release = r;
+    });
+    await prev;
 
-    // Stop removed adapters
-    for (const [id, adapter] of this.adapters) {
-      if (!configs.find((c) => c.id === id)) {
-        await adapter.stop().catch(() => {});
-        this.adapters.delete(id);
-      }
-    }
+    try {
+      this.configs = configs;
 
-    // Start/restart enabled adapters
-    for (const config of configs) {
-      if (config.enabled) {
-        await this.startChannel(config.id).catch((err) => {
-          console.error(`[ChannelManager] Failed to start ${config.type}:`, err);
-        });
-      } else {
-        const existing = this.adapters.get(config.id);
-        if (existing) {
-          await existing.stop().catch(() => {});
-          this.adapters.delete(config.id);
+      // Stop removed adapters
+      for (const [id, adapter] of this.adapters) {
+        if (!configs.find((c) => c.id === id)) {
+          await adapter.stop().catch(() => {});
+          this.adapters.delete(id);
         }
       }
-    }
 
-    this.emitStatus();
+      // Start enabled adapters that aren't already running
+      for (const config of configs) {
+        if (config.enabled && !this.adapters.has(config.id)) {
+          await this.startChannel(config.id).catch((err) => {
+            console.error(`[ChannelManager] Failed to start ${config.type}:`, err);
+          });
+        } else if (!config.enabled) {
+          const existing = this.adapters.get(config.id);
+          if (existing) {
+            await existing.stop().catch(() => {});
+            this.adapters.delete(config.id);
+          }
+        }
+      }
+
+      this.emitStatus();
+    } finally {
+      release!();
+    }
   }
 
   async startChannel(id: string): Promise<void> {
@@ -143,11 +124,6 @@ export class ChannelManager {
     this.adapters.set(id, adapter);
 
     await adapter.start(config, (msg) => this.handleInboundMessage(config, msg));
-
-    // Create a pinned conversation immediately on successful connection
-    if (adapter.getState().status === "running") {
-      await this.ensureChannelConversation(config, adapter).catch(() => {});
-    }
 
     this.emitStatus();
   }
@@ -186,13 +162,8 @@ export class ChannelManager {
   }
 
   // ---------------------------------------------------------------------------
-  // Ensure a pinned conversation exists for a channel on connect
+  // Conversation resolution — single source of truth: config.settings.conversationId
   // ---------------------------------------------------------------------------
-
-  /** Canonical platformKey for a channel — all messages share a single conversation. */
-  private channelPlatformKey(config: ChannelConfig): string {
-    return `${config.type}:${config.id}`;
-  }
 
   /** Consistent conversation title derived from the bot's display name, not the message sender. */
   private channelConversationTitle(config: ChannelConfig, adapter?: ChannelAdapter): string {
@@ -202,77 +173,76 @@ export class ChannelManager {
     return displayName ? `${platformName} · ${displayName}` : platformName;
   }
 
-  private async ensureChannelConversation(
-    config: ChannelConfig,
-    adapter: ChannelAdapter,
-  ): Promise<void> {
-    const platformKey = this.channelPlatformKey(config);
-    const title = this.channelConversationTitle(config, adapter);
-    await this.resolveConversation(config, platformKey, title);
+  /**
+   * Resolve the conversation for a channel config.
+   * Uses a per-config lock so concurrent calls don't create duplicates.
+   */
+  private resolveConversation(config: ChannelConfig, title: string): Promise<string> {
+    const inflight = this.resolvingLocks.get(config.id);
+    if (inflight) return inflight;
+
+    const promise = this.resolveConversationInner(config, title).finally(() => {
+      this.resolvingLocks.delete(config.id);
+    });
+    this.resolvingLocks.set(config.id, promise);
+    return promise;
+  }
+
+  private async resolveConversationInner(config: ChannelConfig, title: string): Promise<string> {
+    const conversations = await this.runtime.listConversations();
+
+    // 1. Check config.settings.conversationId — the single source of truth
+    const storedId = config.settings.conversationId as string | undefined;
+    if (storedId) {
+      const existing = conversations.find((c) => c.id === storedId);
+      if (existing) {
+        // Fix title if needed (e.g. old sender name → bot display name)
+        if (existing.title !== title) {
+          this.runtime.updateConversationTitle(storedId, title).catch(() => {});
+        }
+        return storedId;
+      }
+      // Conversation was deleted — fall through
+    }
+
+    // 2. Migration: adopt an existing channel conversation created by old code.
+    //    Match by channelKey (e.g. "telegram:<configId>") or source (e.g. "telegram").
+    //    This runs once — after adoption the ID is persisted in config.settings.
+    const platformKey = `${config.type}:${config.id}`;
+    const legacy =
+      conversations.find((c) => c.channelKey === platformKey) ??
+      conversations.find((c) => c.source === config.type);
+    if (legacy) {
+      config.settings.conversationId = legacy.id;
+      this.options.onConfigUpdate?.(config.id, { conversationId: legacy.id });
+      if (legacy.title !== title) {
+        this.runtime.updateConversationTitle(legacy.id, title).catch(() => {});
+      }
+      return legacy.id;
+    }
+
+    // 3. Create a new conversation and persist its ID in channel config
+    const conv = await this.runtime.createConversation(title);
+    const conversationId = (conv as { id: string }).id;
+    await this.runtime.setConversationSource(conversationId, config.type).catch(() => {});
+    await this.runtime.setConversationFavorite(conversationId, true).catch(() => {});
+
+    config.settings.conversationId = conversationId;
+    this.options.onConfigUpdate?.(config.id, { conversationId });
+
+    this.options.onConversationsChanged?.();
+    return conversationId;
   }
 
   // ---------------------------------------------------------------------------
   // Inbound message handling
   // ---------------------------------------------------------------------------
 
-  /**
-   * Resolve an existing conversation or create a new pinned one for a platform key.
-   * Uses a per-key lock so concurrent calls (e.g. ensureChannelConversation racing
-   * with an inbound message) don't create duplicate conversations.
-   */
-  private resolveConversation(
-    config: ChannelConfig,
-    platformKey: string,
-    title: string,
-  ): Promise<string> {
-    // If there's already a resolution in flight for this key, wait for it
-    const inflight = this.resolvingLocks.get(platformKey);
-    if (inflight) return inflight;
-
-    const promise = this.resolveConversationInner(config, platformKey, title).finally(() => {
-      this.resolvingLocks.delete(platformKey);
-    });
-    this.resolvingLocks.set(platformKey, promise);
-    return promise;
-  }
-
-  private async resolveConversationInner(
-    config: ChannelConfig,
-    platformKey: string,
-    title: string,
-  ): Promise<string> {
-    // Check if we already have a mapped conversation
-    const existingId = this.conversationMap.get(platformKey);
-    if (existingId) {
-      // Verify the conversation still exists (user may have deleted it)
-      const conversations = await this.runtime.listConversations();
-      if (conversations.some((c) => c.id === existingId)) {
-        return existingId;
-      }
-      // Conversation was deleted — remove stale mapping and recreate
-      this.conversationMap.delete(platformKey);
-    }
-
-    const conv = await this.runtime.createConversation(title);
-    const conversationId = (conv as { id: string }).id;
-    await this.runtime.setConversationSource(conversationId, config.type).catch(() => {});
-    await this.runtime.setConversationFavorite(conversationId, true).catch(() => {});
-    this.conversationMap.set(platformKey, conversationId);
-    this.saveConversationMap();
-    this.options.onConversationsChanged?.();
-    return conversationId;
-  }
-
   private async handleInboundMessage(config: ChannelConfig, msg: InboundMessage): Promise<void> {
     try {
-      // Use the same canonical key as ensureChannelConversation so all messages
-      // for a channel go to the single conversation created on connect.
-      const platformKey = this.channelPlatformKey(config);
-      // Use the bot/adapter display name for the title (not the sender's name)
-      // so recreated conversations match the one created on connect.
       const adapter = this.adapters.get(config.id);
       const title = this.channelConversationTitle(config, adapter);
-      const conversationId = await this.resolveConversation(config, platformKey, title);
+      const conversationId = await this.resolveConversation(config, title);
 
       // Send typing indicator if available
       msg.sendTyping?.().catch(() => {});

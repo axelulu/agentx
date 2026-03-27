@@ -8,6 +8,15 @@
  * Push:     {"jsonrpc":"2.0","method":"agent:event","params":[{...}]}
  */
 
+// Redirect console.log to stderr so stdout stays clean for JSON-RPC.
+// Runtime code (and third-party libraries) use console.log for debug output;
+// without this, those lines pollute the JSON-RPC channel and cause parse errors
+// on the Rust side.
+const _origLog = console.log;
+console.log = (...args: unknown[]) => {
+  console.error(...args);
+};
+
 import { createInterface } from "readline";
 import { join } from "path";
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from "fs";
@@ -279,6 +288,11 @@ async function main() {
       body: "Response ready",
     });
     pushNotification("notification:navigateToConversation", conversationId);
+  });
+
+  // Wire conversation metadata updated (title/icon auto-generated)
+  runtime.setConversationMetadataUpdatedHandler((conversationId) => {
+    pushNotification("conversation:metadataUpdated", { conversationId });
   });
 
   // Tool permissions

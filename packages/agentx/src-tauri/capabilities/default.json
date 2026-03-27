@@ -44,6 +44,10 @@
     "process:default",
     "process:allow-exit",
     "process:allow-restart",
+    "autostart:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
     "core:window:allow-create",
     "core:webview:allow-create-webview-window"
   ]

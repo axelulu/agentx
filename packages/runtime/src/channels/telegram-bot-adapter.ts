@@ -90,7 +90,8 @@ export class TelegramBotAdapter implements ChannelAdapter {
       console.error("[TelegramBotAdapter] Calling bot.init() (getMe)...");
       await withTimeout(this.bot.init(), 15_000, "Telegram API (bot.init)");
       const botUsername = this.bot.botInfo.username;
-      console.error(`[TelegramBotAdapter] Bot info retrieved: @${botUsername}`);
+      const botFirstName = this.bot.botInfo.first_name;
+      console.error(`[TelegramBotAdapter] Bot info retrieved: ${botFirstName} (@${botUsername})`);
 
       // Generate QR code with t.me deep link
       const deepLink = `https://t.me/${botUsername}`;
@@ -126,18 +127,37 @@ export class TelegramBotAdapter implements ChannelAdapter {
         console.error("[TelegramBotAdapter] Bot error:", err.message);
       });
 
+      // Drop any pending updates and clear stale long-polling sessions.
+      // deleteWebhook + drop_pending_updates tells Telegram to discard queued
+      // updates, and getUpdates with offset -1 forces any lingering long-poll
+      // from a previous process to return immediately, preventing the 409
+      // "terminated by other getUpdates request" conflict on restart.
+      await this.bot.api.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
+      await this.bot.api.raw.getUpdates({ offset: -1, limit: 1, timeout: 0 }).catch(() => {});
+
       // Start long polling (not awaited — runs in background)
-      this.bot.start({
-        onStart: () => {
-          console.error(`[TelegramBotAdapter] Bot @${botUsername} polling started`);
-        },
-      });
+      this.bot
+        .start({
+          onStart: () => {
+            console.error(`[TelegramBotAdapter] Bot @${botUsername} polling started`);
+          },
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          // 409 Conflict on shutdown/restart is expected — don't treat as error
+          if (msg.includes("409") || msg.includes("terminated by other")) {
+            console.error(`[TelegramBotAdapter] Polling ended (old session superseded)`);
+            return;
+          }
+          console.error(`[TelegramBotAdapter] Polling stopped: ${msg}`);
+          this.state = { ...this.state, status: "error", error: msg };
+        });
 
       this.state = {
         id: config.id,
         type: "telegram",
         status: "running",
-        displayName: `@${botUsername}`,
+        displayName: botFirstName || `@${botUsername}`,
       };
       console.error(`[TelegramBotAdapter] Running as @${botUsername}`);
     } catch (err) {

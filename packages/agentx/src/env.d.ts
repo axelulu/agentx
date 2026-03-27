@@ -128,6 +128,7 @@ interface NativeAPI {
       id: string,
     ) => Promise<Record<string, { siblings: string[]; activeIndex: number }>>;
     switchBranch: (id: string, targetMessageId: string) => Promise<void>;
+    onMetadataUpdated: (callback: (data: { conversationId: string }) => void) => () => void;
   };
   agent: {
     send: (conversationId: string, content: string | ContentPart[]) => Promise<void>;

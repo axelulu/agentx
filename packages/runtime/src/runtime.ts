@@ -63,6 +63,9 @@ interface SessionState {
   triggerUserMessageId: string | null;
   /** Promise tracking the in-flight persistence flush — awaited before regenerate */
   flushPromise: Promise<void> | null;
+  /** Index into eventLog up to which events have been delivered to the subscriber.
+   *  Used to avoid replaying already-delivered events on re-subscribe. */
+  deliveredUpTo: number;
 }
 
 /**
@@ -337,6 +340,7 @@ export class AgentRuntime {
       lastEmittedMessageId: userMsgId,
       triggerUserMessageId: userMsgId,
       flushPromise: null,
+      deliveredUpTo: 0,
     };
 
     // Abort any existing session
@@ -427,7 +431,7 @@ export class AgentRuntime {
 
   private rebuildMcpTools(): void {
     this.mcpTools = this.mcpManager.buildTools();
-    console.log(`[AgentRuntime] MCP tools rebuilt: ${this.mcpTools.length} tools available`);
+    console.error(`[AgentRuntime] MCP tools rebuilt: ${this.mcpTools.length} tools available`);
   }
 
   async shutdown(): Promise<void> {
@@ -466,6 +470,15 @@ export class AgentRuntime {
     this.sessionCompletionHandler = handler;
   }
 
+  private conversationMetadataUpdatedHandler: ((conversationId: string) => void) | null = null;
+
+  /** Prevents concurrent/duplicate title generation for the same conversation */
+  private titleGenerationInFlight = new Set<string>();
+
+  setConversationMetadataUpdatedHandler(handler: (conversationId: string) => void): void {
+    this.conversationMetadataUpdatedHandler = handler;
+  }
+
   private rebuildSchedulerTools(): void {
     const persistFn = this.schedulerPersistFn ?? (() => {});
     const handlers = createSchedulerToolHandlers(this.schedulerManager, persistFn);
@@ -477,7 +490,7 @@ export class AgentRuntime {
       execute: (args: Record<string, unknown>, _ctx: { signal: AbortSignal }) =>
         h.handler(args) as ReturnType<AgentTool["execute"]>,
     }));
-    console.log(`[AgentRuntime] Scheduler tools rebuilt: ${this.schedulerTools.length} tools`);
+    console.error(`[AgentRuntime] Scheduler tools rebuilt: ${this.schedulerTools.length} tools`);
   }
 
   /**
@@ -592,6 +605,14 @@ export class AgentRuntime {
     const data = await this.conversationManager.getConversation(conversationId);
     if (!data) throw new Error(`Conversation not found: ${conversationId}`);
     data.source = source || undefined;
+    data.updatedAt = Date.now();
+    await this.conversationManager.saveConversation(data);
+  }
+
+  async setConversationChannelKey(conversationId: string, channelKey: string): Promise<void> {
+    const data = await this.conversationManager.getConversation(conversationId);
+    if (!data) throw new Error(`Conversation not found: ${conversationId}`);
+    data.channelKey = channelKey || undefined;
     data.updatedAt = Date.now();
     await this.conversationManager.saveConversation(data);
   }
@@ -766,7 +787,10 @@ export class AgentRuntime {
       session.eventLog.push(approvalEvent);
 
       // Forward to subscriber if present
-      session.subscriber?.(approvalEvent);
+      if (session.subscriber) {
+        session.subscriber(approvalEvent);
+        session.deliveredUpTo = session.eventLog.length;
+      }
     });
   }
 
@@ -803,12 +827,15 @@ export class AgentRuntime {
     const session = this.sessions.get(conversationId);
     if (!session) return;
 
-    // Replay existing events
-    for (const event of session.eventLog) {
-      callback(event);
+    // Replay only events that haven't been delivered yet.
+    // deliveredUpTo tracks how far we've sent — this makes subscribe fully
+    // idempotent: calling it multiple times never re-delivers the same delta.
+    for (let i = session.deliveredUpTo; i < session.eventLog.length; i++) {
+      callback(session.eventLog[i]!);
     }
+    session.deliveredUpTo = session.eventLog.length;
 
-    // Set as live subscriber
+    // Set / replace the live subscriber
     session.subscriber = callback;
   }
 
@@ -883,22 +910,13 @@ export class AgentRuntime {
     // Append the new user message
     agentMessages.push({ role: "user", content });
 
-    // Debug: log message structure for diagnosing 400 errors
+    // Debug: log message count (detailed structure only at trace level to avoid noise)
     const contentPreview =
       typeof content === "string"
-        ? `"${content.slice(0, 50)}..."`
+        ? `"${content.slice(0, 30)}..."`
         : `[${(content as ContentPart[]).length} parts]`;
-    console.log(
-      `[AgentRuntime] sendMessage: ${agentMessages.length} messages`,
-      agentMessages
-        .map((m, i) => {
-          const tc =
-            m.role === "assistant" && m.toolCalls ? ` [${m.toolCalls.length} tool_calls]` : "";
-          const tcId =
-            m.role === "tool" ? ` (toolCallId=${(m as { toolCallId?: string }).toolCallId})` : "";
-          return `  ${i}: ${m.role}${tc}${tcId} content=${typeof m.content === "string" ? `"${m.content.slice(0, 50)}..."` : Array.isArray(m.content) ? `[${m.content.length} parts]` : m.content}`;
-        })
-        .join("\n"),
+    console.error(
+      `[AgentRuntime] sendMessage: ${agentMessages.length} msgs, new=${contentPreview}`,
     );
 
     // Extract text and images from content for persistence
@@ -1004,6 +1022,7 @@ export class AgentRuntime {
       lastEmittedMessageId: userMsgId,
       triggerUserMessageId: userMsgId,
       flushPromise: null,
+      deliveredUpTo: 0,
     };
 
     // Abort any existing session for this conversation
@@ -1056,15 +1075,28 @@ export class AgentRuntime {
   ): Promise<void> {
     const conversationId = session.conversationId;
 
+    let titleGenerationTriggered = false;
+
     const onEvent = (event: SerializableAgentEvent) => {
       // Log to event log
       session.eventLog.push(event);
 
-      // Forward to subscriber
-      session.subscriber?.(event);
+      // Forward to subscriber and advance delivery watermark
+      if (session.subscriber) {
+        session.subscriber(event);
+        session.deliveredUpTo = session.eventLog.length;
+      }
 
       // Incremental persistence
       this.handleIncrementalPersistence(session, event);
+
+      // Start title/icon generation as soon as the first assistant response
+      // is complete (turn_end), rather than waiting for the entire agent run.
+      // The lock in generateTitleAndIcon prevents duplicates.
+      if (!titleGenerationTriggered && event.type === "turn_end") {
+        titleGenerationTriggered = true;
+        this.generateTitleAndIcon(conversationId, config.model, config.streamFn).catch(() => {});
+      }
     };
 
     try {
@@ -1074,6 +1106,11 @@ export class AgentRuntime {
         conversationId,
         onEvent,
       );
+
+      // Wait for any in-flight flush from handleIncrementalPersistence (agent_end)
+      if (session.flushPromise) {
+        await session.flushPromise;
+      }
 
       // Final flush of any remaining pending messages
       if (session.pendingMessages.length > 0) {
@@ -1087,6 +1124,11 @@ export class AgentRuntime {
       // Extract and persist cross-session memories (fire-and-forget)
       this.extractAndPersistMemories(conversationId, config.model, config.streamFn).catch((err) => {
         console.error(`[AgentRuntime] Memory extraction failed for ${conversationId}:`, err);
+      });
+
+      // Auto-generate title and icon (fire-and-forget, notifies frontend via callback when done)
+      this.generateTitleAndIcon(conversationId, config.model, config.streamFn).catch((err) => {
+        console.error(`[AgentRuntime] Title/icon generation failed for ${conversationId}:`, err);
       });
     } catch (err) {
       // Flush what we have on error too
@@ -1111,7 +1153,10 @@ export class AgentRuntime {
         fatal: true,
       };
       session.eventLog.push(errorEvent);
-      session.subscriber?.(errorEvent);
+      if (session.subscriber) {
+        session.subscriber(errorEvent);
+        session.deliveredUpTo = session.eventLog.length;
+      }
     } finally {
       // Cancel any pending approvals
       for (const [, pending] of session.pendingApprovals) {
@@ -1322,6 +1367,110 @@ export class AgentRuntime {
   }
 
   // ---------------------------------------------------------------------------
+  // Auto-generate title + icon for new conversations
+  // ---------------------------------------------------------------------------
+
+  private async generateTitleAndIcon(
+    conversationId: string,
+    model: string,
+    streamFn: ReturnType<ProviderManager["createStreamFn"]>,
+  ): Promise<void> {
+    // Skip if already generating for this conversation
+    if (this.titleGenerationInFlight.has(conversationId)) return;
+
+    const convData = await this.conversationManager.getConversation(conversationId);
+    if (!convData) return;
+    if (convData.title !== "New Conversation") return;
+
+    const messages = await this.conversationManager.getActiveMessages(conversationId);
+    if (messages.length < 2) return;
+
+    const transcript = messages
+      .filter((m) => (m.role === "user" || m.role === "assistant") && m.content)
+      .map((m) => `${m.role}: ${m.content!.slice(0, 300)}`)
+      .slice(0, 6)
+      .join("\n");
+
+    if (transcript.length < 10) return;
+
+    this.titleGenerationInFlight.add(conversationId);
+
+    const tool: import("@agentx/agent").LLMToolDefinition = {
+      type: "function",
+      function: {
+        name: "set_conversation_metadata",
+        description: "Set the title and SVG icon for a conversation based on its content.",
+        parameters: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+              description: "A concise conversation title, max 30 characters, no quotes.",
+            },
+            icon: {
+              type: "string",
+              description:
+                'A minimal SVG icon string with viewBox="0 0 24 24", single path, monochrome using currentColor, no text elements, under 500 bytes. Example: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 ..."/></svg>',
+            },
+          },
+          required: ["title", "icon"],
+        },
+      },
+    };
+
+    const prompt = `Based on this conversation, call the set_conversation_metadata tool with a concise title and a minimal SVG icon.\n\nConversation:\n${transcript}`;
+
+    try {
+      let toolArgs = "";
+      const stream = streamFn(
+        [
+          {
+            role: "system",
+            content:
+              "You generate concise titles and minimal SVG icons for conversations. You MUST call the set_conversation_metadata tool.",
+          },
+          { role: "user", content: prompt },
+        ],
+        { model, maxTokens: 500, tools: [tool] },
+      );
+      for await (const chunk of stream) {
+        if (chunk.type === "tool_call_delta") {
+          toolArgs += chunk.argumentsDelta;
+        }
+      }
+
+      if (!toolArgs) {
+        console.error(`[AgentRuntime] Title/icon generation: model did not call tool`);
+        return;
+      }
+
+      // Re-check title hasn't been manually changed
+      const fresh = await this.conversationManager.getConversation(conversationId);
+      if (!fresh || fresh.title !== "New Conversation") return;
+
+      const parsed = JSON.parse(toolArgs) as { title?: string; icon?: string };
+      if (parsed.title) {
+        await this.conversationManager.updateTitle(conversationId, parsed.title.slice(0, 60));
+      }
+      if (parsed.icon && parsed.icon.startsWith("<svg") && parsed.icon.length < 2000) {
+        // Re-fetch after updateTitle to avoid overwriting the new title
+        const updated = await this.conversationManager.getConversation(conversationId);
+        if (updated) {
+          updated.icon = parsed.icon;
+          updated.updatedAt = Date.now();
+          await this.conversationManager.saveConversation(updated);
+        }
+      }
+      // Notify frontend immediately
+      this.conversationMetadataUpdatedHandler?.(conversationId);
+    } catch (err) {
+      console.error(`[AgentRuntime] Title/icon generation error:`, err);
+    } finally {
+      this.titleGenerationInFlight.delete(conversationId);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Cross-session memory management
   // ---------------------------------------------------------------------------
 
@@ -1358,7 +1507,7 @@ export class AgentRuntime {
 
     if (extraction) {
       await this.memoryManager.processExtraction(conversationId, convData.title, extraction);
-      console.log(
+      console.error(
         `[AgentRuntime] Memory extracted for ${conversationId}: ${extraction.facts.length} facts`,
       );
     }

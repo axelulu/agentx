@@ -110,6 +110,9 @@ export interface MessageDeltaEvent extends BaseEvent {
   type: "message_delta";
   messageId: string;
   delta: string;
+  /** Byte offset into the accumulated content where this delta starts.
+   *  Used by the frontend to skip already-applied deltas on event replay. */
+  offset?: number;
 }
 export interface MessageEndEvent extends BaseEvent {
   type: "message_end";

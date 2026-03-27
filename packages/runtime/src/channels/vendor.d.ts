@@ -26,10 +26,3 @@ declare module "telegram/events/index.js" {
     constructor(opts?: any);
   }
 }
-
-// Optional dependency — only required at runtime when WeChatAdapter is used
-declare module "wechaty" {
-  export const WechatyBuilder: {
-    build(opts?: any): any;
-  };
-}

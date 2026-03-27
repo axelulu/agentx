@@ -258,8 +258,12 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
                         handle_sidecar_notification(&app_handle, method, params);
                     }
                 }
-                Err(e) => {
-                    eprintln!("[Sidecar] Failed to parse JSON: {} | line: {}", e, line);
+                Err(_) => {
+                    // Non-JSON lines come from console.log in the runtime or
+                    // third-party libraries.  They are harmless — just forward
+                    // to stderr so they show up in the dev console without
+                    // flooding it with scary "Failed to parse" messages.
+                    eprintln!("{}", line);
                 }
             }
         }

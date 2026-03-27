@@ -51,7 +51,7 @@ export async function searchSkills(
   if (tag) params.set("tag", tag);
 
   const url = `${API_BASE}/prompts?${params.toString()}`;
-  console.log("[SkillAPI] Fetching:", url);
+  console.error("[SkillAPI] Fetching:", url);
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -61,7 +61,7 @@ export async function searchSkills(
   }
 
   const data = (await res.json()) as ApiSearchResponse;
-  console.log("[SkillAPI] Got", data.prompts.length, "of", data.total, "results");
+  console.error("[SkillAPI] Got", data.prompts.length, "of", data.total, "results");
   return {
     skills: data.prompts.map(mapApiPrompt),
     total: data.total,

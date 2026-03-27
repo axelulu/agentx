@@ -163,6 +163,24 @@ function GeneralSection() {
   const workspacePath = useSelector((s: RootState) => s.settings.workspacePath);
   const dataPath = useSelector((s: RootState) => s.settings.dataPath);
 
+  // Autostart
+  const [autostart, setAutostart] = useState(false);
+  useEffect(() => {
+    import("@tauri-apps/plugin-autostart").then((mod) => {
+      mod
+        .isEnabled()
+        .then(setAutostart)
+        .catch(() => {});
+    });
+  }, []);
+  const toggleAutostart = useCallback(async () => {
+    const mod = await import("@tauri-apps/plugin-autostart");
+    const next = !autostart;
+    if (next) await mod.enable();
+    else await mod.disable();
+    setAutostart(next);
+  }, [autostart]);
+
   // Notification preferences
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [notifScheduled, setNotifScheduled] = useState(true);
@@ -354,6 +372,34 @@ function GeneralSection() {
           placeholder="http://127.0.0.1:7890"
           className="w-full bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
         />
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+          {l10n.t("Startup")}
+        </label>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Launch at Login")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Automatically start AgentX when you log in")}
+            </p>
+          </div>
+          <button
+            onClick={toggleAutostart}
+            className={cn(
+              "relative w-9 h-5 rounded-full transition-colors",
+              autostart ? "bg-primary" : "bg-foreground/[0.12]",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-primary-foreground transition-transform",
+                autostart && "translate-x-4",
+              )}
+            />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">

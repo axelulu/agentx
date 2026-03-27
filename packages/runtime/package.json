@@ -16,9 +16,9 @@
   "dependencies": {
     "@agentx/agent": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "discord.js": "^14.18.0",
     "grammy": "^1.35.0",
     "https-proxy-agent": "^8.0.0",
-    "discord.js": "^14.18.0",
     "qrcode": "^1.5.4",
     "undici": "^7"
   },

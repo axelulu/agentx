@@ -246,7 +246,7 @@ export class MCPClientManager {
 
       conn.status = "connected";
       conn.error = undefined;
-      console.log(`[MCP] Connected to "${config.name}" — ${conn.tools.length} tools available`);
+      console.error(`[MCP] Connected to "${config.name}" — ${conn.tools.length} tools available`);
     } catch (err) {
       conn.status = "error";
       conn.error = err instanceof Error ? err.message : String(err);

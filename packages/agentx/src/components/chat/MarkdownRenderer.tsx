@@ -1,18 +1,9 @@
 import { memo, useState, useCallback, type ComponentPropsWithoutRef } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
+import { Streamdown } from "streamdown";
+import "streamdown/styles.css";
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
-import {
-  CheckIcon,
-  CopyIcon,
-  ChevronRightIcon,
-  BrainIcon,
-  LoaderIcon,
-  FileIcon,
-  FolderOpenIcon,
-} from "lucide-react";
+import { ChevronRightIcon, BrainIcon, LoaderIcon, FileIcon, FolderOpenIcon } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Local path detection & clickable path component
@@ -77,91 +68,35 @@ function ClickablePath({ text }: { text: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Code block with copy button
+// Custom inline code — supports clickable local paths
 // ---------------------------------------------------------------------------
 
-function CodeBlock({
-  className,
+function InlineCode({
   children,
   node,
   ...props
-}: ComponentPropsWithoutRef<"code"> & { inline?: boolean; node?: any }) {
-  const [copied, setCopied] = useState(false);
-  const match = /language-(\w+)/.exec(className ?? "");
-  const lang = match?.[1] ?? "";
-  const code = String(children).replace(/\n$/, "");
-
-  // Detect inline code: react-markdown wraps block code in <pre><code>, inline is just <code>
-  const isBlock = node?.parentNode?.tagName === "pre" || !!className;
-  if (!isBlock) {
-    // Check if inline code contains a local file path
-    const text = String(children);
-    if (isLocalPath(text)) {
-      return <ClickablePath text={text} />;
-    }
-
-    return (
-      <code
-        className="px-1.5 py-0.5 rounded-[4px] bg-foreground/[0.06] text-[13px] font-mono text-foreground/90"
-        {...props}
-      >
-        {children}
-      </code>
-    );
+}: ComponentPropsWithoutRef<"code"> & { node?: any }) {
+  const text = String(children);
+  if (isLocalPath(text)) {
+    return <ClickablePath text={text} />;
   }
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   return (
-    <div className="group/code relative rounded-lg overflow-hidden border border-border my-2.5">
-      {/* Language label + copy button */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-foreground/[0.04] border-b border-border">
-        <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
-          {lang || l10n.t("code")}
-        </span>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
-        >
-          {copied ? (
-            <>
-              <CheckIcon className="w-3 h-3" />
-              <span>{l10n.t("Copied")}</span>
-            </>
-          ) : (
-            <>
-              <CopyIcon className="w-3 h-3" />
-              <span>{l10n.t("Copy")}</span>
-            </>
-          )}
-        </button>
-      </div>
-      {/* Code content */}
-      <pre className="px-3.5 py-3 overflow-x-auto text-[13px] leading-relaxed bg-card">
-        <code className={cn("font-mono", className)} {...props}>
-          {children}
-        </code>
-      </pre>
-    </div>
+    <code
+      className="px-1.5 py-0.5 rounded-[4px] bg-foreground/[0.06] text-[13px] font-mono text-foreground/90"
+      {...props}
+    >
+      {children}
+    </code>
   );
 }
 
-// Pre wrapper — needed so react-markdown doesn't wrap our code block in an extra <pre>
-function PreBlock({ children }: any) {
-  return <>{children}</>;
-}
-
 // ---------------------------------------------------------------------------
-// Custom markdown components
+// Streamdown custom components
 // ---------------------------------------------------------------------------
 
-const markdownComponents: Record<string, React.ComponentType<any>> = {
-  code: CodeBlock,
-  pre: PreBlock,
+const streamdownComponents: Record<string, React.ComponentType<any>> = {
+  // Override inline code for clickable paths
+  inlineCode: InlineCode,
 
   // Headings
   h1: ({ children }: any) => (
@@ -343,29 +278,45 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   className,
   isStreaming,
 }: MarkdownRendererProps) {
-  const blocks = parseContent(content);
+  // -----------------------------------------------------------------------
+  // Streaming: real-time markdown rendering via Streamdown
+  // -----------------------------------------------------------------------
+  if (isStreaming) {
+    return (
+      <div className={cn("text-sm leading-relaxed text-foreground markdown-body", className)}>
+        <Streamdown
+          mode="streaming"
+          animated={{ animation: "fadeIn", duration: 300, stagger: 20 }}
+          components={streamdownComponents}
+          controls={false}
+          lineNumbers={false}
+        >
+          {content}
+        </Streamdown>
+      </div>
+    );
+  }
 
-  // During streaming, if the last block is a thinking block, it's still in progress
-  const lastBlockIsThinking = blocks.length > 0 && blocks[blocks.length - 1].type === "thinking";
+  // -----------------------------------------------------------------------
+  // Completed: full markdown rendering with thinking block support
+  // -----------------------------------------------------------------------
+  const blocks = parseContent(content);
 
   return (
     <div className={cn("text-sm leading-relaxed text-foreground", className)}>
       {blocks.map((block, i) =>
         block.type === "thinking" ? (
-          <ThinkingBlock
-            key={i}
-            content={block.content}
-            isStreaming={isStreaming && lastBlockIsThinking && i === blocks.length - 1}
-          />
+          <ThinkingBlock key={i} content={block.content} />
         ) : (
           <div key={i} className="markdown-body">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={markdownComponents}
+            <Streamdown
+              mode="static"
+              components={streamdownComponents}
+              controls={false}
+              lineNumbers={false}
             >
               {block.content}
-            </ReactMarkdown>
+            </Streamdown>
           </div>
         ),
       )}

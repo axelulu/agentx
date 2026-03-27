@@ -2,6 +2,7 @@
 @import "./colors.css";
 @import "./theme-tokens.css";
 @import "highlight.js/styles/github.css";
+@import "streamdown/styles.css";
 @import "tailwindcss";
 
 @source "../**/*.{ts,tsx}";

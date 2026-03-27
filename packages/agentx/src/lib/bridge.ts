@@ -62,6 +62,12 @@ const bridge: NativeAPI = {
     branchInfo: (id: string) => invoke("conversation_branch_info", { id }),
     switchBranch: (id: string, targetMessageId: string) =>
       invoke("conversation_switch_branch", { id, targetMessageId }),
+    onMetadataUpdated: (callback: (data: { conversationId: string }) => void) => {
+      return createEventListener(
+        "conversation:metadataUpdated",
+        callback as (...args: unknown[]) => void,
+      );
+    },
   },
 
   agent: {

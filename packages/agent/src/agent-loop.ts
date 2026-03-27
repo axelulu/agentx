@@ -165,15 +165,18 @@ async function runLoop(
           if (signal?.aborted) break;
 
           switch (chunk.type) {
-            case "content_delta":
+            case "content_delta": {
+              const offset = contentAccum.length;
               contentAccum += chunk.delta;
               emit({
                 type: "message_delta",
                 messageId,
                 delta: chunk.delta,
+                offset,
                 timestamp: Date.now(),
               });
               break;
+            }
 
             case "tool_call_delta": {
               let entry = toolCallAccum.get(chunk.index);

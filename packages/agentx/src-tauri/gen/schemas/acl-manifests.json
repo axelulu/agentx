@@ -1,4 +1,45 @@
 {
+  "autostart": {
+    "default_permission": {
+      "identifier": "default",
+      "description": "This permission set configures if your\napplication can enable or disable auto\nstarting the application on boot.\n\n#### Granted Permissions\n\nIt allows all to check, enable and\ndisable the automatic start on boot.\n\n",
+      "permissions": ["allow-enable", "allow-disable", "allow-is-enabled"]
+    },
+    "permissions": {
+      "allow-disable": {
+        "identifier": "allow-disable",
+        "description": "Enables the disable command without any pre-configured scope.",
+        "commands": { "allow": ["disable"], "deny": [] }
+      },
+      "allow-enable": {
+        "identifier": "allow-enable",
+        "description": "Enables the enable command without any pre-configured scope.",
+        "commands": { "allow": ["enable"], "deny": [] }
+      },
+      "allow-is-enabled": {
+        "identifier": "allow-is-enabled",
+        "description": "Enables the is_enabled command without any pre-configured scope.",
+        "commands": { "allow": ["is_enabled"], "deny": [] }
+      },
+      "deny-disable": {
+        "identifier": "deny-disable",
+        "description": "Denies the disable command without any pre-configured scope.",
+        "commands": { "allow": [], "deny": ["disable"] }
+      },
+      "deny-enable": {
+        "identifier": "deny-enable",
+        "description": "Denies the enable command without any pre-configured scope.",
+        "commands": { "allow": [], "deny": ["enable"] }
+      },
+      "deny-is-enabled": {
+        "identifier": "deny-is-enabled",
+        "description": "Denies the is_enabled command without any pre-configured scope.",
+        "commands": { "allow": [], "deny": ["is_enabled"] }
+      }
+    },
+    "permission_sets": {},
+    "global_scope_schema": null
+  },
   "core": {
     "default_permission": {
       "identifier": "default",

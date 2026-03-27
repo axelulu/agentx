@@ -86,7 +86,7 @@ export class DiscordBotAdapter implements ChannelAdapter {
           if (this.client!.isReady()) {
             resolve();
           } else {
-            this.client!.once("ready", () => resolve());
+            this.client!.once("clientReady", () => resolve());
           }
         }),
         15_000,

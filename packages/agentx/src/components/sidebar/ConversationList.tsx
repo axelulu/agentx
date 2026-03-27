@@ -520,7 +520,14 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
                   exit={{ scale: 0.5, opacity: 0 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  {conversation.icon ? (
+                    <div
+                      className="w-3.5 h-3.5 [&>svg]:w-full [&>svg]:h-full"
+                      dangerouslySetInnerHTML={{ __html: conversation.icon }}
+                    />
+                  ) : (
+                    <Icon className="w-3.5 h-3.5" />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

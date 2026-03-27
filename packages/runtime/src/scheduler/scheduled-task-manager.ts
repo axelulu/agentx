@@ -85,7 +85,7 @@ export class ScheduledTaskManager {
 
   start(): void {
     if (this.tickTimer) return;
-    console.log("[Scheduler] Starting tick loop");
+    console.error("[Scheduler] Starting tick loop");
     this.tickTimer = setInterval(() => this.tick(), TICK_INTERVAL_MS);
     // Run first tick immediately
     this.tick();
@@ -95,7 +95,7 @@ export class ScheduledTaskManager {
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
       this.tickTimer = null;
-      console.log("[Scheduler] Stopped");
+      console.error("[Scheduler] Stopped");
     }
   }
 
@@ -165,7 +165,7 @@ export class ScheduledTaskManager {
     if (this.runningTasks.has(task.id)) return;
     this.runningTasks.add(task.id);
 
-    console.log(`[Scheduler] Executing task: ${task.title} (${task.id})`);
+    console.error(`[Scheduler] Executing task: ${task.title} (${task.id})`);
 
     try {
       if (task.action.type === "shell") {

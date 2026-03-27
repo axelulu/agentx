@@ -8,9 +8,17 @@ import {
   createNewConversation,
   initializeSessions,
   setBranchInfo,
+  loadConversations,
 } from "@/slices/chatSlice";
 import type { BranchInfoEntry } from "@/slices/chatSlice";
 import { openTab } from "@/slices/uiSlice";
+
+// ---------------------------------------------------------------------------
+// Module-level subscription tracking shared between hooks.
+// This prevents useAgentEventListener and useAgent from double-subscribing
+// (which would replay all events and duplicate streaming content).
+// ---------------------------------------------------------------------------
+const activeSubscriptions = new Set<string>();
 
 /**
  * Register the global agent:event IPC listener exactly ONCE.
@@ -25,14 +33,13 @@ export function useAgentEventListener() {
   const currentConversationId = useSelector((state: RootState) => state.chat.currentConversationId);
   const openTabs = useSelector((state: RootState) => state.ui.openTabs);
   const runningSessions = useSelector((state: RootState) => state.chat.runningSessions);
-  const subscribedRef = useRef<Set<string>>(new Set());
 
   // Global event listener — always active
   useEffect(() => {
     const cleanup = window.api.agent.onEvent((event) => {
       dispatch(handleAgentEvent(event as Parameters<typeof handleAgentEvent>[0]));
 
-      // Refresh branchInfo when an agent run ends for the current conversation
+      // Refresh branchInfo and conversation list when an agent run ends
       const e = event as { type: string; conversationId?: string };
       if (e.type === "agent_end" && e.conversationId) {
         window.api.conversation
@@ -43,7 +50,19 @@ export function useAgentEventListener() {
           .catch(() => {
             /* ignore */
           });
+
+        // Title/icon already generated before agent_end — refresh immediately
+        dispatch(loadConversations());
       }
+    });
+    return cleanup;
+  }, [dispatch]);
+
+  // Listen for conversation metadata updates (auto-generated title/icon)
+  useEffect(() => {
+    const cleanup = window.api.conversation.onMetadataUpdated((data) => {
+      console.log("[useAgent] conversation:metadataUpdated received", data);
+      dispatch(loadConversations());
     });
     return cleanup;
   }, [dispatch]);
@@ -53,7 +72,19 @@ export function useAgentEventListener() {
     dispatch(initializeSessions());
   }, [dispatch]);
 
-  // Subscribe to all open tabs that have running sessions + the current conversation
+  // Unmount-only cleanup: unsubscribe from everything
+  useEffect(() => {
+    return () => {
+      for (const id of activeSubscriptions) {
+        window.api.agent.unsubscribe(id);
+      }
+      activeSubscriptions.clear();
+    };
+  }, []);
+
+  // Subscribe to all open tabs that have running sessions + the current conversation.
+  // Uses purely incremental logic — NO cleanup-then-resubscribe cycle, which would
+  // cause runtime.subscribe to replay all events and duplicate streaming content.
   useEffect(() => {
     const desired = new Set<string>();
 
@@ -69,31 +100,21 @@ export function useAgentEventListener() {
       }
     }
 
-    const current = subscribedRef.current;
-
-    // Subscribe to new ones
+    // Subscribe to new ones (skip if already subscribed via sendMessage or prior effect)
     for (const id of desired) {
-      if (!current.has(id)) {
+      if (!activeSubscriptions.has(id)) {
         window.api.agent.subscribe(id);
+        activeSubscriptions.add(id);
       }
     }
 
     // Unsubscribe from ones no longer needed
-    for (const id of current) {
+    for (const id of activeSubscriptions) {
       if (!desired.has(id)) {
         window.api.agent.unsubscribe(id);
+        activeSubscriptions.delete(id);
       }
     }
-
-    subscribedRef.current = desired;
-
-    // Cleanup on unmount: unsubscribe from all
-    return () => {
-      for (const id of subscribedRef.current) {
-        window.api.agent.unsubscribe(id);
-      }
-      subscribedRef.current = new Set();
-    };
   }, [currentConversationId, openTabs, runningSessions]);
 }
 
@@ -120,8 +141,12 @@ export function useAgent() {
       // Fire-and-forget send — events come back through subscriber
       try {
         await window.api.agent.send(convId, content);
-        // Subscribe to receive events for this conversation
-        await window.api.agent.subscribe(convId);
+        // Subscribe to receive events for this conversation.
+        // Uses shared tracking to prevent duplicate subscriptions from the useEffect.
+        if (!activeSubscriptions.has(convId)) {
+          await window.api.agent.subscribe(convId);
+          activeSubscriptions.add(convId);
+        }
       } catch (e) {
         dispatch(setError(e instanceof Error ? e.message : String(e)));
       }
