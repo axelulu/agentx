@@ -16,7 +16,7 @@
   </a>
   &nbsp;
   <a href="https://github.com/axelulu/agentx/releases/latest">
-    <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue?style=flat-square" alt="Platforms" />
+    <img src="https://img.shields.io/badge/platform-macOS-blue?style=flat-square" alt="Platform" />
   </a>
   &nbsp;
   <a href="LICENSE">
@@ -47,16 +47,16 @@
 
 ## Download
 
-Download the latest version for your platform from the [Releases page](https://github.com/axelulu/agentx/releases/latest):
+Download the latest version from the [Releases page](https://github.com/axelulu/agentx/releases/latest):
 
 | Platform                  | File                     |
 | ------------------------- | ------------------------ |
 | **macOS** (Apple Silicon) | `AgentX-x.x.x-arm64.dmg` |
 | **macOS** (Intel)         | `AgentX-x.x.x-x64.dmg`   |
-| **Windows**               | `AgentX-x.x.x-setup.exe` |
-| **Linux**                 | `AgentX-x.x.x.AppImage`  |
 
-> Open the `.dmg` / `.exe` / `.AppImage` and follow the installer. On first launch, go to **Settings > Providers** to add your API key.
+> **Note:** AgentX currently only supports macOS. Windows and Linux are not supported.
+
+> Open the `.dmg` and follow the installer. On first launch, go to **Settings > Providers** to add your API key.
 
 ## What is AgentX?
 
@@ -162,7 +162,7 @@ Add persistent context entries (facts, preferences, project conventions) that ar
 
 ### Desktop Experience
 
-- Native application for **macOS**, **Windows**, and **Linux**
+- Native application for **macOS**
 - Conversation management with auto-categorized icons
 - Real-time streaming with typing indicators
 - Message actions (copy, edit, regenerate)
@@ -208,14 +208,7 @@ The app will open automatically. Add your LLM provider API key in **Settings** t
 ### Build for Production
 
 ```bash
-# macOS
 pnpm --filter agentx dist:mac
-
-# Windows
-pnpm --filter agentx dist:win
-
-# Linux
-pnpm --filter agentx dist:linux
 ```
 
 Build artifacts are output to `packages/agentx/src-tauri/target/release/bundle/`.
@@ -335,15 +328,15 @@ To add a new tool:
 
 ## Tech Stack
 
-| Layer       | Technology                                                    |
-| ----------- | ------------------------------------------------------------- |
-| **Desktop** | Tauri v2, Vite, Rust                                          |
-| **UI**      | React 19, Redux Toolkit, Tailwind CSS 4, Radix UI             |
-| **Agent**   | Custom turn-based loop with streaming EventStream             |
-| **LLM**     | OpenAI SDK 5 (also used for Anthropic/Gemini adapters)        |
-| **Build**   | pnpm workspaces, Turborepo, TypeScript 5.7                    |
-| **Test**    | Vitest 4                                                      |
-| **CI/CD**   | GitHub Actions (lint, type-check, test, multi-platform build) |
+| Layer       | Technology                                             |
+| ----------- | ------------------------------------------------------ |
+| **Desktop** | Tauri v2, Vite, Rust                                   |
+| **UI**      | React 19, Redux Toolkit, Tailwind CSS 4, Radix UI      |
+| **Agent**   | Custom turn-based loop with streaming EventStream      |
+| **LLM**     | OpenAI SDK 5 (also used for Anthropic/Gemini adapters) |
+| **Build**   | pnpm workspaces, Turborepo, TypeScript 5.7             |
+| **Test**    | Vitest 4                                               |
+| **CI/CD**   | GitHub Actions (lint, type-check, test, macOS build)   |
 
 ## Project Commands
 
