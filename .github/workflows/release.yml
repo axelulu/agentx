@@ -40,17 +40,23 @@ jobs:
             platform: linux
 
     runs-on: ${{ matrix.os }}
-    if: >-
-      github.event_name == 'push' ||
-      github.event.inputs.platform == 'all' ||
-      github.event.inputs.platform == matrix.platform
 
     steps:
+      - name: Skip check
+        id: skip
+        shell: bash
+        run: |
+          PLATFORM="${{ inputs.platform || 'all' }}"
+          if [[ "$PLATFORM" != "all" && "$PLATFORM" != "${{ matrix.platform }}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.skip.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Install Linux system dependencies
-        if: matrix.platform == 'linux'
+        if: steps.skip.outputs.skip != 'true' && matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -70,27 +76,33 @@ jobs:
           find /usr -name 'glib-2.0.pc' 2>/dev/null
 
       - name: Setup Rust
+        if: steps.skip.outputs.skip != 'true'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
+        if: steps.skip.outputs.skip != 'true'
         uses: swatinem/rust-cache@v2
         with:
           workspaces: packages/agentx/src-tauri -> target
           key: ${{ matrix.platform }}
 
       - name: Setup pnpm
+        if: steps.skip.outputs.skip != 'true'
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
+        if: steps.skip.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.skip.outputs.skip != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build workspace dependencies
+        if: steps.skip.outputs.skip != 'true'
         run: pnpm --filter "agentx^..." build
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -98,6 +110,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ matrix.platform == 'linux' && '/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig' || '' }}
 
       - name: Build Tauri app (${{ matrix.platform }})
+        if: steps.skip.outputs.skip != 'true'
         run: pnpm --filter agentx build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,6 +119,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ matrix.platform == 'linux' && '/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig' || '' }}
 
       - name: Upload artifacts
+        if: steps.skip.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
