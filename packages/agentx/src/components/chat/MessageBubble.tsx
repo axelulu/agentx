@@ -417,6 +417,18 @@ function AssistantBubble({
   // Only show typing indicator / streaming cursor for the actively streaming message
   const showStreamingUI = isActiveStreamingMessage ?? isStreaming;
 
+  // Drag-out handler: allow dragging AI response to other apps
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      const text = message.content ?? "";
+      if (!text) return;
+      e.dataTransfer.setData("text/plain", text);
+      e.dataTransfer.setData("text/html", `<div>${text}</div>`);
+      e.dataTransfer.effectAllowed = "copy";
+    },
+    [message.content],
+  );
+
   return (
     <div
       className={cn(
@@ -424,8 +436,12 @@ function AssistantBubble({
         animate && !isConsecutiveAssistant && "animate-slide-up",
       )}
     >
-      {/* Content + actions */}
-      <div className="flex-1 min-w-0">
+      {/* Content + actions — draggable for drag-out to other apps */}
+      <div
+        className="flex-1 min-w-0"
+        draggable={!!message.content && !showStreamingUI}
+        onDragStart={handleDragStart}
+      >
         {/* Tool call blocks — each rendered as a prominent step */}
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div className="flex flex-col gap-1.5 mb-2">

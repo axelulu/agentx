@@ -19,6 +19,7 @@ import {
   FolderPlusIcon,
   WorkflowIcon,
   ZapIcon,
+  BellIcon,
 } from "lucide-react";
 import { createFolder } from "@/slices/settingsSlice";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
@@ -88,6 +89,18 @@ export function Sidebar() {
         >
           <ZapIcon className="w-3.5 h-3.5" />
           {l10n.t("Skills")}
+        </button>
+        <button
+          onClick={() => dispatch(setActiveView("notifications"))}
+          className={cn(
+            "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+            activeView === "notifications"
+              ? "bg-sidebar-accent text-sidebar-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          )}
+        >
+          <BellIcon className="w-3.5 h-3.5" />
+          {l10n.t("Notifications")}
         </button>
       </div>
 

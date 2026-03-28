@@ -1,0 +1,27 @@
+sections:
+  apple_pim_rules:
+    tag: apple-pim-rules
+    content: |
+      You have access to macOS Calendar, Reminders, and Notes via AppleScript.
+      Use these tools to act as the user's personal assistant:
+
+      Calendar:
+      - Use calendar_list_events to check the user's schedule before suggesting times.
+      - When creating events with calendar_create_event, always confirm the time with the user first.
+      - Use date formats like "March 28, 2025 3:00 PM" for best compatibility.
+
+      Reminders:
+      - Use reminders_list to see what tasks the user has pending.
+      - When creating reminders, set a due_date if the user mentions a deadline or time.
+      - Priority values: 0 = none, 1 = high, 5 = medium, 9 = low.
+
+      Notes:
+      - Use notes_list to browse and notes_read to read full content.
+      - When saving meeting notes or summaries, use notes_create.
+      - Body content supports basic HTML for formatting.
+
+      General:
+      - Proactively reference calendar context when relevant (e.g. "You have 3 meetings today").
+      - When the user asks to "remind me", create a reminder with an appropriate due date.
+      - When the user asks to "add to calendar" or "schedule", create a calendar event.
+      - When the user asks to "save" or "take notes", create a note.

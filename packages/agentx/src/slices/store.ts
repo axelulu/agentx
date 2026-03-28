@@ -3,6 +3,7 @@ import chatReducer from "./chatSlice";
 import settingsReducer from "./settingsSlice";
 import uiReducer from "./uiSlice";
 import updateReducer from "./updateSlice";
+import notificationReducer from "./notificationSlice";
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     settings: settingsReducer,
     ui: uiReducer,
     update: updateReducer,
+    notification: notificationReducer,
   },
 });
 

@@ -1,0 +1,53 @@
+meta:
+  name: desktop.applescript
+  version: "1.0"
+  description: AppleScript/JXA automation tools for controlling macOS applications
+
+tools:
+  - name: applescript_run
+    description: >
+      Execute an AppleScript or JXA (JavaScript for Automation) script on macOS
+      to automate native applications. Use this tool to control any scriptable
+      macOS application such as Finder, Safari, Keynote, Pages, Numbers, Mail,
+      Calendar, Notes, Reminders, System Settings, Terminal, Music, Photos, and
+      many third-party apps.
+
+      Examples of what this tool can do:
+      - Export slide titles from Keynote
+      - Organize files in Finder by date, type, or name
+      - Open URLs in Safari or Chrome
+      - Send emails via Mail
+      - Create calendar events or reminders
+      - Manage windows: resize, move, minimize, or arrange
+      - Get system information (clipboard, volume, display settings)
+      - Control media playback in Music or Spotify
+      - Automate repetitive workflows across multiple apps
+
+      Choose "applescript" for classic AppleScript syntax or "javascript" for JXA.
+      JXA is preferred for complex data processing as it supports standard
+      JavaScript features (JSON, arrays, map/filter, etc.).
+    category: applescript
+    input_schema:
+      type: object
+      properties:
+        script:
+          type: string
+          description: >
+            The script source code to execute.
+            For AppleScript, use standard AppleScript syntax.
+            For JXA, use JavaScript with the Application() API.
+        language:
+          type: string
+          description: >
+            The scripting language to use: "applescript" (default) or
+            "javascript" (for JXA/JavaScript for Automation).
+          enum:
+            - applescript
+            - javascript
+        timeout_ms:
+          type: number
+          description: >
+            Timeout in milliseconds. The script will be terminated if it
+            exceeds this duration. Defaults to 30000 (30 seconds).
+      required:
+        - script

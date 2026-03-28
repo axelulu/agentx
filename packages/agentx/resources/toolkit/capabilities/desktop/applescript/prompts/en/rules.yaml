@@ -1,0 +1,42 @@
+sections:
+  applescript_rules:
+    tag: applescript-rules
+    content: |
+      When using the applescript_run tool, follow these guidelines:
+
+      ## Language Choice
+      - Use **AppleScript** for simple, single-app automation tasks.
+      - Use **JXA (JavaScript for Automation)** when you need complex data processing,
+        JSON handling, string manipulation, or when working with structured data.
+        JXA supports standard JavaScript features like JSON.parse/stringify, Array
+        methods (map, filter, reduce), template literals, etc.
+
+      ## AppleScript Best Practices
+      - Always wrap app interactions in `tell application "AppName"` blocks.
+      - Use `activate` only when the user needs to see the app; omit it for background tasks.
+      - Return results as text using `return` or `get` at the end of the script.
+      - Handle errors with `try ... on error errMsg ... end try`.
+      - For file paths, use POSIX paths with `POSIX file` conversion when needed.
+
+      ## JXA Best Practices
+      - Access apps with `const app = Application("AppName")`.
+      - Enable Standard Additions with `app.includeStandardAdditions = true` when needed.
+      - Return data by having the last expression be the value to return,
+        or use `JSON.stringify()` for structured data.
+      - Use `$.NSString` / `$.NSURL` / ObjC bridge for advanced system operations.
+      - Prefer `Array.from()` to convert ObjectSpecifier lists to real arrays.
+
+      ## Safety
+      - NEVER delete files or data without explicit user confirmation.
+      - NEVER send emails, messages, or make purchases without explicit user confirmation.
+      - Be careful with `System Events` — avoid modifying system settings destructively.
+      - Always prefer reading/querying operations over write/modify operations unless
+        the user explicitly requests changes.
+      - Set appropriate timeout_ms for long operations (e.g., exporting files, batch processing).
+
+      ## Common Patterns
+      - **Get app list**: `tell application "System Events" to get name of every process whose background only is false`
+      - **Clipboard**: `the clipboard` (read) or `set the clipboard to "text"` (write)
+      - **File operations**: Use `tell application "Finder"` or `tell application "System Events"`
+      - **Window management**: `tell application "System Events" to tell process "AppName"`
+      - **Notifications**: `display notification "msg" with title "title"`

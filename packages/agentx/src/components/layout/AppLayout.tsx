@@ -8,12 +8,15 @@ import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { AutomationPanel } from "@/components/automation/AutomationPanel";
 import { SkillsPanel } from "@/components/skills/SkillsPanel";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { TabBar } from "@/components/chat/TabBar";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { SearchDialog } from "@/components/search/SearchDialog";
+import { ClipboardDialog } from "@/components/clipboard/ClipboardDialog";
 import { useUpdateListener } from "@/hooks/useUpdateListener";
 import { useShortcuts } from "@/hooks/useShortcuts";
+import { useFinderAction } from "@/hooks/useFinderAction";
 import { PanelLeftIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { l10n } from "@agentx/l10n";
@@ -23,6 +26,7 @@ export function AppLayout() {
   const { sidebarOpen, settingsOpen, activeView } = useSelector((state: RootState) => state.ui);
   useUpdateListener();
   useShortcuts();
+  useFinderAction();
 
   // Navigate to conversation when a notification is clicked
   useEffect(() => {
@@ -72,6 +76,8 @@ export function AppLayout() {
             <AutomationPanel />
           ) : activeView === "skills" ? (
             <SkillsPanel />
+          ) : activeView === "notifications" ? (
+            <NotificationCenter />
           ) : (
             <ChatPanel />
           )}
@@ -80,6 +86,7 @@ export function AppLayout() {
 
       {settingsOpen && <SettingsPanel />}
       <SearchDialog />
+      <ClipboardDialog />
     </div>
   );
 }

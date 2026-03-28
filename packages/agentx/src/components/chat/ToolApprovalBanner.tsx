@@ -11,6 +11,7 @@ import {
   TerminalIcon,
   FileTextIcon,
   FilePenIcon,
+  AppleIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   file_read: FileTextIcon,
   file_create: FilePenIcon,
   file_rewrite: FilePenIcon,
+  applescript_run: AppleIcon,
 };
 
 const TOOL_LABEL_KEYS: Record<string, string> = {
@@ -26,6 +28,7 @@ const TOOL_LABEL_KEYS: Record<string, string> = {
   file_read: "Read File",
   file_create: "Create File",
   file_rewrite: "Rewrite File",
+  applescript_run: "Run AppleScript",
 };
 
 function formatArgs(toolName: string, args: Record<string, unknown>): string {
@@ -37,6 +40,10 @@ function formatArgs(toolName: string, args: Record<string, unknown>): string {
     case "file_create":
     case "file_rewrite":
       return String(args.file_path ?? "");
+    case "applescript_run": {
+      const lang = args.language === "javascript" ? "[JXA] " : "";
+      return `${lang}${String(args.script ?? "")}`;
+    }
     default:
       return JSON.stringify(args, null, 2);
   }

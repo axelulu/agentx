@@ -21,6 +21,7 @@ import {
   MicIcon,
   Loader2Icon,
   CameraIcon,
+  ScanTextIcon,
   PlusIcon,
 } from "lucide-react";
 import { getPreviewType, fileUrl } from "@/lib/filePreview";
@@ -42,6 +43,8 @@ import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { ImagePreviewOverlay } from "@/components/ui/ImagePreviewOverlay";
 import { SkillSelector } from "@/components/skills/SkillSelector";
 import { ConversationPromptButton } from "./ConversationPromptBar";
+import { DropActionPanel, type DroppedContent } from "./DropActionPanel";
+import { FileTagsPanel } from "./FileTagsPanel";
 
 interface AttachedFile {
   path: string;
@@ -109,6 +112,16 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
   const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // Universal Drag & Drop state
+  const [dropDetection, setDropDetection] = useState<DropContentDetection | null>(null);
+  const [droppedContent, setDroppedContent] = useState<DroppedContent | null>(null);
+
+  // File Tags state
+  const [fileTagsPaths, setFileTagsPaths] = useState<string[] | null>(null);
+
+  // Tauri native drag-drop: ref is set below after addFiles is defined
+  const addFilesRef = useRef<(paths: string[]) => Promise<void>>(async () => {});
+
   const activeProvider = providers.find((p) => p.isActive);
   const modelLabel = activeProvider?.defaultModel ?? "—";
 
@@ -133,6 +146,46 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     setAttachments([]);
     setImageAttachments([]);
   }, [currentConversationId]);
+
+  // Shared OCR flow: capture screenshot (via sidecar) → run Vision OCR → populate input
+  const performOcrCapture = useCallback(async () => {
+    // Step 1: Capture screen region via sidecar (has proper screen recording perms)
+    const capture = await window.api.screen.capture();
+    if (!capture) return; // user cancelled
+
+    // Step 2: Add screenshot as image attachment
+    setImageAttachments((prev) => {
+      if (prev.length >= MAX_ATTACHMENTS) return prev;
+      return [
+        ...prev,
+        {
+          id: `img_${++imageCounter}`,
+          data: capture.data,
+          mimeType: capture.mimeType,
+          name: `OCR ${new Date().toLocaleTimeString()}`,
+        },
+      ];
+    });
+
+    // Step 3: Run Vision OCR on the captured image
+    try {
+      const ocr = (await window.api.ocr.recognize(capture.data)) as { text: string };
+      if (ocr.text) {
+        dispatch(setInputValue(ocr.text));
+      }
+    } catch (e) {
+      console.error("[OCR] Recognition failed:", e);
+    }
+    textareaRef.current?.focus();
+  }, [dispatch]);
+
+  // Listen for OCR shortcut trigger (Option+O)
+  useEffect(() => {
+    const cleanup = window.api.ocr.onTrigger(() => {
+      performOcrCapture();
+    });
+    return cleanup;
+  }, [performOcrCapture]);
 
   // Auto-focus textarea on mount and when streaming ends
   useEffect(() => {
@@ -199,6 +252,52 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
         );
       }
     }
+  }, []);
+
+  // Keep ref in sync for the native drop handler
+  addFilesRef.current = addFiles;
+
+  // ---------------------------------------------------------------------------
+  // Tauri native drag-drop events (primary handler for file drops from Finder)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const unlistenDragOver = window.api.fs.onNativeDragOver((hovering) => {
+      setIsDragOver(hovering);
+    });
+
+    const unlistenDrop = window.api.fs.onNativeDrop(async (paths) => {
+      console.log("[NativeDrop] drop received, paths:", paths);
+      setIsDragOver(false);
+      if (paths.length === 0) return;
+
+      // Try smart detection; fall back to direct file add on any error
+      let detection: DropContentDetection | null = null;
+      try {
+        detection = await window.api.dropDetect.detectContentType(undefined, paths, undefined);
+        console.log("[NativeDrop] detection result:", detection);
+      } catch (err) {
+        console.warn("[NativeDrop] detectContentType failed:", err);
+      }
+
+      if (detection && detection.actions.length > 0) {
+        console.log("[NativeDrop] showing action panel with", detection.actions.length, "actions");
+        const content: DroppedContent = {
+          type: detection.contentType as DroppedContent["type"],
+          filePaths: paths,
+        };
+        setDropDetection(detection);
+        setDroppedContent(content);
+      } else {
+        console.log("[NativeDrop] no detection/actions, falling back to direct file add");
+        // Fallback: add files directly (original behavior)
+        await addFilesRef.current(paths);
+      }
+    });
+
+    return () => {
+      unlistenDragOver();
+      unlistenDrop();
+    };
   }, []);
 
   const focus = useCallback(() => {
@@ -308,16 +407,102 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     }
   };
 
+  // Browser drop handler — only for text/URL/HTML drops (file drops handled by Tauri native)
   const handleDrop = async (e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
 
-    // Paths were already extracted by the preload's capture-phase drop listener
-    // using webUtils.getPathForFile() on the original (non-cloned) File objects.
-    const paths = window.api.fs.getDroppedPaths();
-    if (paths.length > 0) await addFiles(paths);
+    // For text/URL/HTML dragged from browser windows or other apps
+    const droppedText = e.dataTransfer.getData("text/plain");
+    const droppedHtml = e.dataTransfer.getData("text/html");
+
+    if (droppedText || droppedHtml) {
+      try {
+        const detection = await window.api.dropDetect.detectContentType(
+          droppedText || undefined,
+          undefined,
+          droppedHtml || undefined,
+        );
+
+        const content: DroppedContent = {
+          type: detection.contentType as DroppedContent["type"],
+          text: droppedText || undefined,
+          html: droppedHtml || undefined,
+        };
+
+        setDropDetection(detection);
+        setDroppedContent(content);
+      } catch {
+        // Fallback: paste text directly
+        if (droppedText) {
+          dispatch(setInputValue(inputValue ? `${inputValue}\n${droppedText}` : droppedText));
+        }
+      }
+    }
   };
+
+  // Handle drop action selection
+  const handleDropAction = useCallback(
+    async (action: DropAction, content: DroppedContent) => {
+      setDropDetection(null);
+      setDroppedContent(null);
+
+      if (action === "tag" && content.filePaths?.length) {
+        // Open File Tags panel
+        setFileTagsPaths(content.filePaths);
+        return;
+      }
+
+      // For file-based actions, add files and set prompt
+      if (content.filePaths?.length) {
+        await addFiles(content.filePaths);
+      }
+
+      // Build prompt based on action
+      const actionPrompts: Record<string, string> = {
+        explain: "Please explain this code in detail:",
+        optimize: "Please optimize this code for better performance:",
+        review: "Please review this code and suggest improvements:",
+        debug: "Please debug this code and find any issues:",
+        convert: "Please convert this code to a different language:",
+        describe: "Please describe this image in detail:",
+        edit: "Please suggest edits for this image:",
+        analyze: "Please analyze this content:",
+        summarize: "Please summarize this content:",
+        translate: "Please translate this to English:",
+        rewrite: "Please rewrite this in a clearer way:",
+        expand: "Please expand on this:",
+        fetch: "Please fetch and summarize this URL:",
+        bookmark: "Please bookmark and categorize this URL:",
+        extract_text: "Please extract the text content from this:",
+      };
+
+      const prompt = actionPrompts[action] ?? `Please ${action} this:`;
+
+      if (content.text) {
+        dispatch(setInputValue(`${prompt}\n\n${content.text}`));
+      } else if (content.filePaths?.length) {
+        dispatch(setInputValue(prompt));
+      }
+
+      textareaRef.current?.focus();
+    },
+    [addFiles, dispatch],
+  );
+
+  const handleDropDismiss = useCallback(() => {
+    const content = droppedContent;
+    setDropDetection(null);
+    setDroppedContent(null);
+
+    // Fall back to adding files normally
+    if (content?.filePaths?.length) {
+      addFiles(content.filePaths);
+    } else if (content?.text) {
+      dispatch(setInputValue(inputValue ? `${inputValue}\n${content.text}` : content.text));
+    }
+  }, [droppedContent, addFiles, dispatch, inputValue]);
 
   const handleAttachFiles = async () => {
     const paths = await window.api.fs.selectFile({ multi: true });
@@ -346,6 +531,8 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     });
   }, []);
 
+  const handleOcrCapture = performOcrCapture;
+
   const canSend =
     inputValue.trim().length > 0 || attachments.length > 0 || imageAttachments.length > 0;
 
@@ -356,7 +543,22 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           {error}
         </div>
       )}
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto relative">
+        {/* File Tags Panel (shown when "tag" action is selected) */}
+        {fileTagsPaths && (
+          <div className="mb-2">
+            <FileTagsPanel filePaths={fileTagsPaths} onClose={() => setFileTagsPaths(null)} />
+          </div>
+        )}
+
+        {/* Drop Action Panel — OUTSIDE overflow-hidden so it's visible above the input */}
+        <DropActionPanel
+          detection={dropDetection}
+          droppedContent={droppedContent}
+          onAction={handleDropAction}
+          onDismiss={handleDropDismiss}
+        />
+
         <div
           ref={dropZoneRef}
           onDragOver={handleDragOver}
@@ -367,11 +569,14 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             isDragOver ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/50",
           )}
         >
-          {/* Drop overlay */}
+          {/* Drop overlay — Universal Drag & Drop */}
           {isDragOver && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/30 bg-foreground/[0.03]">
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-foreground/30 bg-foreground/[0.03]">
               <span className="text-sm text-muted-foreground font-medium">
-                {l10n.t("Drop files here")}
+                {l10n.t("Drop anything here")}
+              </span>
+              <span className="text-[11px] text-muted-foreground/50 mt-1">
+                {l10n.t("Files, text, code, URLs — AI will suggest actions")}
               </span>
             </div>
           )}
@@ -442,6 +647,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             <AttachMenu onSelectFiles={handleAttachFiles} onSelectFolder={handleAttachDirectory} />
             <MoreToolsMenu
               onScreenCapture={handleScreenCapture}
+              onOcrCapture={handleOcrCapture}
               onKnowledgeBase={() => dispatch(openSettingsSection("knowledgeBase"))}
               onMCP={() => dispatch(openSettingsSection("mcp"))}
               onMic={handleMicClick}
@@ -638,6 +844,7 @@ function AttachMenu({
 
 function MoreToolsMenu({
   onScreenCapture,
+  onOcrCapture,
   onKnowledgeBase,
   onMCP,
   onMic,
@@ -645,6 +852,7 @@ function MoreToolsMenu({
   isTranscribing,
 }: {
   onScreenCapture: () => void;
+  onOcrCapture: () => void;
   onKnowledgeBase: () => void;
   onMCP: () => void;
   onMic: () => void;
@@ -656,6 +864,7 @@ function MoreToolsMenu({
       placement="top-start"
       items={[
         { icon: CameraIcon, label: l10n.t("Screenshot"), onClick: onScreenCapture },
+        { icon: ScanTextIcon, label: l10n.t("Screen OCR (⌥O)"), onClick: onOcrCapture },
         { icon: BookOpenIcon, label: l10n.t("Knowledge Base"), onClick: onKnowledgeBase },
         { icon: PlugIcon, label: l10n.t("MCP Servers"), onClick: onMCP },
         {
@@ -666,16 +875,21 @@ function MoreToolsMenu({
         },
       ]}
       trigger={({ ref, onClick, isOpen }) => (
-        <button
-          ref={ref}
-          onClick={onClick}
-          className={cn(
-            "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground/60 hover:text-muted-foreground/90 hover:bg-foreground/[0.05] transition-colors",
-            isOpen && "bg-foreground/[0.05] text-muted-foreground/80",
-          )}
-        >
-          <PlusIcon className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              ref={ref}
+              onClick={onClick}
+              className={cn(
+                "flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground/60 hover:text-muted-foreground/90 hover:bg-foreground/[0.05] transition-colors",
+                isOpen && "bg-foreground/[0.05] text-muted-foreground/80",
+              )}
+            >
+              <PlusIcon className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{l10n.t("More")}</TooltipContent>
+        </Tooltip>
       )}
     />
   );

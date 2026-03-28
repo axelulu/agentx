@@ -8,17 +8,46 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 // ---------------------------------------------------------------------------
-// Drag-and-drop path extraction for Tauri
+// Drag-and-drop: Tauri intercepts native file drops at the window level,
+// so browser onDrop events may NOT fire for files dragged from Finder.
+// We use Tauri's onDragDropEvent as the primary mechanism and emit
+// custom DOM events for components to listen to.
 // ---------------------------------------------------------------------------
 let _droppedPaths: string[] = [];
+type DropCallback = (paths: string[]) => void;
+type DragOverCallback = (hovering: boolean) => void;
+const _dropCallbacks: Set<DropCallback> = new Set();
+const _dragOverCallbacks: Set<DragOverCallback> = new Set();
 
 async function setupDragDrop(): Promise<void> {
   const currentWindow = getCurrentWebviewWindow();
   await currentWindow.onDragDropEvent((event) => {
-    if (event.payload.type === "drop") {
+    const type = event.payload.type;
+    if (type === "drop") {
       _droppedPaths = event.payload.paths;
+      for (const cb of _dropCallbacks) cb(event.payload.paths);
+      for (const cb of _dragOverCallbacks) cb(false);
+    } else if (type === "enter") {
+      for (const cb of _dragOverCallbacks) cb(true);
+    } else if (type === "leave") {
+      for (const cb of _dragOverCallbacks) cb(false);
     }
+    // "over" fires continuously during drag — ignore to avoid re-renders
   });
+}
+
+function onNativeDrop(cb: DropCallback): () => void {
+  _dropCallbacks.add(cb);
+  return () => {
+    _dropCallbacks.delete(cb);
+  };
+}
+
+function onNativeDragOver(cb: DragOverCallback): () => void {
+  _dragOverCallbacks.add(cb);
+  return () => {
+    _dragOverCallbacks.delete(cb);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +236,8 @@ const bridge: NativeAPI = {
     openPath: (path: string) => invoke("fs_open_path", { path }),
     showItemInFolder: (path: string) => invoke("fs_show_item_in_folder", { path }),
     getDroppedPaths: () => _droppedPaths,
+    onNativeDrop: (cb: (paths: string[]) => void) => onNativeDrop(cb),
+    onNativeDragOver: (cb: (hovering: boolean) => void) => onNativeDragOver(cb),
     showSaveDialog: (options: { defaultPath?: string; filters?: unknown[]; title?: string }) =>
       invoke("fs_show_save_dialog", {
         defaultPath: options.defaultPath,
@@ -263,12 +294,33 @@ const bridge: NativeAPI = {
     capture: () => invoke("screen_capture"),
   },
 
+  ocr: {
+    recognize: (imageBase64: string) => invoke("ocr_recognize", { imageBase64 }),
+    onTrigger: (callback: () => void) => {
+      return createEventListener("ocr:trigger", callback as (...args: unknown[]) => void);
+    },
+  },
+
   notifications: {
     onNavigateToConversation: (callback: (conversationId: string) => void) => {
       return createEventListener(
         "notification:navigateToConversation",
         callback as (...args: unknown[]) => void,
       );
+    },
+  },
+
+  notificationIntelligence: {
+    getConfig: () => invoke("ni_get_config"),
+    setConfig: (config: NotificationIntelligenceConfig) => invoke("ni_set_config", { config }),
+    fetch: () => invoke("ni_fetch"),
+    classify: (notifications: MacNotification[]) => invoke("ni_classify", { notifications }),
+    start: () => invoke("ni_start"),
+    stop: () => invoke("ni_stop"),
+    markRead: (ids: string[]) => invoke("ni_mark_read", { ids }),
+    openApp: (bundleId: string) => invoke("ni_open_app", { bundleId }),
+    onUpdate: (callback: (notifications: MacNotification[]) => void) => {
+      return createEventListener("ni:update", callback as (...args: unknown[]) => void);
     },
   },
 
@@ -281,6 +333,10 @@ const bridge: NativeAPI = {
     },
   },
 
+  systemHealth: {
+    snapshot: () => invoke("system_health_snapshot"),
+  },
+
   window: {
     minimize: () => {
       invoke("window_minimize");
@@ -291,6 +347,31 @@ const bridge: NativeAPI = {
     close: () => {
       invoke("window_close");
     },
+  },
+
+  finder: {
+    isInstalled: () => invoke("finder_is_installed") as Promise<boolean>,
+    install: () => invoke("finder_install") as Promise<void>,
+    uninstall: () => invoke("finder_uninstall") as Promise<void>,
+    checkPending: () => invoke("finder_check_pending") as Promise<void>,
+    onAction: (callback: (action: { action: string; files: string[] }) => void) => {
+      return createEventListener("finder:action", callback as (...args: unknown[]) => void);
+    },
+  },
+
+  fileTags: {
+    get: (path: string) => invoke("file_tags_get", { path }),
+    set: (path: string, tags: string[]) => invoke("file_tags_set", { path, tags }),
+    setComment: (path: string, comment: string) =>
+      invoke("file_tags_set_comment", { path, comment }),
+    getMetadata: (path: string) => invoke("file_tags_get_metadata", { path }),
+    analyze: (path: string) => invoke("file_tags_analyze", { path }),
+    analyzeBatch: (paths: string[]) => invoke("file_tags_analyze_batch", { paths }),
+  },
+
+  dropDetect: {
+    detectContentType: (text?: string, filePaths?: string[], html?: string) =>
+      invoke("detect_drop_content_type", { text, filePaths, html }),
   },
 };
 

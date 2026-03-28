@@ -113,13 +113,13 @@ export function MemoryConfig() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full space-y-4">
       {/* Hero card — enable/disable + stats */}
       <div className="rounded-xl bg-gradient-to-br from-foreground/[0.01] to-foreground/[0.03] p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
-              <BrainIcon className="w-4 h-4 text-accent" />
+              <BrainIcon className="w-4 h-4 text-foreground/70" />
             </div>
             <div>
               <p className="text-[13px] font-medium text-foreground">{l10n.t("Enable Memory")}</p>
@@ -162,7 +162,7 @@ export function MemoryConfig() {
 
       {/* Content — tabs */}
       {config.enabled && (
-        <div className="space-y-2">
+        <div className="flex-1 min-h-0 flex flex-col space-y-2">
           {/* Tab bar */}
           <div className="flex items-center gap-0.5 px-0.5">
             <TabButton
@@ -182,9 +182,9 @@ export function MemoryConfig() {
           </div>
 
           {/* Tab content */}
-          <div className="rounded-lg bg-foreground/[0.02] overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-lg bg-foreground/[0.02] overflow-y-auto">
             {activeTab === "facts" && (
-              <div className="max-h-[240px] overflow-y-auto divide-y divide-border/40">
+              <div className="divide-y divide-border/40">
                 {facts.length === 0 ? (
                   <EmptyState
                     icon={LightbulbIcon}
@@ -284,7 +284,7 @@ export function MemoryConfig() {
             )}
 
             {activeTab === "summaries" && (
-              <div className="max-h-[240px] overflow-y-auto divide-y divide-border/40">
+              <div className="divide-y divide-border/40">
                 {summaries.length === 0 ? (
                   <EmptyState
                     icon={BookOpenIcon}

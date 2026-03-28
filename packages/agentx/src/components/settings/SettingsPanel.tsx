@@ -31,6 +31,7 @@ import {
   RadioIcon,
   RotateCcwIcon,
   Trash2Icon,
+  ActivityIcon,
 } from "lucide-react";
 import { ProviderConfig } from "./ProviderConfig";
 import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
@@ -39,6 +40,7 @@ import { ChannelsConfig } from "./ChannelsConfig";
 import { PermissionsConfig } from "./PermissionsConfig";
 import { VoiceConfig } from "./VoiceConfig";
 import { MemoryConfig } from "./MemoryConfig";
+import { SystemHealthConfig } from "./SystemHealthConfig";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
@@ -60,6 +62,7 @@ export function SettingsPanel() {
     { id: "channels", label: l10n.t("Channels"), icon: RadioIcon },
     { id: "memory", label: l10n.t("Memory"), icon: BrainIcon },
     { id: "permissions", label: l10n.t("Permissions"), icon: ShieldCheckIcon },
+    { id: "systemHealth", label: l10n.t("System Health"), icon: ActivityIcon },
     { id: "about", label: l10n.t("About"), icon: InfoIcon },
   ];
 
@@ -123,8 +126,13 @@ export function SettingsPanel() {
             {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
             {activeSection === "mcp" && <MCPConfig />}
             {activeSection === "channels" && <ChannelsConfig />}
-            {activeSection === "memory" && <MemoryConfig />}
+            {activeSection === "memory" && (
+              <div className="h-full flex flex-col overflow-hidden -mb-8">
+                <MemoryConfig />
+              </div>
+            )}
             {activeSection === "permissions" && <PermissionsConfig />}
+            {activeSection === "systemHealth" && <SystemHealthConfig />}
             {activeSection === "about" && <AboutSection />}
           </div>
         </div>
@@ -402,6 +410,8 @@ function GeneralSection() {
         </div>
       </div>
 
+      <FinderIntegrationSection />
+
       <div className="space-y-3">
         <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
           {l10n.t("Notifications")}
@@ -567,6 +577,75 @@ function GeneralSection() {
       </div>
 
       <DangerZoneSection />
+    </div>
+  );
+}
+
+function FinderIntegrationSection() {
+  const [installed, setInstalled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    window.api.finder
+      .isInstalled()
+      .then(setInstalled)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (installed) {
+        await window.api.finder.uninstall();
+        setInstalled(false);
+      } else {
+        await window.api.finder.install();
+        setInstalled(true);
+      }
+    } catch (e) {
+      console.error("[Finder] Toggle failed:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [installed]);
+
+  return (
+    <div className="space-y-3">
+      <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+        {l10n.t("Finder Integration")}
+      </label>
+      <div className="flex items-center justify-between py-2">
+        <div>
+          <p className="text-sm text-foreground">{l10n.t("Finder Context Menu")}</p>
+          <p className="text-[12px] text-muted-foreground mt-0.5">
+            {l10n.t("Right-click files in Finder to analyze, summarize, or rename with AgentX")}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={loading}
+          className={cn(
+            "relative w-9 h-5 rounded-full transition-colors",
+            loading && "opacity-50 cursor-not-allowed",
+            installed ? "bg-primary" : "bg-foreground/[0.12]",
+          )}
+        >
+          <span
+            className={cn(
+              "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-primary-foreground transition-transform",
+              installed && "translate-x-4",
+            )}
+          />
+        </button>
+      </div>
+      {installed && (
+        <p className="text-[11px] text-muted-foreground/60">
+          {l10n.t(
+            "Quick Actions installed. Right-click any file in Finder to see AgentX options under Quick Actions.",
+          )}
+        </p>
+      )}
     </div>
   );
 }

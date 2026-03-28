@@ -1,4 +1,6 @@
 import type { NamedToolHandler } from "../types";
+import { createApplePimToolHandlers } from "./apple-pim-tools";
+import { createAppleScriptToolHandlers } from "./applescript-tools";
 import { createBrowserToolHandlers } from "./browser-tools";
 import { createFileToolHandlers } from "./file-tools";
 import { createShellToolHandlers } from "./shell-tools";
@@ -40,12 +42,16 @@ export function createDesktopHandlers(workspaceRoot: string): NamedToolHandler[]
     ...createFileToolHandlers(workspaceRoot),
     ...createSearchToolHandlers(workspaceRoot),
     ...createShellToolHandlers(workspaceRoot),
+    ...createApplePimToolHandlers(),
+    ...createAppleScriptToolHandlers(),
     ...createBrowserToolHandlers(),
     createScreenCaptureHandler(),
     taskComplete(),
   ];
 }
 
+export { createApplePimToolHandlers } from "./apple-pim-tools";
+export { createAppleScriptToolHandlers } from "./applescript-tools";
 export { createBrowserToolHandlers } from "./browser-tools";
 export { createFileToolHandlers } from "./file-tools";
 export { createSearchToolHandlers } from "./search-tools";

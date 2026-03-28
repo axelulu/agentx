@@ -633,6 +633,22 @@ pub async fn screen_capture(
 }
 
 // ---------------------------------------------------------------------------
+// OCR capture command
+// ---------------------------------------------------------------------------
+
+/// OCR: run text recognition on base64 image data.
+/// The screenshot is taken by the frontend via the existing sidecar screen:capture,
+/// then this command runs Vision OCR on the captured image.
+#[tauri::command]
+pub async fn ocr_recognize(image_base64: String) -> Result<Value, String> {
+    let text = tokio::task::spawn_blocking(move || crate::ocr::ocr_from_base64(&image_base64))
+        .await
+        .map_err(|e| format!("OCR task failed: {}", e))??;
+
+    Ok(serde_json::json!({ "text": text }))
+}
+
+// ---------------------------------------------------------------------------
 // Notifications config
 // ---------------------------------------------------------------------------
 
@@ -647,6 +663,68 @@ pub async fn notifications_config(
         serde_json::json!([config]),
     )
     .await
+}
+
+// ---------------------------------------------------------------------------
+// Notification Intelligence commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn ni_get_config(state: State<'_, SidecarState>) -> Result<Value, String> {
+    sidecar_call(&state, "ni:getConfig", serde_json::json!([])).await
+}
+
+#[tauri::command]
+pub async fn ni_set_config(
+    state: State<'_, SidecarState>,
+    config: Value,
+) -> Result<Value, String> {
+    sidecar_call(&state, "ni:setConfig", serde_json::json!([config])).await
+}
+
+#[tauri::command]
+pub async fn ni_fetch(state: State<'_, SidecarState>) -> Result<Value, String> {
+    sidecar_call(&state, "ni:fetch", serde_json::json!([])).await
+}
+
+#[tauri::command]
+pub async fn ni_classify(
+    state: State<'_, SidecarState>,
+    notifications: Value,
+) -> Result<Value, String> {
+    sidecar_call(&state, "ni:classify", serde_json::json!([notifications])).await
+}
+
+#[tauri::command]
+pub async fn ni_start(state: State<'_, SidecarState>) -> Result<Value, String> {
+    sidecar_call(&state, "ni:start", serde_json::json!([])).await
+}
+
+#[tauri::command]
+pub async fn ni_stop(state: State<'_, SidecarState>) -> Result<Value, String> {
+    sidecar_call(&state, "ni:stop", serde_json::json!([])).await
+}
+
+#[tauri::command]
+pub async fn ni_mark_read(
+    state: State<'_, SidecarState>,
+    ids: Value,
+) -> Result<Value, String> {
+    sidecar_call(&state, "ni:markRead", serde_json::json!([ids])).await
+}
+
+#[tauri::command]
+pub async fn ni_open_app(bundle_id: String) -> Result<Value, String> {
+    let output = std::process::Command::new("open")
+        .args(["-b", &bundle_id])
+        .output()
+        .map_err(|e| format!("Failed to open app: {}", e))?;
+    if output.status.success() {
+        Ok(serde_json::json!({ "success": true }))
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Ok(serde_json::json!({ "success": false, "error": stderr.to_string() }))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1103,12 +1181,884 @@ pub async fn translate_get_selected_text() -> Result<String, String> {
 }
 
 // ---------------------------------------------------------------------------
+// Shortcuts commands (for Shortcuts.app / x-callback-url integration)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn shortcuts_run(
+    state: State<'_, SidecarState>,
+    prompt: String,
+    system_prompt: Option<String>,
+) -> Result<Value, String> {
+    sidecar_call(
+        &state,
+        "shortcuts:run",
+        serde_json::json!([prompt, system_prompt]),
+    )
+    .await
+}
+
+// ---------------------------------------------------------------------------
+// Clipboard pipeline commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn clipboard_process(
+    state: State<'_, SidecarState>,
+    text: String,
+    action: String,
+) -> Result<Value, String> {
+    sidecar_call(
+        &state,
+        "clipboard:process",
+        serde_json::json!([text, action]),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn clipboard_write(text: String) -> Result<(), String> {
+    crate::clipboard::set_clipboard_text(&text)
+}
+
+#[tauri::command]
+pub async fn clipboard_read() -> Result<String, String> {
+    crate::clipboard::get_clipboard_text()
+}
+
+// ---------------------------------------------------------------------------
+// System Health commands (native — not through sidecar)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn system_health_snapshot() -> Result<Value, String> {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    let cpu_model = sh_run("sysctl", &["-n", "machdep.cpu.brand_string"])
+        .unwrap_or_else(|| "Unknown".into())
+        .trim()
+        .to_string();
+    let cpu_cores: u32 = sh_run("sysctl", &["-n", "hw.ncpu"])
+        .unwrap_or_default()
+        .trim()
+        .parse()
+        .unwrap_or(0);
+    let cpu_usage = parse_cpu_usage();
+
+    let mem_total: u64 = sh_run("sysctl", &["-n", "hw.memsize"])
+        .unwrap_or_default()
+        .trim()
+        .parse()
+        .unwrap_or(0);
+    let (mem_used, mem_available, swap_used, swap_total) = parse_memory();
+    let mem_percent = if mem_total > 0 {
+        (mem_used as f64 / mem_total as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let (disk_total, disk_used, disk_available) = parse_disk();
+    let disk_percent = if disk_total > 0 {
+        (disk_used as f64 / disk_total as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let battery = parse_battery();
+    let network = parse_network();
+    let top_processes = parse_top_processes();
+
+    let load_avg_str = sh_run("sysctl", &["-n", "vm.loadavg"]).unwrap_or_default();
+    let load_average: Vec<f64> = load_avg_str
+        .trim()
+        .trim_matches(|c| c == '{' || c == '}')
+        .split_whitespace()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    let uptime = sh_run("uptime", &[])
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    Ok(serde_json::json!({
+        "timestamp": timestamp,
+        "cpu": {
+            "model": cpu_model,
+            "cores": cpu_cores,
+            "usagePercent": cpu_usage,
+            "temperatureCelsius": serde_json::Value::Null,
+        },
+        "memory": {
+            "totalBytes": mem_total,
+            "usedBytes": mem_used,
+            "availableBytes": mem_available,
+            "usagePercent": (mem_percent * 10.0).round() / 10.0,
+            "swapUsedBytes": swap_used,
+            "swapTotalBytes": swap_total,
+        },
+        "disk": {
+            "totalBytes": disk_total,
+            "usedBytes": disk_used,
+            "availableBytes": disk_available,
+            "usagePercent": (disk_percent * 10.0).round() / 10.0,
+            "mountPoint": "/",
+        },
+        "battery": battery,
+        "network": network,
+        "topProcesses": top_processes,
+        "loadAverage": load_average,
+        "uptime": uptime,
+    }))
+}
+
+fn sh_run(cmd: &str, args: &[&str]) -> Option<String> {
+    std::process::Command::new(cmd)
+        .args(args)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+}
+
+fn parse_cpu_usage() -> f64 {
+    let output = sh_run("top", &["-l", "1", "-n", "0", "-s", "0"]).unwrap_or_default();
+    for line in output.lines() {
+        if line.contains("CPU usage:") {
+            let mut user = 0.0f64;
+            let mut sys = 0.0f64;
+            for part in line.split(',') {
+                let part = part.trim();
+                if part.contains("user") {
+                    user = part
+                        .split('%')
+                        .next()
+                        .unwrap_or("0")
+                        .split_whitespace()
+                        .last()
+                        .unwrap_or("0")
+                        .parse()
+                        .unwrap_or(0.0);
+                } else if part.contains("sys") {
+                    sys = part
+                        .split('%')
+                        .next()
+                        .unwrap_or("0")
+                        .trim()
+                        .parse()
+                        .unwrap_or(0.0);
+                }
+            }
+            return ((user + sys) * 10.0).round() / 10.0;
+        }
+    }
+    0.0
+}
+
+fn parse_memory() -> (u64, u64, u64, u64) {
+    let vm_stat = sh_run("vm_stat", &[]).unwrap_or_default();
+    let default_page_size: u64 = 16384;
+
+    let mut pages_active: u64 = 0;
+    let mut pages_wired: u64 = 0;
+    let mut pages_compressed: u64 = 0;
+    let mut pages_free: u64 = 0;
+    let mut pages_speculative: u64 = 0;
+    let mut pages_inactive: u64 = 0;
+    let mut actual_page_size: u64 = default_page_size;
+
+    for line in vm_stat.lines() {
+        if line.starts_with("Mach Virtual Memory Statistics") {
+            if let Some(s) = line.split("page size of ").nth(1) {
+                actual_page_size = s
+                    .trim_end_matches(|c: char| !c.is_ascii_digit())
+                    .parse()
+                    .unwrap_or(default_page_size);
+            }
+        }
+        let val = |l: &str| -> u64 {
+            l.split(':')
+                .nth(1)
+                .unwrap_or("0")
+                .trim()
+                .trim_end_matches('.')
+                .parse()
+                .unwrap_or(0)
+        };
+        if line.starts_with("Pages active") {
+            pages_active = val(line);
+        }
+        if line.starts_with("Pages wired") {
+            pages_wired = val(line);
+        }
+        if line.starts_with("Pages occupied by compressor") {
+            pages_compressed = val(line);
+        }
+        if line.starts_with("Pages free") {
+            pages_free = val(line);
+        }
+        if line.starts_with("Pages speculative") {
+            pages_speculative = val(line);
+        }
+        if line.starts_with("Pages inactive") {
+            pages_inactive = val(line);
+        }
+    }
+
+    let used = (pages_active + pages_wired + pages_compressed) * actual_page_size;
+    let available = (pages_free + pages_inactive + pages_speculative) * actual_page_size;
+
+    let swap_info = sh_run("sysctl", &["-n", "vm.swapusage"]).unwrap_or_default();
+    let mut swap_total: u64 = 0;
+    let mut swap_used: u64 = 0;
+    for part in swap_info.split("  ") {
+        let part = part.trim();
+        if part.starts_with("total") {
+            swap_total = parse_size_mb(part);
+        } else if part.starts_with("used") {
+            swap_used = parse_size_mb(part);
+        }
+    }
+
+    (used, available, swap_used, swap_total)
+}
+
+fn parse_size_mb(s: &str) -> u64 {
+    if let Some(val) = s.split('=').nth(1) {
+        let val = val.trim().trim_end_matches('M').trim();
+        let mb: f64 = val.parse().unwrap_or(0.0);
+        (mb * 1024.0 * 1024.0) as u64
+    } else {
+        0
+    }
+}
+
+fn parse_disk() -> (u64, u64, u64) {
+    let df = sh_run("df", &["-k", "/"]).unwrap_or_default();
+    if let Some(line) = df.lines().nth(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 4 {
+            let total: u64 = parts[1].parse().unwrap_or(0) * 1024;
+            let used: u64 = parts[2].parse().unwrap_or(0) * 1024;
+            let available: u64 = parts[3].parse().unwrap_or(0) * 1024;
+            return (total, used, available);
+        }
+    }
+    (0, 0, 0)
+}
+
+fn parse_battery() -> Option<Value> {
+    let output = sh_run("pmset", &["-g", "batt"])?;
+    if !output.contains("Battery") && !output.contains("InternalBattery") {
+        return None;
+    }
+
+    let mut percent: f64 = 0.0;
+    let mut charging = false;
+    let mut time_remaining: Option<String> = None;
+
+    for line in output.lines() {
+        if line.contains("InternalBattery") || (line.contains('%') && line.contains("Battery")) {
+            if let Some(pct_str) = line.split('%').next() {
+                percent = pct_str
+                    .split_whitespace()
+                    .last()
+                    .or_else(|| pct_str.split('\t').last())
+                    .unwrap_or("0")
+                    .parse()
+                    .unwrap_or(0.0);
+            }
+            charging = line.contains("charging")
+                && !line.contains("discharging")
+                && !line.contains("not charging");
+            if line.contains("remaining") {
+                if let Some(time_part) = line.split(';').find(|s| s.contains("remaining")) {
+                    time_remaining = Some(time_part.trim().to_string());
+                }
+            }
+        }
+    }
+
+    Some(serde_json::json!({
+        "present": true,
+        "percent": percent,
+        "charging": charging,
+        "timeRemaining": time_remaining,
+    }))
+}
+
+fn parse_network() -> Vec<Value> {
+    let output = sh_run("netstat", &["-ib"]).unwrap_or_default();
+    let mut results = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for line in output.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 7 {
+            let name = parts[0];
+            if name == "lo0" || seen.contains(name) {
+                continue;
+            }
+            let bytes_in: u64 = parts.get(6).and_then(|s| s.parse().ok()).unwrap_or(0);
+            let bytes_out: u64 = parts.get(9).and_then(|s| s.parse().ok()).unwrap_or(0);
+            if bytes_in > 0 || bytes_out > 0 {
+                seen.insert(name.to_string());
+                results.push(serde_json::json!({
+                    "interfaceName": name,
+                    "bytesIn": bytes_in,
+                    "bytesOut": bytes_out,
+                }));
+            }
+        }
+    }
+    results
+}
+
+fn parse_top_processes() -> Vec<Value> {
+    let output = sh_run("ps", &["aux"]).unwrap_or_default();
+    let mut procs: Vec<(f64, Value)> = Vec::new();
+
+    for line in output.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 11 {
+            let pid: u32 = parts[1].parse().unwrap_or(0);
+            let cpu: f64 = parts[2].parse().unwrap_or(0.0);
+            let mem_mb: f64 = parts[5].parse::<f64>().unwrap_or(0.0) / 1024.0;
+            let name = parts[10..].join(" ");
+            let short_name = name
+                .split('/')
+                .last()
+                .unwrap_or(&name)
+                .split_whitespace()
+                .next()
+                .unwrap_or(&name);
+
+            procs.push((
+                cpu,
+                serde_json::json!({
+                    "pid": pid,
+                    "name": short_name,
+                    "cpuPercent": cpu,
+                    "memoryMB": (mem_mb * 10.0).round() / 10.0,
+                }),
+            ));
+        }
+    }
+
+    procs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    procs.truncate(10);
+    procs.into_iter().map(|(_, v)| v).collect()
+}
+
+// ---------------------------------------------------------------------------
+// Accessibility commands (macOS-specific)
+// ---------------------------------------------------------------------------
+
+/// Check if accessibility permission is granted
+#[tauri::command]
+pub async fn ax_is_trusted() -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let trusted = crate::accessibility::is_trusted();
+        Ok(serde_json::json!({ "trusted": trusted }))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(serde_json::json!({ "trusted": false, "reason": "not macOS" }))
+    }
+}
+
+/// Prompt user to grant accessibility permission
+#[tauri::command]
+pub async fn ax_prompt_trust() -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let trusted = crate::accessibility::prompt_trust();
+        Ok(serde_json::json!({ "trusted": trusted }))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(serde_json::json!({ "trusted": false }))
+    }
+}
+
+/// Get info about the frontmost application
+#[tauri::command]
+pub async fn ax_get_frontmost_app() -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::get_frontmost_app()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+/// Get the UI element tree of the frontmost app's focused window
+#[tauri::command]
+pub async fn ax_get_ui_tree(
+    pid: Option<i32>,
+    max_depth: Option<u32>,
+    compact: Option<bool>,
+) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::get_ui_tree(pid, max_depth.unwrap_or(5), compact.unwrap_or(false))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (pid, max_depth, compact);
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+/// Get the currently focused UI element
+#[tauri::command]
+pub async fn ax_get_focused_element(pid: Option<i32>) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::get_focused_element(pid)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = pid;
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+/// Get attribute names of the focused element
+#[tauri::command]
+pub async fn ax_get_attributes(pid: Option<i32>) -> Result<Vec<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::get_element_attributes(pid)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = pid;
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+/// Perform action on focused element (AXPress, AXConfirm, AXCancel, etc.)
+#[tauri::command]
+pub async fn ax_perform_action(pid: Option<i32>, action: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::perform_action_on_focused(pid, &action)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (pid, action);
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+/// Set value on focused element (e.g., text in a text field)
+#[tauri::command]
+pub async fn ax_set_value(pid: Option<i32>, value: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::set_value_on_focused(pid, &value)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (pid, value);
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+/// Get element at screen position
+#[tauri::command]
+pub async fn ax_get_element_at_position(
+    pid: Option<i32>,
+    x: f32,
+    y: f32,
+) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::get_element_at_position(pid, x, y)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (pid, x, y);
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+/// List all visible applications with windows
+#[tauri::command]
+pub async fn ax_list_apps() -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::accessibility::list_apps_with_windows()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Not supported on this platform".to_string())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Finder integration commands (macOS)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn finder_is_installed() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        Ok(crate::finder::is_installed())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+pub async fn finder_install() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::finder::install()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Finder integration is only available on macOS".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn finder_uninstall() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::finder::uninstall()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Finder integration is only available on macOS".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn finder_check_pending(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(action) = crate::finder::consume_pending_action() {
+            let _ = app.emit("finder:action", serde_json::to_value(&action).unwrap());
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// File Tags & Spotlight commands (macOS-specific)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn file_tags_get(path: String) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let tags = crate::spotlight::get_finder_tags(&path)?;
+        let comment = crate::spotlight::get_spotlight_comment(&path).unwrap_or_default();
+        let agentx_meta = crate::spotlight::get_agentx_metadata(&path).unwrap_or(None);
+        Ok(serde_json::json!({
+            "tags": tags,
+            "comment": comment,
+            "agentxAnalysis": agentx_meta.and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        }))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = path;
+        Ok(serde_json::json!({ "tags": [], "comment": "", "agentxAnalysis": null }))
+    }
+}
+
+#[tauri::command]
+pub async fn file_tags_set(path: String, tags: Vec<String>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::spotlight::set_finder_tags(&path, &tags)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (path, tags);
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn file_tags_set_comment(path: String, comment: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::spotlight::set_spotlight_comment(&path, &comment)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (path, comment);
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn file_tags_get_metadata(path: String) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::spotlight::get_file_metadata(&path)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = path;
+        Ok(serde_json::json!({}))
+    }
+}
+
+#[tauri::command]
+pub async fn file_tags_analyze(
+    state: State<'_, SidecarState>,
+    path: String,
+) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    let metadata = crate::spotlight::get_file_metadata(&path).unwrap_or(serde_json::json!({}));
+    #[cfg(not(target_os = "macos"))]
+    let metadata = serde_json::json!({});
+
+    let content_preview = match tokio::fs::read(&path).await {
+        Ok(bytes) => {
+            let text = String::from_utf8_lossy(&bytes[..bytes.len().min(4096)]);
+            text.to_string()
+        }
+        Err(_) => String::new(),
+    };
+
+    let result = sidecar_call(
+        &state,
+        "fileTags:analyze",
+        serde_json::json!([path, content_preview, metadata]),
+    )
+    .await?;
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(analysis) = result.as_object() {
+            let json_str = serde_json::to_string(analysis).unwrap_or_default();
+            let _ = crate::spotlight::set_agentx_metadata(&path, &json_str);
+
+            if let Some(tags) = analysis.get("tags").and_then(|t| t.as_array()) {
+                let tag_strings: Vec<String> = tags
+                    .iter()
+                    .filter_map(|t| t.as_str().map(|s| s.to_string()))
+                    .collect();
+                if !tag_strings.is_empty() {
+                    let _ = crate::spotlight::set_finder_tags(&path, &tag_strings);
+                }
+            }
+
+            if let Some(summary) = analysis.get("summary").and_then(|s| s.as_str()) {
+                let _ = crate::spotlight::set_spotlight_comment(&path, summary);
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn file_tags_analyze_batch(
+    state: State<'_, SidecarState>,
+    paths: Vec<String>,
+) -> Result<Value, String> {
+    let mut results = serde_json::Map::new();
+    for path in &paths {
+        match file_tags_analyze_single(&state, path).await {
+            Ok(val) => {
+                results.insert(path.clone(), val);
+            }
+            Err(e) => {
+                results.insert(path.clone(), serde_json::json!({ "error": e }));
+            }
+        }
+    }
+    Ok(Value::Object(results))
+}
+
+async fn file_tags_analyze_single(
+    state: &State<'_, SidecarState>,
+    path: &str,
+) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    let metadata = crate::spotlight::get_file_metadata(path).unwrap_or(serde_json::json!({}));
+    #[cfg(not(target_os = "macos"))]
+    let metadata = serde_json::json!({});
+
+    let content_preview = match tokio::fs::read(path).await {
+        Ok(bytes) => {
+            let text = String::from_utf8_lossy(&bytes[..bytes.len().min(4096)]);
+            text.to_string()
+        }
+        Err(_) => String::new(),
+    };
+
+    let result = sidecar_call(
+        state,
+        "fileTags:analyze",
+        serde_json::json!([path, content_preview, metadata]),
+    )
+    .await?;
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(analysis) = result.as_object() {
+            let json_str = serde_json::to_string(analysis).unwrap_or_default();
+            let _ = crate::spotlight::set_agentx_metadata(path, &json_str);
+
+            if let Some(tags) = analysis.get("tags").and_then(|t| t.as_array()) {
+                let tag_strings: Vec<String> = tags
+                    .iter()
+                    .filter_map(|t| t.as_str().map(|s| s.to_string()))
+                    .collect();
+                if !tag_strings.is_empty() {
+                    let _ = crate::spotlight::set_finder_tags(path, &tag_strings);
+                }
+            }
+
+            if let Some(summary) = analysis.get("summary").and_then(|s| s.as_str()) {
+                let _ = crate::spotlight::set_spotlight_comment(path, summary);
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+// ---------------------------------------------------------------------------
+// Drop content detection command
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn detect_drop_content_type(
+    text: Option<String>,
+    file_paths: Option<Vec<String>>,
+    html: Option<String>,
+) -> Result<Value, String> {
+    let mut content_type = "unknown";
+    let mut actions: Vec<&str> = vec![];
+    let mut detected_info = serde_json::Map::new();
+
+    if let Some(ref paths) = file_paths {
+        if !paths.is_empty() {
+            content_type = "files";
+            detected_info.insert("fileCount".to_string(), serde_json::json!(paths.len()));
+
+            let mut has_images = false;
+            let mut has_code = false;
+            let mut has_docs = false;
+            for p in paths {
+                let ext = p.rsplit('.').next().unwrap_or("").to_lowercase();
+                match ext.as_str() {
+                    "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "svg" => has_images = true,
+                    "rs" | "ts" | "js" | "tsx" | "jsx" | "py" | "go" | "java" | "c" | "cpp"
+                    | "h" | "swift" | "kt" | "rb" | "php" | "sh" | "bash" | "zsh" | "css"
+                    | "scss" | "html" | "vue" | "svelte" => has_code = true,
+                    "md" | "txt" | "doc" | "docx" | "pdf" | "rtf" => has_docs = true,
+                    _ => {}
+                }
+            }
+            detected_info.insert("hasImages".to_string(), serde_json::json!(has_images));
+            detected_info.insert("hasCode".to_string(), serde_json::json!(has_code));
+            detected_info.insert("hasDocs".to_string(), serde_json::json!(has_docs));
+
+            if has_images {
+                actions.extend_from_slice(&["describe", "edit", "analyze", "tag"]);
+            }
+            if has_code {
+                actions.extend_from_slice(&["explain", "optimize", "review", "tag"]);
+            }
+            if has_docs {
+                actions.extend_from_slice(&["summarize", "translate", "tag"]);
+            }
+            if !actions.contains(&"tag") {
+                actions.push("tag");
+            }
+        }
+    }
+
+    if let Some(ref text_content) = text {
+        let trimmed = text_content.trim();
+        if !trimmed.is_empty() && content_type == "unknown" {
+            if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+                content_type = "url";
+                detected_info.insert("url".to_string(), serde_json::json!(trimmed));
+                actions = vec!["summarize", "fetch", "bookmark", "analyze"];
+            } else if looks_like_code(trimmed) {
+                content_type = "code";
+                actions = vec!["explain", "optimize", "debug", "convert"];
+            } else {
+                content_type = "text";
+                let word_count = trimmed.split_whitespace().count();
+                detected_info.insert("wordCount".to_string(), serde_json::json!(word_count));
+                if word_count > 50 {
+                    actions = vec!["summarize", "translate", "rewrite", "analyze"];
+                } else {
+                    actions = vec!["explain", "translate", "expand", "analyze"];
+                }
+            }
+        }
+    }
+
+    if let Some(ref html_content) = html {
+        if !html_content.trim().is_empty() && content_type == "unknown" {
+            content_type = "html";
+            actions = vec!["extract_text", "summarize", "analyze"];
+        }
+    }
+
+    Ok(serde_json::json!({
+        "contentType": content_type,
+        "actions": actions,
+        "info": detected_info,
+    }))
+}
+
+fn looks_like_code(text: &str) -> bool {
+    let code_indicators = [
+        "function ", "const ", "let ", "var ", "import ", "export ", "class ", "def ", "fn ",
+        "pub ", "if ", "for ", "while ", "return ", "async ", "await ", "=>", "->", "::", "&&",
+        "||", "struct ", "enum ", "impl ", "trait ", "interface ", "#include", "#import",
+        "package ", "using ",
+    ];
+    let indicator_count = code_indicators
+        .iter()
+        .filter(|&&ind| text.contains(ind))
+        .count();
+    indicator_count >= 2
+        || (text.contains('{') && text.contains('}'))
+        || (text.contains('(') && text.contains(')') && text.contains(';'))
+}
+
+// ---------------------------------------------------------------------------
 // Helper: macOS permission status check
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "macos")]
 fn check_permission_status(perm_type: &str) -> String {
     match perm_type {
+        "accessibility" => {
+            if crate::accessibility::is_trusted() {
+                "granted".to_string()
+            } else {
+                "denied".to_string()
+            }
+        }
         "full-disk-access" => {
             let protected = format!(
                 "{}/Library/Safari",

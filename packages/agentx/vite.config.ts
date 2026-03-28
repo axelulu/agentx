@@ -21,6 +21,8 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         translator: resolve(__dirname, "translator.html"),
         quickchat: resolve(__dirname, "quickchat.html"),
+        menubar: resolve(__dirname, "menubar.html"),
+        clipboard: resolve(__dirname, "clipboard.html"),
       },
     },
   },

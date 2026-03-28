@@ -112,6 +112,50 @@ type SystemPermissionStatus =
   | "limited"
   | "unknown";
 
+interface SystemHealthSnapshot {
+  timestamp: number;
+  cpu: {
+    model: string;
+    cores: number;
+    usagePercent: number;
+    temperatureCelsius: number | null;
+  };
+  memory: {
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+    swapUsedBytes: number;
+    swapTotalBytes: number;
+  };
+  disk: {
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usagePercent: number;
+    mountPoint: string;
+  };
+  battery: {
+    present: boolean;
+    percent: number;
+    charging: boolean;
+    timeRemaining: string | null;
+  } | null;
+  network: {
+    interfaceName: string;
+    bytesIn: number;
+    bytesOut: number;
+  }[];
+  topProcesses: {
+    pid: number;
+    name: string;
+    cpuPercent: number;
+    memoryMB: number;
+  }[];
+  loadAverage: number[];
+  uptime: string;
+}
+
 interface NativeAPI {
   conversation: {
     create: (title?: string) => Promise<unknown>;
@@ -227,6 +271,8 @@ interface NativeAPI {
     openPath: (path: string) => Promise<{ success: boolean; error: string | null }>;
     showItemInFolder: (path: string) => Promise<boolean>;
     getDroppedPaths: () => string[];
+    onNativeDrop: (cb: (paths: string[]) => void) => () => void;
+    onNativeDragOver: (cb: (hovering: boolean) => void) => () => void;
     showSaveDialog: (options: {
       defaultPath?: string;
       filters?: unknown[];
@@ -259,8 +305,25 @@ interface NativeAPI {
   screen: {
     capture: () => Promise<{ data: string; mimeType: string } | null>;
   };
+  ocr: {
+    /** Run OCR on base64 image data, returns recognized text */
+    recognize: (imageBase64: string) => Promise<{ text: string }>;
+    /** Listen for OCR shortcut trigger (Option+O) */
+    onTrigger: (callback: () => void) => () => void;
+  };
   notifications: {
     onNavigateToConversation: (callback: (conversationId: string) => void) => () => void;
+  };
+  notificationIntelligence: {
+    getConfig: () => Promise<NotificationIntelligenceConfig>;
+    setConfig: (config: NotificationIntelligenceConfig) => Promise<void>;
+    fetch: () => Promise<MacNotification[]>;
+    classify: (notifications: MacNotification[]) => Promise<MacNotification[]>;
+    start: () => Promise<void>;
+    stop: () => Promise<void>;
+    markRead: (ids: string[]) => Promise<void>;
+    openApp: (bundleId: string) => Promise<{ success: boolean; error?: string }>;
+    onUpdate: (callback: (notifications: MacNotification[]) => void) => () => void;
   };
   updater: {
     checkForUpdates: () => Promise<void>;
@@ -268,11 +331,118 @@ interface NativeAPI {
     installUpdate: () => Promise<void>;
     onStatus: (callback: (status: unknown) => void) => () => void;
   };
+  systemHealth: {
+    snapshot: () => Promise<SystemHealthSnapshot>;
+  };
   window: {
     minimize: () => void;
     maximize: () => void;
     close: () => void;
   };
+  finder: {
+    isInstalled: () => Promise<boolean>;
+    install: () => Promise<void>;
+    uninstall: () => Promise<void>;
+    checkPending: () => Promise<void>;
+    onAction: (callback: (action: { action: string; files: string[] }) => void) => () => void;
+  };
+  fileTags: {
+    get: (path: string) => Promise<FileTagsInfo>;
+    set: (path: string, tags: string[]) => Promise<void>;
+    setComment: (path: string, comment: string) => Promise<void>;
+    getMetadata: (path: string) => Promise<Record<string, string>>;
+    analyze: (path: string) => Promise<FileAnalysisResult>;
+    analyzeBatch: (paths: string[]) => Promise<Record<string, FileAnalysisResult>>;
+  };
+  dropDetect: {
+    detectContentType: (
+      text?: string,
+      filePaths?: string[],
+      html?: string,
+    ) => Promise<DropContentDetection>;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Notification Intelligence types
+// ---------------------------------------------------------------------------
+
+type NotificationCategory = "urgent" | "important" | "normal" | "spam";
+
+interface MacNotification {
+  id: string;
+  appId: string;
+  appName: string;
+  title: string;
+  subtitle: string;
+  body: string;
+  deliveredAt: number;
+  category?: NotificationCategory;
+  categoryReason?: string;
+  read: boolean;
+}
+
+interface NotificationIntelligenceConfig {
+  enabled: boolean;
+  pollingIntervalMs: number;
+  autoClassify: boolean;
+  rules: NotificationRule[];
+}
+
+interface NotificationRule {
+  id: string;
+  appId?: string;
+  keyword?: string;
+  category: NotificationCategory;
+}
+
+// ---------------------------------------------------------------------------
+// File Tags & Spotlight types
+// ---------------------------------------------------------------------------
+
+interface FileTagsInfo {
+  tags: string[];
+  comment: string;
+  agentxAnalysis: FileAnalysisResult | null;
+}
+
+interface FileAnalysisResult {
+  tags: string[];
+  summary: string;
+  category: string;
+  language?: string;
+  topics?: string[];
+  error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Drop Content Detection types
+// ---------------------------------------------------------------------------
+
+type DropContentType = "files" | "url" | "code" | "text" | "html" | "unknown";
+
+type DropAction =
+  | "explain"
+  | "optimize"
+  | "review"
+  | "debug"
+  | "convert"
+  | "describe"
+  | "edit"
+  | "analyze"
+  | "tag"
+  | "summarize"
+  | "translate"
+  | "rewrite"
+  | "expand"
+  | "fetch"
+  | "bookmark"
+  | "extract_text";
+
+interface DropContentDetection {
+  contentType: DropContentType;
+  actions: DropAction[];
+  info: Record<string, unknown>;
 }
 
 interface Window {

@@ -1,6 +1,13 @@
+pub mod accessibility;
+mod clipboard;
 mod commands;
+mod finder;
+mod menubar;
+mod ocr;
 mod quickchat;
+mod shortcuts;
 mod sidecar;
+mod spotlight;
 mod translate;
 mod tray;
 mod menu;
@@ -24,6 +31,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_deep_link::init())
         .manage(sidecar::SidecarState::default())
         .setup(|app| {
             // Set up tray
@@ -78,11 +86,69 @@ pub fn run() {
                 eprintln!("[Translate] Failed to register shortcut: {}", e);
             }
 
+            // Register clipboard pipeline shortcut (Option+A)
+            if let Err(e) = clipboard::register_clipboard_shortcut(app.handle()) {
+                eprintln!("[Clipboard] Failed to register shortcut: {}", e);
+            }
+
+            // Register OCR shortcut (Option+O)
+            if let Err(e) = ocr::register_ocr_shortcut(app.handle()) {
+                eprintln!("[OCR] Failed to register shortcut: {}", e);
+            }
+
+            // Register deep link handler for agentx:// URLs (Shortcuts.app integration)
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                // In dev mode the app isn't installed so the Info.plist scheme
+                // isn't picked up by LaunchServices — register it at runtime.
+                if cfg!(debug_assertions) {
+                    if let Err(e) = app.deep_link().register("agentx") {
+                        eprintln!("[DeepLink] Failed to register agentx:// scheme: {}", e);
+                    } else {
+                        eprintln!("[DeepLink] Registered agentx:// scheme for dev mode");
+                    }
+                }
+
+                let deep_link_handle = app.handle().clone();
+                app.listen("deep-link://new-url", move |event| {
+                    if let Ok(urls) = serde_json::from_str::<Vec<String>>(event.payload()) {
+                        for url in urls {
+                            let h = deep_link_handle.clone();
+                            tauri::async_runtime::spawn(async move {
+                                shortcuts::handle_deep_link(&h, &url).await;
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Check for pending Finder actions on startup
+            let finder_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // Small delay to let the frontend initialize
+                tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                if let Some(action) = finder::consume_pending_action() {
+                    use tauri::Emitter;
+                    let _ = finder_handle.emit("finder:action", serde_json::to_value(&action).unwrap());
+                }
+            });
+
             // Set up window event handling and show when ready
             if let Some(win) = app.get_webview_window("main") {
                 let win_clone = win.clone();
+                let finder_app_handle = app.handle().clone();
                 win.on_window_event(move |event| {
                     window::handle_window_event(&win_clone, event);
+                    // Check for pending Finder actions when window gains focus
+                    if let tauri::WindowEvent::Focused(true) = event {
+                        let h = finder_app_handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Some(action) = finder::consume_pending_action() {
+                                use tauri::Emitter;
+                                let _ = h.emit("finder:action", serde_json::to_value(&action).unwrap());
+                            }
+                        });
+                    }
                 });
 
                 // Show the window
@@ -161,6 +227,15 @@ pub fn run() {
             commands::voice_transcribe,
             commands::screen_capture,
             commands::notifications_config,
+            // Notification Intelligence commands
+            commands::ni_get_config,
+            commands::ni_set_config,
+            commands::ni_fetch,
+            commands::ni_classify,
+            commands::ni_start,
+            commands::ni_stop,
+            commands::ni_mark_read,
+            commands::ni_open_app,
             // Native commands (not sidecar pass-through)
             commands::fs_read_file,
             commands::fs_write_file,
@@ -190,6 +265,41 @@ pub fn run() {
             // Translate commands
             commands::translate_run,
             commands::translate_get_selected_text,
+            // OCR commands
+            commands::ocr_recognize,
+            // Clipboard commands
+            commands::clipboard_process,
+            commands::clipboard_write,
+            commands::clipboard_read,
+            // Shortcuts commands
+            commands::shortcuts_run,
+            // Finder integration commands
+            commands::finder_is_installed,
+            commands::finder_install,
+            commands::finder_uninstall,
+            commands::finder_check_pending,
+            // File Tags & Spotlight commands
+            commands::file_tags_get,
+            commands::file_tags_set,
+            commands::file_tags_set_comment,
+            commands::file_tags_get_metadata,
+            commands::file_tags_analyze,
+            commands::file_tags_analyze_batch,
+            // Drop content detection
+            commands::detect_drop_content_type,
+            // Accessibility commands
+            commands::ax_is_trusted,
+            commands::ax_prompt_trust,
+            commands::ax_get_frontmost_app,
+            commands::ax_get_ui_tree,
+            commands::ax_get_focused_element,
+            commands::ax_get_attributes,
+            commands::ax_perform_action,
+            commands::ax_set_value,
+            commands::ax_get_element_at_position,
+            commands::ax_list_apps,
+            // System Health commands
+            commands::system_health_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

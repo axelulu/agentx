@@ -272,7 +272,17 @@ export function getToolPermissionCategory(
     case "shell_run":
     case "manage_scheduled_task":
     case "screen_capture":
+    case "applescript_run":
       return "shellExecute";
+    case "calendar_list_events":
+    case "reminders_list":
+    case "notes_list":
+    case "notes_read":
+      return "fileRead";
+    case "calendar_create_event":
+    case "reminders_create":
+    case "notes_create":
+      return "fileWrite";
     case "sub_agent":
     case "orchestrate_sub_agents":
       return "none";

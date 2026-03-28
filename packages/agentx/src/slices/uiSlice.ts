@@ -17,6 +17,7 @@ export type SettingsSection =
   | "channels"
   | "memory"
   | "permissions"
+  | "systemHealth"
   | "about";
 
 export interface UIState {
@@ -24,8 +25,9 @@ export interface UIState {
   settingsOpen: boolean;
   settingsSection: SettingsSection;
   activePanel: "chat" | "settings";
-  activeView: "chat" | "automation" | "skills";
+  activeView: "chat" | "automation" | "skills" | "notifications";
   searchOpen: boolean;
+  clipboardOpen: boolean;
   openTabs: string[];
   collapsedFolderIds: string[];
 }
@@ -43,6 +45,7 @@ const initialState: UIState = {
   activePanel: "chat",
   activeView: "chat",
   searchOpen: false,
+  clipboardOpen: false,
   openTabs: [],
   collapsedFolderIds: [],
 };
@@ -103,8 +106,17 @@ const uiSlice = createSlice({
     toggleSearch(state) {
       state.searchOpen = !state.searchOpen;
     },
-    setActiveView(state, action: PayloadAction<"chat" | "automation" | "skills">) {
+    setActiveView(
+      state,
+      action: PayloadAction<"chat" | "automation" | "skills" | "notifications">,
+    ) {
       state.activeView = action.payload;
+    },
+    setClipboardOpen(state, action: PayloadAction<boolean>) {
+      state.clipboardOpen = action.payload;
+    },
+    toggleClipboard(state) {
+      state.clipboardOpen = !state.clipboardOpen;
     },
 
     // Tab management
@@ -162,6 +174,8 @@ export const {
   setSearchOpen,
   toggleSearch,
   setActiveView,
+  setClipboardOpen,
+  toggleClipboard,
   openTab,
   closeTab,
   closeOtherTabs,

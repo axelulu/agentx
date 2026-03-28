@@ -37,6 +37,10 @@ export function useShortcuts() {
             dispatch(openTab(action.payload.id));
           }
         });
+      } else if (event.startsWith("navigate:")) {
+        const conversationId = event.slice("navigate:".length);
+        dispatch(openTab(conversationId));
+        dispatch(switchConversation(conversationId));
       }
     };
 

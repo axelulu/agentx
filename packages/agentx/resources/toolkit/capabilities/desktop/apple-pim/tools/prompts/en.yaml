@@ -1,0 +1,165 @@
+meta:
+  name: desktop.apple-pim
+  version: "1.0"
+  description: macOS Calendar, Reminders, and Notes integration via AppleScript
+
+tools:
+  # ── Calendar ──────────────────────────────────────────────
+  - name: calendar_list_events
+    description: >
+      List upcoming calendar events from macOS Calendar app.
+      Returns event title, start/end time, location, and calendar name.
+      Use this to check the user's schedule and provide context about their day.
+    category: apple-pim
+    input_schema:
+      type: object
+      properties:
+        days_ahead:
+          type: number
+          description: >
+            Number of days ahead to look for events (default: 7).
+            Use 0 for today only.
+        calendar_name:
+          type: string
+          description: Optional filter to a specific calendar name.
+      required: []
+
+  - name: calendar_create_event
+    description: >
+      Create a new event in macOS Calendar.
+      Specify title, start/end time, and optionally location, notes, and calendar name.
+      Use natural date formats like "2025-03-28 15:00" or "March 28, 2025 3:00 PM".
+    category: apple-pim
+    input_schema:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Event title.
+        start_date:
+          type: string
+          description: >
+            Start date and time, e.g. "2025-03-28 15:00" or "March 28, 2025 3:00 PM".
+        end_date:
+          type: string
+          description: End date and time. Defaults to 1 hour after start if omitted.
+        location:
+          type: string
+          description: Event location (optional).
+        notes:
+          type: string
+          description: Event notes or description (optional).
+        calendar_name:
+          type: string
+          description: Calendar name to add the event to (default calendar if omitted).
+        all_day:
+          type: boolean
+          description: Whether this is an all-day event (default false).
+      required:
+        - title
+        - start_date
+
+  # ── Reminders ─────────────────────────────────────────────
+  - name: reminders_list
+    description: >
+      List reminders from macOS Reminders app.
+      Returns incomplete reminders with name, due date, priority, and list name.
+      Use this to check what tasks the user has pending.
+    category: apple-pim
+    input_schema:
+      type: object
+      properties:
+        list_name:
+          type: string
+          description: Optional filter to a specific reminders list.
+        include_completed:
+          type: boolean
+          description: Include completed reminders (default false).
+      required: []
+
+  - name: reminders_create
+    description: >
+      Create a new reminder in macOS Reminders app.
+      Specify name, optional due date with time for alert, priority, and list.
+    category: apple-pim
+    input_schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Reminder name/title.
+        due_date:
+          type: string
+          description: >
+            Due date and time for the reminder alert,
+            e.g. "2025-03-28 15:00" or "tomorrow 3:00 PM".
+        list_name:
+          type: string
+          description: Reminders list to add to (default list if omitted).
+        priority:
+          type: number
+          description: "Priority: 0 = none, 1 = high, 5 = medium, 9 = low."
+        notes:
+          type: string
+          description: Additional notes for the reminder.
+      required:
+        - name
+
+  # ── Notes ─────────────────────────────────────────────────
+  - name: notes_list
+    description: >
+      List notes from macOS Notes app.
+      Returns note name, folder, and creation/modification dates.
+      Use this to browse the user's notes.
+    category: apple-pim
+    input_schema:
+      type: object
+      properties:
+        folder_name:
+          type: string
+          description: Optional filter to a specific folder.
+        search_text:
+          type: string
+          description: Optional search text to filter notes by name or body content.
+        limit:
+          type: number
+          description: Maximum number of notes to return (default 20).
+      required: []
+
+  - name: notes_read
+    description: >
+      Read the full content of a specific note from macOS Notes.
+      Provide the exact note name and optionally the folder.
+    category: apple-pim
+    input_schema:
+      type: object
+      properties:
+        note_name:
+          type: string
+          description: Exact name of the note to read.
+        folder_name:
+          type: string
+          description: Folder containing the note (optional).
+      required:
+        - note_name
+
+  - name: notes_create
+    description: >
+      Create a new note in macOS Notes app.
+      Provide a title and body content. Body can be plain text or basic HTML.
+    category: apple-pim
+    input_schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Note title.
+        body:
+          type: string
+          description: Note body content (plain text or HTML).
+        folder_name:
+          type: string
+          description: Folder to create the note in (default folder if omitted).
+      required:
+        - name
+        - body
