@@ -99,10 +99,10 @@ export function DropActionPanel({
   const contentLabel = typeLabels[detection.contentType] ?? detection.contentType;
   const infoDetails: string[] = [];
   if (detection.info.fileCount) {
-    infoDetails.push(l10n.t("${count} file(s)", { count: detection.info.fileCount }));
+    infoDetails.push(l10n.t("${count} file(s)", { count: detection.info.fileCount as number }));
   }
   if (detection.info.wordCount) {
-    infoDetails.push(l10n.t("${count} words", { count: detection.info.wordCount }));
+    infoDetails.push(l10n.t("${count} words", { count: detection.info.wordCount as number }));
   }
 
   return (
