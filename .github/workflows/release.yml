@@ -11,6 +11,16 @@ on:
         required: false
         default: true
         type: boolean
+      platform:
+        description: "Platforms to build (all, mac, win, linux)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - mac
+          - win
+          - linux
 
 concurrency:
   group: release-${{ github.ref }}
@@ -30,6 +40,10 @@ jobs:
             platform: linux
 
     runs-on: ${{ matrix.os }}
+    if: >-
+      github.event_name == 'push' ||
+      github.event.inputs.platform == 'all' ||
+      github.event.inputs.platform == matrix.platform
 
     steps:
       - name: Checkout
@@ -95,6 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
+          if-no-files-found: ignore
           path: |
             packages/agentx/src-tauri/target/release/bundle/**/*.dmg
             packages/agentx/src-tauri/target/release/bundle/**/*.app.tar.gz
@@ -106,7 +121,6 @@ jobs:
             packages/agentx/src-tauri/target/release/bundle/**/*.AppImage.tar.gz
             packages/agentx/src-tauri/target/release/bundle/**/*.AppImage.tar.gz.sig
             packages/agentx/src-tauri/target/release/bundle/**/*.deb
-          if-no-files-found: error
 
   release:
     needs: build
