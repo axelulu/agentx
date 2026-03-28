@@ -22,7 +22,7 @@ export default defineConfig({
         translator: resolve(__dirname, "translator.html"),
         quickchat: resolve(__dirname, "quickchat.html"),
         menubar: resolve(__dirname, "menubar.html"),
-        clipboard: resolve(__dirname, "clipboard.html"),
+        contextbar: resolve(__dirname, "contextbar.html"),
       },
     },
   },

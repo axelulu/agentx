@@ -1,5 +1,90 @@
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
+// ---------------------------------------------------------------------------
+// CGEvent-based keystroke simulation (replaces osascript which is blocked)
+// ---------------------------------------------------------------------------
+
+/// Simulate pressing a key with Cmd held, using raw Core Graphics FFI.
+/// This uses the app's Accessibility permission directly, bypassing osascript.
+/// `keycode` is a macOS virtual key code (e.g. 0x08 = C, 0x09 = V).
+#[cfg(target_os = "macos")]
+pub fn simulate_key_with_cmd(keycode: u16) -> Result<(), String> {
+    use std::thread;
+    use std::time::Duration;
+
+    type CGEventRef = *mut std::ffi::c_void;
+    type CGEventSourceRef = *mut std::ffi::c_void;
+    type CGEventFlags = u64;
+    const K_CG_EVENT_SOURCE_STATE_COMBINED: i32 = 0;
+    const K_CG_HID_EVENT_TAP: i32 = 0;
+    const K_CG_EVENT_FLAG_COMMAND: u64 = 0x00100000;
+
+    extern "C" {
+        fn CGEventSourceCreate(stateID: i32) -> CGEventSourceRef;
+        fn CGEventSourceFlagsState(stateID: i32) -> CGEventFlags;
+        fn CGEventCreateKeyboardEvent(
+            source: CGEventSourceRef,
+            keycode: u16,
+            keyDown: bool,
+        ) -> CGEventRef;
+        fn CGEventSetFlags(event: CGEventRef, flags: u64);
+        fn CGEventPost(tap: i32, event: CGEventRef);
+        fn CFRelease(cf: *mut std::ffi::c_void);
+    }
+
+    unsafe {
+        // Wait until ALL modifier keys (Option, Cmd, Shift, Ctrl) are released.
+        // When called from a global shortcut handler (e.g. Option+S), the Option
+        // key may still be held — posting Cmd+C while Option is held sends
+        // Option+Cmd+C which doesn't trigger copy.
+        let modifier_mask: u64 = 0x00FF0000; // all modifier flags
+        for _ in 0..50 {
+            let flags = CGEventSourceFlagsState(K_CG_EVENT_SOURCE_STATE_COMBINED);
+            if (flags & modifier_mask) == 0 {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        // Extra small delay after modifiers released
+        thread::sleep(Duration::from_millis(30));
+
+        let source = CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_COMBINED);
+        if source.is_null() {
+            return Err("Failed to create CGEventSource".into());
+        }
+
+        let key_down = CGEventCreateKeyboardEvent(source, keycode, true);
+        let key_up = CGEventCreateKeyboardEvent(source, keycode, false);
+
+        if key_down.is_null() || key_up.is_null() {
+            if !key_down.is_null() { CFRelease(key_down); }
+            if !key_up.is_null() { CFRelease(key_up); }
+            CFRelease(source);
+            return Err("Failed to create keyboard event".into());
+        }
+
+        // Set ONLY the Command flag — explicitly no Option/Shift/Ctrl
+        CGEventSetFlags(key_down, K_CG_EVENT_FLAG_COMMAND);
+        CGEventSetFlags(key_up, K_CG_EVENT_FLAG_COMMAND);
+
+        CGEventPost(K_CG_HID_EVENT_TAP, key_down);
+        thread::sleep(Duration::from_millis(20));
+        CGEventPost(K_CG_HID_EVENT_TAP, key_up);
+
+        CFRelease(key_down);
+        CFRelease(key_up);
+        CFRelease(source);
+    }
+
+    eprintln!("[simulate_key_with_cmd] Posted keycode 0x{:02X} with Cmd", keycode);
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn simulate_key_with_cmd(_keycode: u16) -> Result<(), String> {
+    Err("Keystroke simulation is only supported on macOS".to_string())
+}
+
 /// Get the selected text from the system clipboard by simulating Cmd+C.
 ///
 /// Flow: save clipboard → simulate Cmd+C → read clipboard → restore clipboard
@@ -15,31 +100,30 @@ pub fn get_selected_text() -> Result<String, String> {
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
         .unwrap_or_default();
 
-    // Clear clipboard first to detect if Cmd+C actually copied something
+    // Clear clipboard with a unique sentinel to detect if Cmd+C actually copied
+    let sentinel = "__agentx_empty__";
     let _ = Command::new("pbcopy")
         .stdin(std::process::Stdio::piped())
         .spawn()
         .and_then(|mut child| {
             use std::io::Write;
             if let Some(ref mut stdin) = child.stdin {
-                let _ = stdin.write_all(b"");
+                let _ = stdin.write_all(sentinel.as_bytes());
             }
             child.wait()
         });
 
-    // Simulate Cmd+C using osascript
-    let script = r#"
-        tell application "System Events"
-            keystroke "c" using {command down}
-        end tell
-    "#;
-    Command::new("osascript")
-        .args(["-e", script])
-        .output()
-        .map_err(|e| format!("Failed to simulate Cmd+C: {}", e))?;
+    // Simulate Cmd+C using CGEventPost (bypasses osascript permission issues)
+    eprintln!("[get_selected_text] Simulating Cmd+C via CGEventPost...");
+    simulate_key_with_cmd(0x08) // 0x08 = kVK_C
+        .map_err(|e| {
+            eprintln!("[get_selected_text] CGEventPost failed: {}", e);
+            format!("Failed to simulate Cmd+C: {}", e)
+        })?;
+    eprintln!("[get_selected_text] CGEventPost succeeded, waiting for clipboard...");
 
-    // Wait for clipboard to update
-    thread::sleep(Duration::from_millis(150));
+    // Wait for clipboard to update (250ms for reliability)
+    thread::sleep(Duration::from_millis(250));
 
     // Read the new clipboard content
     let selected = Command::new("pbpaste")
@@ -63,7 +147,8 @@ pub fn get_selected_text() -> Result<String, String> {
     });
 
     let trimmed = selected.trim().to_string();
-    if trimmed.is_empty() {
+    eprintln!("[get_selected_text] clipboard after Cmd+C: {:?}", &trimmed[..trimmed.len().min(100)]);
+    if trimmed.is_empty() || trimmed == sentinel {
         return Err("No text selected".to_string());
     }
 

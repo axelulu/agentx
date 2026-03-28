@@ -463,6 +463,26 @@ pub fn get_frontmost_app() -> Result<Value, String> {
     }
 }
 
+/// Get selected text from the frontmost app's focused element via AXSelectedText.
+/// This is instant — no clipboard manipulation, no Cmd+C simulation.
+#[cfg(target_os = "macos")]
+pub fn get_selected_text_ax() -> Option<String> {
+    unsafe {
+        let pid = get_frontmost_pid()?;
+        let app = AXUIElementCreateApplication(pid);
+        let focused = ax_get_attribute(app, "AXFocusedUIElement");
+
+        let result = focused.and_then(|el| {
+            let text = ax_get_string(el, "AXSelectedText");
+            cf_release(el);
+            text
+        }).filter(|s| !s.is_empty());
+
+        cf_release(app);
+        result
+    }
+}
+
 /// Get the UI element tree of the frontmost app's focused window
 #[cfg(target_os = "macos")]
 pub fn get_ui_tree(pid: Option<i32>, max_depth: u32, compact: bool) -> Result<Value, String> {

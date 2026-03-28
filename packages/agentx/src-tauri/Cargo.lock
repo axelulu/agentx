@@ -13,6 +13,7 @@ name = "agentx"
 version = "0.1.72"
 dependencies = [
  "base64 0.22.1",
+ "block2",
  "core-foundation",
  "core-graphics 0.24.0",
  "objc2",

@@ -1,10 +1,11 @@
 pub mod accessibility;
 mod clipboard;
 mod commands;
+mod contextbar;
 mod finder;
 mod menubar;
 mod ocr;
-mod quickchat;
+pub mod quickchat;
 mod shortcuts;
 mod sidecar;
 mod spotlight;
@@ -33,6 +34,8 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_deep_link::init())
         .manage(sidecar::SidecarState::default())
+        .manage(clipboard::ClipboardHistoryState::default())
+        .manage(window::GlobalShortcutRegistry::default())
         .setup(|app| {
             // Set up tray
             tray::create_tray(app.handle())?;
@@ -78,23 +81,81 @@ pub fn run() {
                 quit_handle.exit(0);
             });
 
-            // Register global shortcut (Alt+Space)
-            window::register_global_shortcut(app.handle())?;
+            // Register command palette shortcut (default: Ctrl+Space, customizable via preferences)
+            // Preference is loaded asynchronously after sidecar starts;
+            // for now register the default, it will be re-registered if user has a custom one.
+            if let Err(e) = window::register_palette_shortcut(app.handle(), None) {
+                eprintln!("[Window] Failed to register palette shortcut: {}", e);
+            }
+
+            // Async: load saved shortcut preferences from sidecar once it's ready
+            {
+                let shortcut_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    // Wait for sidecar to be ready
+                    tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+                    if let Ok(prefs) = crate::commands::preferences_get_internal(&shortcut_handle).await {
+                        // Load palette shortcut
+                        if let Some(key) = prefs.get("commandPaletteShortcut").and_then(|v| v.as_str()) {
+                            if !key.is_empty() {
+                                if let Err(e) = window::shortcut_set_palette(shortcut_handle.clone(), key.to_string()) {
+                                    eprintln!("[Window] Failed to restore custom shortcut '{}': {}", key, e);
+                                }
+                            }
+                        }
+                        // Load custom shortcuts for other features
+                        if let Some(shortcuts) = prefs.get("shortcuts").and_then(|v| v.as_object()) {
+                            for (id, val) in shortcuts {
+                                if let Some(key) = val.as_str() {
+                                    if !key.is_empty() && id != "command-palette" {
+                                        if let Err(e) = window::shortcut_set(shortcut_handle.clone(), id.clone(), key.to_string()) {
+                                            eprintln!("[Shortcuts] Failed to restore '{}' = '{}': {}", id, key, e);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
 
             // Register translation shortcut (Option+D)
             if let Err(e) = translate::register_translate_shortcut(app.handle()) {
                 eprintln!("[Translate] Failed to register shortcut: {}", e);
             }
+            window::registry_set(app.handle(), "translate", "Option+D");
 
-            // Register clipboard pipeline shortcut (Option+A)
-            if let Err(e) = clipboard::register_clipboard_shortcut(app.handle()) {
-                eprintln!("[Clipboard] Failed to register shortcut: {}", e);
+            // Register clipboard shortcut (Option+Cmd+A) — opens QuickChat in clipboard mode
+            {
+                use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+                let clip_shortcut: Shortcut = "Option+Cmd+A".parse().unwrap();
+                let clip_handle = app.handle().clone();
+                if let Err(e) = app.global_shortcut().on_shortcut(clip_shortcut, move |_app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        if let Err(e) = quickchat::show_quickchat_mode(&clip_handle, "clipboard") {
+                            eprintln!("[Clipboard] Failed to show quickchat clipboard mode: {}", e);
+                        }
+                    }
+                }) {
+                    eprintln!("[Clipboard] Failed to register shortcut: {}", e);
+                }
+                window::registry_set(app.handle(), "clipboard", "Option+Cmd+A");
             }
+
+            // Start clipboard history monitor
+            clipboard::start_clipboard_monitor(app.handle());
 
             // Register OCR shortcut (Option+O)
             if let Err(e) = ocr::register_ocr_shortcut(app.handle()) {
                 eprintln!("[OCR] Failed to register shortcut: {}", e);
             }
+            window::registry_set(app.handle(), "ocr", "Option+O");
+
+            // Register context bar shortcut (Option+S)
+            if let Err(e) = contextbar::register_contextbar_shortcut(app.handle()) {
+                eprintln!("[ContextBar] Failed to register shortcut: {}", e);
+            }
+            window::registry_set(app.handle(), "contextbar", "Option+S");
 
             // Register deep link handler for agentx:// URLs (Shortcuts.app integration)
             {
@@ -262,6 +323,7 @@ pub fn run() {
             commands::window_close,
             commands::window_show,
             commands::window_show_and_emit,
+            commands::quickchat_open_mode,
             // Translate commands
             commands::translate_run,
             commands::translate_get_selected_text,
@@ -271,6 +333,16 @@ pub fn run() {
             commands::clipboard_process,
             commands::clipboard_write,
             commands::clipboard_read,
+            commands::clipboard_history_list,
+            commands::clipboard_history_search,
+            commands::clipboard_history_delete,
+            commands::clipboard_history_clear,
+            commands::clipboard_history_toggle_pin,
+            commands::clipboard_history_toggle_favorite,
+            commands::clipboard_transform,
+            commands::clipboard_detect_type,
+            commands::clipboard_monitor_start,
+            commands::clipboard_monitor_stop,
             // Shortcuts commands
             commands::shortcuts_run,
             // Finder integration commands
@@ -298,8 +370,19 @@ pub fn run() {
             commands::ax_set_value,
             commands::ax_get_element_at_position,
             commands::ax_list_apps,
+            // Context bar commands
+            commands::simulate_paste,
+            contextbar::contextbar_get_context,
+            contextbar::contextbar_debug_capture,
             // System Health commands
             commands::system_health_snapshot,
+            // Shortcut management commands
+            window::shortcut_get_palette,
+            window::shortcut_check,
+            window::shortcut_set_palette,
+            window::shortcut_set,
+            window::shortcut_validate,
+            window::shortcut_list_all,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

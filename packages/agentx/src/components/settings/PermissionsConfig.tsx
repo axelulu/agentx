@@ -183,22 +183,14 @@ export function PermissionsConfig() {
           return;
         }
 
-        if (result?.canRequestDirectly) {
-          showFeedback(
-            l10n.t(
-              "Permission was denied. Opening System Settings — please enable it manually and switch back.",
-            ),
-          );
-        } else {
-          showFeedback(
-            l10n.t(
-              "System Settings opened. Please add AgentX to the list and enable the permission.",
-            ),
-          );
-        }
-
+        // Not granted yet — open System Settings so user can toggle the switch
+        showFeedback(
+          l10n.t(
+            "System Settings opened — please find AgentX in the list, toggle the switch, then come back.",
+          ),
+        );
         await window.api.permissions.openSettings(perm.type);
-        setTimeout(refresh, 2000);
+        setTimeout(refresh, 3000);
       } catch {
         showFeedback(l10n.t("Could not open System Settings. Please open manually."));
       } finally {

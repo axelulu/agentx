@@ -349,6 +349,19 @@ const bridge: NativeAPI = {
     },
   },
 
+  shortcut: {
+    getPalette: () => invoke("shortcut_get_palette") as Promise<string>,
+    setPalette: (shortcut: string) => invoke("shortcut_set_palette", { shortcut }) as Promise<void>,
+    set: (id: string, shortcut: string) =>
+      invoke("shortcut_set", { id, shortcut }) as Promise<void>,
+    check: (shortcut: string) => invoke("shortcut_check", { shortcut }) as Promise<boolean>,
+    validate: (shortcut: string) => invoke("shortcut_validate", { shortcut }) as Promise<boolean>,
+    listAll: () =>
+      invoke("shortcut_list_all") as Promise<
+        { id: string; shortcut: string; defaultShortcut: string; label: string }[]
+      >,
+  },
+
   finder: {
     isInstalled: () => invoke("finder_is_installed") as Promise<boolean>,
     install: () => invoke("finder_install") as Promise<void>,

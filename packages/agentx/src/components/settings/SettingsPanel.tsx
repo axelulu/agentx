@@ -410,6 +410,8 @@ function GeneralSection() {
         </div>
       </div>
 
+      <ShortcutsSection />
+
       <FinderIntegrationSection />
 
       <div className="space-y-3">
@@ -577,6 +579,205 @@ function GeneralSection() {
       </div>
 
       <DangerZoneSection />
+    </div>
+  );
+}
+
+function ShortcutsSection() {
+  const [shortcuts, setShortcuts] = useState<
+    { id: string; shortcut: string; defaultShortcut: string; label: string }[]
+  >([]);
+  const [recordingId, setRecordingId] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingKeys, setPendingKeys] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [successId, setSuccessId] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    window.api.shortcut
+      .listAll()
+      .then(setShortcuts)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // Key recorder — captures the next key combo when recording
+  useEffect(() => {
+    if (!recordingId) return;
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Ignore lone modifier presses
+      if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
+
+      const parts: string[] = [];
+      if (e.ctrlKey) parts.push("Ctrl");
+      if (e.altKey) parts.push("Option");
+      if (e.metaKey) parts.push("Cmd");
+      if (e.shiftKey) parts.push("Shift");
+
+      let key = e.key;
+      if (key === " ") key = "Space";
+      else if (key.length === 1) key = key.toUpperCase();
+      else {
+        const keyMap: Record<string, string> = {
+          ArrowUp: "Up",
+          ArrowDown: "Down",
+          ArrowLeft: "Left",
+          ArrowRight: "Right",
+          Backspace: "Backspace",
+          Delete: "Delete",
+          Enter: "Enter",
+          Tab: "Tab",
+          Escape: "Escape",
+        };
+        key = keyMap[key] || key;
+      }
+
+      // Must have at least one modifier
+      if (parts.length === 0) return;
+
+      parts.push(key);
+      const combo = parts.join("+");
+
+      setPendingId(recordingId);
+      setPendingKeys(combo);
+      setRecordingId(null);
+      setError(null);
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [recordingId]);
+
+  const applyShortcut = useCallback(
+    async (id: string, newKey: string) => {
+      setError(null);
+      setSuccessId(null);
+
+      try {
+        await window.api.shortcut.set(id, newKey);
+        // Persist to preferences
+        if (id === "command-palette") {
+          await window.api.preferences.set({ commandPaletteShortcut: newKey });
+        } else {
+          // Load current shortcuts prefs, merge, and save
+          const prefs = await window.api.preferences.get();
+          const current = (prefs.shortcuts as Record<string, string>) || {};
+          current[id] = newKey;
+          await window.api.preferences.set({ shortcuts: current });
+        }
+        setPendingId(null);
+        setPendingKeys("");
+        setSuccessId(id);
+        setTimeout(() => setSuccessId(null), 2000);
+        reload();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [reload],
+  );
+
+  const resetShortcut = useCallback(
+    async (id: string, defaultKey: string) => {
+      setError(null);
+      try {
+        await window.api.shortcut.set(id, defaultKey);
+        if (id === "command-palette") {
+          await window.api.preferences.set({ commandPaletteShortcut: "" });
+        } else {
+          const prefs = await window.api.preferences.get();
+          const current = (prefs.shortcuts as Record<string, string>) || {};
+          delete current[id];
+          await window.api.preferences.set({ shortcuts: current });
+        }
+        setPendingId(null);
+        reload();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [reload],
+  );
+
+  return (
+    <div className="space-y-3">
+      <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
+        {l10n.t("Keyboard Shortcuts")}
+      </label>
+      <p className="text-[12px] text-muted-foreground">
+        {l10n.t("Click a shortcut to record a new key combination. All shortcuts are global.")}
+      </p>
+
+      <div className="space-y-1">
+        {shortcuts.map((s) => {
+          const isRecording = recordingId === s.id;
+          const hasPending = pendingId === s.id && pendingKeys !== s.shortcut;
+          const isCustom = s.shortcut !== s.defaultShortcut;
+          const isSuccess = successId === s.id;
+
+          return (
+            <div
+              key={s.id}
+              className="flex items-center justify-between py-2 px-2 rounded-md hover:bg-foreground/[0.02]"
+            >
+              <div className="min-w-0">
+                <p className="text-[13px] text-foreground">{l10n.t(s.label)}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {isRecording ? (
+                  <div className="px-3 py-1 rounded-md border-2 border-primary bg-primary/5 text-[12px] font-medium text-primary animate-pulse min-w-[130px] text-center">
+                    {l10n.t("Press keys...")}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setRecordingId(s.id);
+                      setError(null);
+                      setPendingId(null);
+                    }}
+                    className={cn(
+                      "px-3 py-1 rounded-md border text-[12px] font-mono min-w-[130px] text-center transition-colors",
+                      isSuccess
+                        ? "border-green-500/60 bg-green-500/5 text-green-600"
+                        : "border-border/60 bg-background text-foreground hover:bg-foreground/[0.04]",
+                    )}
+                  >
+                    {hasPending ? pendingKeys : s.shortcut}
+                  </button>
+                )}
+                {hasPending && !isRecording && (
+                  <button
+                    onClick={() => applyShortcut(s.id, pendingKeys)}
+                    className="px-2 py-1 rounded-md text-[11px] font-medium text-background bg-foreground hover:bg-foreground/90 transition-colors"
+                  >
+                    {l10n.t("Apply")}
+                  </button>
+                )}
+                {isCustom && !hasPending && !isRecording && (
+                  <button
+                    onClick={() => resetShortcut(s.id, s.defaultShortcut)}
+                    className="px-2 py-1 rounded-md text-[11px] text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
+                    title={l10n.t("Reset to default: {key}", { key: s.defaultShortcut })}
+                  >
+                    {l10n.t("Reset")}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {error && (
+        <p className="text-[11px] text-destructive bg-destructive/10 rounded-md px-2.5 py-1.5">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

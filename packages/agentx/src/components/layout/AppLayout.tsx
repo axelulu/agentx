@@ -12,7 +12,6 @@ import { NotificationCenter } from "@/components/notifications/NotificationCente
 import { TabBar } from "@/components/chat/TabBar";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
-import { SearchDialog } from "@/components/search/SearchDialog";
 import { ClipboardDialog } from "@/components/clipboard/ClipboardDialog";
 import { useUpdateListener } from "@/hooks/useUpdateListener";
 import { useShortcuts } from "@/hooks/useShortcuts";
@@ -85,7 +84,6 @@ export function AppLayout() {
       </div>
 
       {settingsOpen && <SettingsPanel />}
-      <SearchDialog />
       <ClipboardDialog />
     </div>
   );

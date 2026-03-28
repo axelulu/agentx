@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
-const WIN_WIDTH: f64 = 400.0;
-const WIN_HEIGHT: f64 = 520.0;
+const WIN_WIDTH: f64 = 680.0;
+const WIN_HEIGHT: f64 = 480.0;
 
 /// Shared flag: when true, blur-to-hide is suppressed (tray click in progress).
 pub struct QuickChatState {
@@ -14,6 +14,34 @@ fn compute_position(click_x: f64, click_y: f64) -> (f64, f64) {
     let x = (click_x - WIN_WIDTH / 2.0).max(8.0);
     let y = click_y + 8.0;
     (x, y)
+}
+
+/// Show the quickchat window in a specific mode (e.g. "clipboard").
+/// If the window is already visible, just emit the mode event.
+pub fn show_quickchat_mode(app: &AppHandle, mode: &str) -> Result<(), String> {
+    let (cx, cy) = crate::window::get_palette_center();
+    // Ensure window exists and is visible
+    if let Some(win) = app.get_webview_window("quickchat") {
+        if !win.is_visible().unwrap_or(false) {
+            let (x, y) = compute_position(cx, cy);
+            let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+        let _ = win.emit("quickchat:mode", mode);
+        return Ok(());
+    }
+    // Window doesn't exist yet — create it, then emit mode after ready
+    toggle_quickchat_window(app, cx, cy)?;
+    let handle = app.clone();
+    let mode_str = mode.to_string();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        if let Some(win) = handle.get_webview_window("quickchat") {
+            let _ = win.emit("quickchat:mode", mode_str);
+        }
+    });
+    Ok(())
 }
 
 pub fn toggle_quickchat_window(
@@ -48,8 +76,8 @@ pub fn toggle_quickchat_window(
         if win.is_visible().unwrap_or(false) {
             let _ = win.hide();
         } else {
-            let _ = win.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(
-                x as i32, y as i32,
+            let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(
+                x, y,
             )));
             let _ = win.show();
             let w = win.clone();

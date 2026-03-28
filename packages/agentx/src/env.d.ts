@@ -339,6 +339,16 @@ interface NativeAPI {
     maximize: () => void;
     close: () => void;
   };
+  shortcut: {
+    getPalette: () => Promise<string>;
+    setPalette: (shortcut: string) => Promise<void>;
+    set: (id: string, shortcut: string) => Promise<void>;
+    check: (shortcut: string) => Promise<boolean>;
+    validate: (shortcut: string) => Promise<boolean>;
+    listAll: () => Promise<
+      { id: string; shortcut: string; defaultShortcut: string; label: string }[]
+    >;
+  };
   finder: {
     isInstalled: () => Promise<boolean>;
     install: () => Promise<void>;

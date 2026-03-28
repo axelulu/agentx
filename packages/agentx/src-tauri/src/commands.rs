@@ -561,6 +561,12 @@ pub async fn tool_respond_approval(
 // Preferences commands
 // ---------------------------------------------------------------------------
 
+/// Internal helper: get preferences using AppHandle (callable from non-command Rust code).
+pub async fn preferences_get_internal(app: &AppHandle) -> Result<Value, String> {
+    let state = app.state::<SidecarState>();
+    state.call("preferences:get", serde_json::json!([])).await
+}
+
 #[tauri::command]
 pub async fn preferences_get(state: State<'_, SidecarState>) -> Result<Value, String> {
     sidecar_call(&state, "preferences:get", serde_json::json!([])).await
@@ -869,21 +875,35 @@ pub async fn export_print_to_pdf(_html: String) -> Result<String, String> {
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-pub async fn permissions_check_all() -> Result<Value, String> {
+pub async fn permissions_check_all(app: AppHandle) -> Result<Value, String> {
     #[cfg(target_os = "macos")]
     {
+        // Check notifications via Tauri plugin (needs app bundle context)
+        let notif_status = {
+            use tauri_plugin_notification::NotificationExt;
+            match app.notification().permission_state() {
+                Ok(state) => match state {
+                    tauri_plugin_notification::PermissionState::Granted => "granted",
+                    tauri_plugin_notification::PermissionState::Denied => "denied",
+                    _ => "not-determined",
+                }.to_string(),
+                Err(_) => "unknown".to_string(),
+            }
+        };
+
         Ok(serde_json::json!({
             "accessibility": check_permission_status("accessibility"),
             "screen": check_permission_status("screen"),
             "microphone": check_permission_status("microphone"),
             "camera": check_permission_status("camera"),
             "full-disk-access": check_permission_status("full-disk-access"),
-            "automation": "unknown",
-            "notifications": "granted",
+            "automation": check_permission_status("automation"),
+            "notifications": notif_status,
         }))
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = app;
         Ok(serde_json::json!({
             "accessibility": "granted",
             "screen": "granted",
@@ -910,11 +930,102 @@ pub async fn permissions_check(perm_type: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn permissions_request(_perm_type: String) -> Result<Value, String> {
-    Ok(serde_json::json!({
-        "status": "not-determined",
-        "canRequestDirectly": false,
-    }))
+pub async fn permissions_request(perm_type: String) -> Result<Value, String> {
+    #[cfg(target_os = "macos")]
+    {
+        match perm_type.as_str() {
+            "accessibility" => {
+                // AXIsProcessTrustedWithOptions with prompt=true — run on main thread for UI
+                extern "C" {
+                    static _dispatch_main_q: std::ffi::c_void;
+                    fn dispatch_sync_f(
+                        queue: *mut std::ffi::c_void,
+                        context: *mut std::ffi::c_void,
+                        work: extern "C" fn(*mut std::ffi::c_void),
+                    );
+                }
+                extern "C" fn do_prompt(ctx: *mut std::ffi::c_void) {
+                    let result_ptr = ctx as *mut bool;
+                    unsafe { *result_ptr = crate::accessibility::prompt_trust(); }
+                }
+                let mut granted = false;
+                unsafe {
+                    dispatch_sync_f(
+                        std::ptr::addr_of!(_dispatch_main_q) as *mut std::ffi::c_void,
+                        &mut granted as *mut bool as *mut std::ffi::c_void,
+                        do_prompt,
+                    );
+                }
+                eprintln!("[Permissions] accessibility prompt_trust = {}", granted);
+                Ok(serde_json::json!({
+                    "status": if granted { "granted" } else { "not-determined" },
+                    "canRequestDirectly": true,
+                }))
+            }
+            "screen" => {
+                // CGRequestScreenCaptureAccess() must run on main thread to show the UI prompt.
+                extern "C" {
+                    fn CGRequestScreenCaptureAccess() -> bool;
+                    static _dispatch_main_q: std::ffi::c_void;
+                    fn dispatch_sync_f(
+                        queue: *mut std::ffi::c_void,
+                        context: *mut std::ffi::c_void,
+                        work: extern "C" fn(*mut std::ffi::c_void),
+                    );
+                }
+                extern "C" fn do_request(ctx: *mut std::ffi::c_void) {
+                    let result_ptr = ctx as *mut bool;
+                    unsafe { *result_ptr = CGRequestScreenCaptureAccess(); }
+                }
+                let mut granted = false;
+                unsafe {
+                    dispatch_sync_f(
+                        std::ptr::addr_of!(_dispatch_main_q) as *mut std::ffi::c_void,
+                        &mut granted as *mut bool as *mut std::ffi::c_void,
+                        do_request,
+                    );
+                }
+                eprintln!("[Permissions] screen CGRequestScreenCaptureAccess = {}", granted);
+                Ok(serde_json::json!({
+                    "status": if granted { "granted" } else { "not-determined" },
+                    "canRequestDirectly": true,
+                }))
+            }
+            "microphone" | "camera" => {
+                // Request mic/camera access in-process via objc runtime.
+                // AVCaptureDevice.requestAccess(for:completionHandler:) triggers the system prompt.
+                let is_video = perm_type == "camera";
+                let granted = request_av_capture_access(is_video);
+                Ok(serde_json::json!({
+                    "status": if granted { "granted" } else { "not-determined" },
+                    "canRequestDirectly": true,
+                }))
+            }
+            "notifications" => {
+                // Request notification permission via Tauri plugin
+                // The plugin handles the system dialog
+                Ok(serde_json::json!({
+                    "status": "not-determined",
+                    "canRequestDirectly": false,
+                }))
+            }
+            _ => {
+                // full-disk-access, automation — cannot request programmatically
+                Ok(serde_json::json!({
+                    "status": "not-determined",
+                    "canRequestDirectly": false,
+                }))
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = perm_type;
+        Ok(serde_json::json!({
+            "status": "granted",
+            "canRequestDirectly": true,
+        }))
+    }
 }
 
 #[tauri::command]
@@ -1157,6 +1268,11 @@ pub async fn window_show_and_emit(app: AppHandle, event: String) -> Result<(), S
     Ok(())
 }
 
+#[tauri::command]
+pub async fn quickchat_open_mode(app: AppHandle, mode: String) -> Result<(), String> {
+    crate::quickchat::show_quickchat_mode(&app, &mode)
+}
+
 // ---------------------------------------------------------------------------
 // Translate commands
 // ---------------------------------------------------------------------------
@@ -1224,6 +1340,83 @@ pub async fn clipboard_write(text: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn clipboard_read() -> Result<String, String> {
     crate::clipboard::get_clipboard_text()
+}
+
+// Clipboard history commands
+
+#[tauri::command]
+pub async fn clipboard_history_list(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+) -> Result<Value, String> {
+    let entries = state.get_entries();
+    serde_json::to_value(&entries).map_err(|e| format!("Serialize error: {}", e))
+}
+
+#[tauri::command]
+pub async fn clipboard_history_search(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+    query: String,
+) -> Result<Value, String> {
+    let entries = state.search_entries(&query);
+    serde_json::to_value(&entries).map_err(|e| format!("Serialize error: {}", e))
+}
+
+#[tauri::command]
+pub async fn clipboard_history_delete(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+    id: u64,
+) -> Result<bool, String> {
+    Ok(state.delete_entry(id))
+}
+
+#[tauri::command]
+pub async fn clipboard_history_clear(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+) -> Result<(), String> {
+    state.clear_history();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn clipboard_history_toggle_pin(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+    id: u64,
+) -> Result<Option<bool>, String> {
+    Ok(state.toggle_pin(id))
+}
+
+#[tauri::command]
+pub async fn clipboard_history_toggle_favorite(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+    id: u64,
+) -> Result<Option<bool>, String> {
+    Ok(state.toggle_favorite(id))
+}
+
+#[tauri::command]
+pub async fn clipboard_transform(text: String, transform: String) -> Result<String, String> {
+    crate::clipboard::transform_text(&text, &transform)
+}
+
+#[tauri::command]
+pub async fn clipboard_detect_type(text: String) -> Result<Value, String> {
+    let (content_type, language) = crate::clipboard::detect_content_type(&text);
+    Ok(serde_json::json!({
+        "content_type": content_type,
+        "language": language,
+    }))
+}
+
+#[tauri::command]
+pub async fn clipboard_monitor_start(app: AppHandle) -> Result<(), String> {
+    crate::clipboard::start_clipboard_monitor(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn clipboard_monitor_stop(app: AppHandle) -> Result<(), String> {
+    crate::clipboard::stop_clipboard_monitor(&app);
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -2049,16 +2242,27 @@ fn looks_like_code(text: &str) -> bool {
 // Helper: macOS permission status check
 // ---------------------------------------------------------------------------
 
+/// Check a single permission status — all checks run **in-process** so macOS
+/// TCC resolves against *this* app's bundle ID, not a child process.
 #[cfg(target_os = "macos")]
 fn check_permission_status(perm_type: &str) -> String {
     match perm_type {
         "accessibility" => {
-            if crate::accessibility::is_trusted() {
-                "granted".to_string()
-            } else {
-                "denied".to_string()
-            }
+            let trusted = crate::accessibility::is_trusted();
+            eprintln!("[Permissions] accessibility AXIsProcessTrusted = {}", trusted);
+            if trusted { "granted" } else { "denied" }.to_string()
         }
+        "screen" => {
+            // CGPreflightScreenCaptureAccess — in-process, no prompt
+            extern "C" {
+                fn CGPreflightScreenCaptureAccess() -> bool;
+            }
+            let ok = unsafe { CGPreflightScreenCaptureAccess() };
+            eprintln!("[Permissions] screen CGPreflightScreenCaptureAccess = {}", ok);
+            if ok { "granted" } else { "denied" }.to_string()
+        }
+        "microphone" => check_av_capture_status(false),
+        "camera" => check_av_capture_status(true),
         "full-disk-access" => {
             let protected = format!(
                 "{}/Library/Safari",
@@ -2070,6 +2274,178 @@ fn check_permission_status(perm_type: &str) -> String {
                 "denied".to_string()
             }
         }
+        "automation" => {
+            match std::process::Command::new("osascript")
+                .args(["-e", r#"tell application "System Events" to return """#])
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+            {
+                Ok(child) => match child.wait_with_output() {
+                    Ok(out) if out.status.success() => "granted".to_string(),
+                    Ok(_) => "denied".to_string(),
+                    Err(_) => "unknown".to_string(),
+                },
+                Err(_) => "unknown".to_string(),
+            }
+        }
         _ => "unknown".to_string(),
     }
+}
+
+/// Check microphone / camera via AVFoundation **in-process** using objc runtime.
+/// AVAuthorizationStatus: 0=notDetermined, 1=restricted, 2=denied, 3=authorized
+#[cfg(target_os = "macos")]
+fn check_av_capture_status(is_video: bool) -> String {
+    use std::ffi::CStr;
+
+    // AVMediaTypeAudio / AVMediaTypeVideo are NSString constants exported by AVFoundation.
+    // We load them at runtime via dlsym to avoid linking AVFoundation directly.
+    extern "C" {
+        fn dlopen(path: *const std::ffi::c_char, mode: i32) -> *mut std::ffi::c_void;
+        fn dlsym(handle: *mut std::ffi::c_void, symbol: *const std::ffi::c_char) -> *mut std::ffi::c_void;
+    }
+    const RTLD_LAZY: i32 = 0x1;
+
+    unsafe {
+        // Load AVFoundation framework
+        let fw_path = CStr::from_bytes_with_nul_unchecked(
+            b"/System/Library/Frameworks/AVFoundation.framework/AVFoundation\0"
+        );
+        let handle = dlopen(fw_path.as_ptr(), RTLD_LAZY);
+        if handle.is_null() {
+            eprintln!("[Permissions] Failed to load AVFoundation");
+            return "unknown".to_string();
+        }
+
+        // Get the media type NSString constant
+        let sym_name = if is_video {
+            CStr::from_bytes_with_nul_unchecked(b"AVMediaTypeVideo\0")
+        } else {
+            CStr::from_bytes_with_nul_unchecked(b"AVMediaTypeAudio\0")
+        };
+        let sym_ptr = dlsym(handle, sym_name.as_ptr());
+        if sym_ptr.is_null() {
+            eprintln!("[Permissions] Failed to find {:?}", sym_name);
+            return "unknown".to_string();
+        }
+        // sym_ptr is a pointer to an NSString* — dereference to get the NSString*
+        let media_type: *const std::ffi::c_void = *(sym_ptr as *const *const std::ffi::c_void);
+
+        // Call [AVCaptureDevice authorizationStatusForMediaType:]
+        let cls_name = CStr::from_bytes_with_nul_unchecked(b"AVCaptureDevice\0");
+        let cls: *const std::ffi::c_void = objc2::runtime::AnyClass::get(cls_name)
+            .map(|c| c as *const _ as *const std::ffi::c_void)
+            .unwrap_or(std::ptr::null());
+
+        if cls.is_null() {
+            eprintln!("[Permissions] AVCaptureDevice class not found");
+            return "unknown".to_string();
+        }
+
+        let sel = objc2::sel!(authorizationStatusForMediaType:);
+        let status: isize = objc2::msg_send![
+            cls as *const objc2::runtime::AnyClass,
+            authorizationStatusForMediaType: media_type
+        ];
+
+        let label = if is_video { "camera" } else { "microphone" };
+        eprintln!("[Permissions] {} authorizationStatus = {}", label, status);
+
+        match status {
+            3 => "granted".to_string(),
+            2 => "denied".to_string(),
+            1 => "restricted".to_string(),
+            0 => "not-determined".to_string(),
+            _ => "unknown".to_string(),
+        }
+    }
+}
+
+/// Request microphone/camera access in-process via objc runtime.
+/// Calls [AVCaptureDevice requestAccessForMediaType:completionHandler:]
+/// and waits for the result using dispatch_semaphore.
+#[cfg(target_os = "macos")]
+fn request_av_capture_access(is_video: bool) -> bool {
+    use std::ffi::CStr;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    extern "C" {
+        fn dlopen(path: *const std::ffi::c_char, mode: i32) -> *mut std::ffi::c_void;
+        fn dlsym(handle: *mut std::ffi::c_void, symbol: *const std::ffi::c_char) -> *mut std::ffi::c_void;
+        fn dispatch_semaphore_create(value: isize) -> *mut std::ffi::c_void;
+        fn dispatch_semaphore_signal(dsema: *mut std::ffi::c_void) -> isize;
+        fn dispatch_semaphore_wait(dsema: *mut std::ffi::c_void, timeout: u64) -> isize;
+    }
+    const RTLD_LAZY: i32 = 0x1;
+    const DISPATCH_TIME_FOREVER: u64 = !0;
+
+    unsafe {
+        // Load AVFoundation
+        let fw_path = CStr::from_bytes_with_nul_unchecked(
+            b"/System/Library/Frameworks/AVFoundation.framework/AVFoundation\0"
+        );
+        let handle = dlopen(fw_path.as_ptr(), RTLD_LAZY);
+        if handle.is_null() { return false; }
+
+        // Get media type constant
+        let sym_name = if is_video {
+            CStr::from_bytes_with_nul_unchecked(b"AVMediaTypeVideo\0")
+        } else {
+            CStr::from_bytes_with_nul_unchecked(b"AVMediaTypeAudio\0")
+        };
+        let sym_ptr = dlsym(handle, sym_name.as_ptr());
+        if sym_ptr.is_null() { return false; }
+        let media_type: *const std::ffi::c_void = *(sym_ptr as *const *const std::ffi::c_void);
+
+        // Get AVCaptureDevice class
+        let cls_name = CStr::from_bytes_with_nul_unchecked(b"AVCaptureDevice\0");
+        let cls = match objc2::runtime::AnyClass::get(cls_name) {
+            Some(c) => c,
+            None => return false,
+        };
+
+        // Create semaphore and result flag
+        let sema = dispatch_semaphore_create(0);
+        let result = Arc::new(AtomicBool::new(false));
+        let result_clone = result.clone();
+        let sema_raw = sema as usize; // convert to usize for Send
+
+        // Build the completion handler block
+        // ObjC BOOL is objc2::runtime::Bool
+        let block = block2::RcBlock::new(move |granted: objc2::runtime::Bool| {
+            result_clone.store(granted.as_bool(), Ordering::SeqCst);
+            dispatch_semaphore_signal(sema_raw as *mut std::ffi::c_void);
+        });
+
+        // Call [AVCaptureDevice requestAccessForMediaType:completionHandler:]
+        let _: () = objc2::msg_send![
+            cls,
+            requestAccessForMediaType: media_type,
+            completionHandler: &*block
+        ];
+
+        // Wait for completion
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+
+        let granted = result.load(Ordering::SeqCst);
+        let label = if is_video { "camera" } else { "microphone" };
+        eprintln!("[Permissions] {} requestAccess = {}", label, granted);
+        granted
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Simulate paste (Cmd+V) via osascript — used by contextbar "Apply" action
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn simulate_paste() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::translate::simulate_key_with_cmd(0x09) // 0x09 = kVK_V
+            .map_err(|e| format!("Failed to simulate Cmd+V: {}", e))?;
+    }
+    Ok(())
 }

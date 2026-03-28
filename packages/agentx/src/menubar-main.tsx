@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "@/lib/i18n";
 import { MenuBarPanel } from "@/components/menubar/MenuBarPanel";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { initBridge } from "@/lib/bridge";
-import "@/lib/i18n";
 import "@/styles/globals.css";
 
 initBridge();

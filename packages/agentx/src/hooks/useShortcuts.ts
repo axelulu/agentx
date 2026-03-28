@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/slices/store";
 import { createNewConversation, switchConversation } from "@/slices/chatSlice";
-import { toggleSearch, toggleSettings, closeTabAndSwitch, openTab } from "@/slices/uiSlice";
+import { toggleSettings, closeTabAndSwitch, openTab } from "@/slices/uiSlice";
 
 export function useShortcuts() {
   const dispatch = useDispatch<AppDispatch>();
@@ -11,6 +11,7 @@ export function useShortcuts() {
 
   // IPC-based shortcuts from main process
   useEffect(() => {
+    // Cmd+K search is now handled natively by menu.rs → QuickChat search mode
     const unsubs = [
       window.api.shortcuts.onNewConversation(() => {
         dispatch(createNewConversation()).then((action) => {
@@ -18,9 +19,6 @@ export function useShortcuts() {
             dispatch(openTab(action.payload.id));
           }
         });
-      }),
-      window.api.shortcuts.onSearch(() => {
-        dispatch(toggleSearch());
       }),
       window.api.shortcuts.onSettings(() => {
         dispatch(toggleSettings());
@@ -56,12 +54,7 @@ export function useShortcuts() {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
 
-      // Cmd/Ctrl+K — search (fallback in case menu event doesn't fire)
-      if (e.key === "k" || e.key === "K") {
-        e.preventDefault();
-        dispatch(toggleSearch());
-        return;
-      }
+      // Cmd/Ctrl+K — handled by native menu (menu.rs → quickchat search mode)
 
       // Cmd/Ctrl+W — close current tab
       if (e.key === "w" || e.key === "W") {

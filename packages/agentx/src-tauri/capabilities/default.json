@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/nicegoodthings/nicebeta/main/tauri-permission-schema.json",
   "identifier": "default",
   "description": "Default capabilities for AgentX",
-  "windows": ["main", "translator", "quickchat", "menubar"],
+  "windows": ["main", "translator", "quickchat", "menubar", "contextbar"],
   "permissions": [
     "core:default",
     "core:window:default",

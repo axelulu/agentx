@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { QuickChatPanel } from "@/components/quickchat/QuickChatPanel";
+import "@/lib/i18n";
+import { CommandPalette } from "@/components/quickchat/CommandPalette";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { initBridge } from "@/lib/bridge";
-import "@/lib/i18n";
 import "@/styles/globals.css";
 
 initBridge();
@@ -14,7 +14,7 @@ document.addEventListener("contextmenu", (e) => e.preventDefault());
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <TooltipProvider delayDuration={0}>
-      <QuickChatPanel />
+      <CommandPalette />
     </TooltipProvider>
   </React.StrictMode>,
 );

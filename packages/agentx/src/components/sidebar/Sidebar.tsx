@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/slices/store";
 import { resetToWelcome } from "@/slices/chatSlice";
-import { toggleSettings, openTab, setActiveView, toggleSearch } from "@/slices/uiSlice";
+import { toggleSettings, openTab, setActiveView } from "@/slices/uiSlice";
+import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "@/hooks/useTheme";
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,9 @@ export function Sidebar() {
           {l10n.t("New Chat")}
         </button>
         <button
-          onClick={() => dispatch(toggleSearch())}
+          onClick={() => {
+            invoke("quickchat_open_mode", { mode: "conv-search" }).catch(() => {});
+          }}
           className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
         >
           <SearchIcon className="w-3.5 h-3.5" />

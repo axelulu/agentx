@@ -72,6 +72,8 @@ export function ClipboardDialog() {
   const abortRef = useRef<AbortController | null>(null);
 
   // Listen for global shortcut event from Rust
+  // Note: The global shortcut now opens the standalone clipboard window.
+  // This dialog serves as a fallback when triggered from within the main app.
   useEffect(() => {
     const unlisten = listen("clipboard:open", () => {
       dispatch(setClipboardOpen(true));
