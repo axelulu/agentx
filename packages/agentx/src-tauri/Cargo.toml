@@ -1,6 +1,6 @@
 [package]
 name = "agentx"
-version = "0.1.79"
+version = "0.1.80"
 description = "AgentX AI Desktop Assistant"
 authors = ["AgentX"]
 edition = "2021"

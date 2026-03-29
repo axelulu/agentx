@@ -21,7 +21,7 @@ export function UpdateRestartButton() {
       <TooltipTrigger asChild>
         <button
           onClick={() => dispatch(installUpdate())}
-          className="fixed top-[7px] left-[224px] z-50 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium text-primary-foreground bg-primary hover:bg-primary/90 transition-colors"
+          className="fixed top-[10px] left-[184px] z-50 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium text-primary-foreground bg-primary hover:bg-primary/90 transition-colors"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
           <ArrowUpCircleIcon className="w-3 h-3" />
