@@ -83,7 +83,7 @@ echo "[ShareExtension] Embedded at: $APPEX_DST"
 # (Tauri's bundler will re-sign the entire app, but for dev builds we
 # need to sign it ourselves)
 if codesign -d "$APP_PATH" 2>/dev/null; then
-    SIGN_IDENTITY=$(codesign -d --verbose "$APP_PATH" 2>&1 | grep "Authority=" | head -1 | sed 's/.*Authority=//')
+    SIGN_IDENTITY=$(codesign -d --verbose "$APP_PATH" 2>&1 | grep "Authority=" | head -1 | sed 's/.*Authority=//' || true)
     if [[ -n "$SIGN_IDENTITY" && "$SIGN_IDENTITY" != "-" ]]; then
         echo "[ShareExtension] Re-signing with: $SIGN_IDENTITY"
         codesign --force --sign "$SIGN_IDENTITY" --deep "$APPEX_DST" 2>/dev/null || true
