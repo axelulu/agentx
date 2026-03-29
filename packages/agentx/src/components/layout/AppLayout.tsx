@@ -14,8 +14,11 @@ import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { ClipboardDialog } from "@/components/clipboard/ClipboardDialog";
 import { useUpdateListener } from "@/hooks/useUpdateListener";
+import { useAutoUpdate } from "@/hooks/useAutoUpdate";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { useFinderAction } from "@/hooks/useFinderAction";
+import { useShareAction } from "@/hooks/useShareAction";
+import { UpdateRestartButton } from "@/components/update/UpdateRestartButton";
 import { PanelLeftIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { l10n } from "@agentx/l10n";
@@ -24,8 +27,10 @@ export function AppLayout() {
   const dispatch = useDispatch<AppDispatch>();
   const { sidebarOpen, settingsOpen, activeView } = useSelector((state: RootState) => state.ui);
   useUpdateListener();
+  useAutoUpdate();
   useShortcuts();
   useFinderAction();
+  useShareAction();
 
   // Navigate to conversation when a notification is clicked
   useEffect(() => {
@@ -50,6 +55,8 @@ export function AppLayout() {
         </TooltipTrigger>
         <TooltipContent>{l10n.t("Toggle Sidebar")}</TooltipContent>
       </Tooltip>
+
+      <UpdateRestartButton />
 
       {/* App shell — columns first so frosted glass spans full height on left */}
       <div className="relative flex h-full">

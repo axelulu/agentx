@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { l10n } from "@agentx/l10n";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   AccessibilityIcon,
   MonitorIcon,
@@ -13,6 +14,7 @@ import {
   XCircleIcon,
   CircleDotIcon,
   AlertCircleIcon,
+  RefreshCwIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -137,13 +139,24 @@ const STATUS_CONFIG: Record<
 
 export function PermissionsConfig() {
   const [statuses, setStatuses] = useState<Record<PermissionType, PermissionStatus> | null>(null);
+  const [isDevMode, setIsDevMode] = useState(false);
   const [requesting, setRequesting] = useState<PermissionType | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Debounce timer to prevent excessive checkAll calls
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const result = await window.api.permissions.checkAll();
-      setStatuses(result as Record<PermissionType, PermissionStatus>);
+      const data = result as Record<string, unknown>;
+
+      // Extract dev mode flag
+      setIsDevMode(!!data.isDevMode);
+
+      const permData = data as Record<PermissionType, PermissionStatus>;
+      setStatuses(permData);
     } catch (err) {
       console.error("[Permissions] checkAll failed:", err);
       const fallback = {} as Record<PermissionType, PermissionStatus>;
@@ -152,29 +165,75 @@ export function PermissionsConfig() {
     }
   }, []);
 
+  // Debounced refresh — coalesces multiple focus events into one call
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      refresh();
+      refreshTimerRef.current = null;
+    }, 500);
+  }, [refresh]);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // Refresh when app regains focus (user may have toggled permissions in System Settings)
+  // Refresh when app regains focus (user may have toggled permissions in System Settings).
+  // Use Tauri's native window focus event for reliability — the DOM "focus" event
+  // can be unreliable in webview contexts when switching between native windows.
   useEffect(() => {
-    const onFocus = () => refresh();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [refresh]);
+    let unlisten: (() => void) | undefined;
+    getCurrentWebviewWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (focused) debouncedRefresh();
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
+    return () => unlisten?.();
+  }, [debouncedRefresh]);
 
   const showFeedback = useCallback((msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 4000);
   }, []);
 
-  // Click "Grant" → first try to request programmatically (triggers system dialog),
-  // then fall back to opening System Settings if not possible
+  // Click "Grant":
+  // - FDA: can't request programmatically, go straight to System Settings
+  // - Others: try programmatic request first (triggers system TCC dialog),
+  //   then fall back to System Settings if not granted
   const handleGrant = useCallback(
     async (perm: PermissionInfo) => {
       if (requesting) return;
       setRequesting(perm.type);
       try {
+        // FDA: try automatic grant first (admin password dialog),
+        // fall back to opening System Settings for manual setup.
+        if (perm.type === "full-disk-access") {
+          showFeedback(l10n.t("Requesting administrator privileges to grant Full Disk Access..."));
+
+          // Try programmatic request (will show admin password dialog)
+          const result = await window.api.permissions.request(perm.type);
+
+          if (result?.status === "granted") {
+            showFeedback(l10n.t("Full Disk Access granted!"));
+            await refresh();
+            return;
+          }
+
+          // Automatic approach failed — fall back to manual
+          showFeedback(
+            l10n.t(
+              'Please add AgentX manually: click "+" at bottom-left, select AgentX from /Applications, then toggle ON.',
+            ),
+          );
+          await window.api.permissions.openSettings(perm.type);
+          const pollInterval = setInterval(refresh, 2000);
+          setTimeout(() => clearInterval(pollInterval), 30000);
+          return;
+        }
+
+        // Try programmatic request (may trigger system dialog)
         const result = await window.api.permissions.request(perm.type);
 
         if (result?.status === "granted") {
@@ -183,7 +242,7 @@ export function PermissionsConfig() {
           return;
         }
 
-        // Not granted yet — open System Settings so user can toggle the switch
+        // Not granted — open System Settings as fallback
         showFeedback(
           l10n.t(
             "System Settings opened — please find AgentX in the list, toggle the switch, then come back.",
@@ -200,41 +259,31 @@ export function PermissionsConfig() {
     [requesting, refresh, showFeedback],
   );
 
-  // Click "Revoke" → try tccutil reset, fall back to opening System Settings
-  // IMPORTANT: After a successful reset, do NOT call refresh() because
-  // checkAllPermissions() would re-trigger macOS permission dialogs
-  // (e.g. checkAutomation runs osascript which prompts for permission).
-  // Instead, update local state directly to "not-determined".
+  // Click "Revoke":
+  //  1. Best-effort tccutil reset (often silently fails on Sequoia)
+  //  2. Always open System Settings so user can toggle the switch manually
   const handleRevoke = useCallback(
     async (perm: PermissionInfo) => {
       if (requesting) return;
       setRequesting(perm.type);
       try {
-        const result = await window.api.permissions.reset(perm.type);
+        await window.api.permissions.reset(perm.type);
 
-        if (result.success) {
-          showFeedback(l10n.t("Permission revoked successfully."));
-          // Update only this permission's status locally — avoid re-checking all
-          setStatuses((prev) =>
-            prev ? { ...prev, [perm.type]: "not-determined" as PermissionStatus } : prev,
-          );
-          return;
-        }
-
-        // tccutil failed or not supported — open System Settings
-        showFeedback(
-          l10n.t(
-            "Opening System Settings — please find AgentX in the list and disable the permission.",
-          ),
-        );
+        // Always open System Settings — tccutil is unreliable on Sequoia
         await window.api.permissions.openSettings(perm.type);
+
+        showFeedback(l10n.t("Please toggle off AgentX in System Settings, then come back."));
+
+        // Refresh after a short delay to pick up changes
+        setTimeout(refresh, 3000);
       } catch {
         showFeedback(l10n.t("Could not revoke permission. Please disable it in System Settings."));
+        await window.api.permissions.openSettings(perm.type).catch(() => {});
       } finally {
         setRequesting(null);
       }
     },
-    [requesting, showFeedback],
+    [requesting, refresh, showFeedback],
   );
 
   const grantedCount = statuses ? Object.values(statuses).filter((s) => s === "granted").length : 0;
@@ -246,17 +295,46 @@ export function PermissionsConfig() {
         <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
           {l10n.t("System Permissions")}
         </label>
-        {statuses && (
-          <span className="text-[11px] text-muted-foreground">
-            {grantedCount}/{totalCount} {l10n.t("granted")}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {statuses && (
+            <span className="text-[11px] text-muted-foreground">
+              {grantedCount}/{totalCount} {l10n.t("granted")}
+            </span>
+          )}
+          <button
+            onClick={async () => {
+              setRefreshing(true);
+              await refresh();
+              setRefreshing(false);
+            }}
+            disabled={refreshing}
+            className={cn(
+              "p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+            title={l10n.t("Refresh permission status")}
+          >
+            <RefreshCwIcon className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
+          </button>
+        </div>
       </div>
       <p className="text-[12px] text-muted-foreground">
         {l10n.t(
           "AgentX needs these permissions to control your desktop. Click Grant to open System Settings.",
         )}
       </p>
+
+      {isDevMode && (
+        <div className="rounded-md bg-orange-500/10 border border-orange-500/20 px-3 py-2">
+          <p className="text-[11px] text-orange-400 leading-relaxed">
+            <strong>{l10n.t("Dev Mode")}</strong>
+            {": "}
+            {l10n.t(
+              "Permission checks reflect the terminal app's permissions (macOS responsible process). Statuses shown here may not match System Settings for AgentX. This does not affect production builds.",
+            )}
+          </p>
+        </div>
+      )}
 
       {feedback && (
         <div className="rounded-md bg-foreground/[0.03] px-3 py-2">

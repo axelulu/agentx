@@ -50,6 +50,16 @@ import { Select } from "@/components/ui/Select";
 export function SettingsPanel() {
   const dispatch = useDispatch();
   const activeSection = useSelector((s: RootState) => s.ui.settingsSection);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        dispatch(setSettingsOpen(false));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [dispatch]);
   const setActiveSection = (section: SettingsSection) => dispatch(openSettingsSection(section));
 
   const sections: { id: SettingsSection; label: string; icon: React.ElementType }[] = [

@@ -1,0 +1,43 @@
+{
+  "title": "Quick Look Extension Test",
+  "exportedAt": "2026-03-29T12:00:00.000Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Help me create a Quick Look extension for macOS that can preview conversation files.",
+      "timestamp": 1743253200000,
+      "toolCalls": null
+    },
+    {
+      "role": "assistant",
+      "content": "I'll help you create a Quick Look extension. This involves creating a macOS app extension that registers for your custom file type and renders conversations as formatted HTML.\n\nHere's what we need:\n1. A custom UTType declaration\n2. A QLPreviewProvider implementation\n3. Build integration with Tauri",
+      "timestamp": 1743253260000,
+      "toolCalls": [
+        {
+          "id": "call_001",
+          "name": "create_file",
+          "arguments": {
+            "path": "extensions/quicklook/Sources/PreviewProvider.swift",
+            "content": "class PreviewProvider: QLPreviewProvider { ... }"
+          },
+          "status": "done",
+          "result": {
+            "content": "File created successfully"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "Looks great! Can you also add dark mode support?",
+      "timestamp": 1743253320000,
+      "toolCalls": null
+    },
+    {
+      "role": "assistant",
+      "content": "Of course! I've added CSS media queries for `prefers-color-scheme: dark` to the HTML template. The preview will automatically adapt to the system appearance.",
+      "timestamp": 1743253380000,
+      "toolCalls": null
+    }
+  ]
+}

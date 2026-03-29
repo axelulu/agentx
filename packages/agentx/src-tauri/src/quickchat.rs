@@ -19,7 +19,7 @@ fn compute_position(click_x: f64, click_y: f64) -> (f64, f64) {
 /// Show the quickchat window in a specific mode (e.g. "clipboard").
 /// If the window is already visible, just emit the mode event.
 pub fn show_quickchat_mode(app: &AppHandle, mode: &str) -> Result<(), String> {
-    let (cx, cy) = crate::window::get_palette_center();
+    let (cx, cy) = crate::window::get_palette_center_async(app)?;
     // Ensure window exists and is visible
     if let Some(win) = app.get_webview_window("quickchat") {
         if !win.is_visible().unwrap_or(false) {
@@ -123,7 +123,7 @@ pub fn toggle_quickchat_window(
             let w = win_for_blur.clone();
             let s = suppress_for_blur.clone();
             tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(80)).await;
                 if s.load(Ordering::SeqCst) {
                     return; // tray click in progress — don't hide
                 }

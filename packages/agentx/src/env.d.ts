@@ -240,7 +240,7 @@ interface NativeAPI {
       type: SystemPermissionType,
     ) => Promise<{ status: SystemPermissionStatus; canRequestDirectly: boolean }>;
     openSettings: (type: SystemPermissionType) => Promise<void>;
-    reset: (type: SystemPermissionType) => Promise<{ success: boolean; requiresManual: boolean }>;
+    reset: (type: SystemPermissionType) => Promise<{ tccutilOk: boolean; needsRestart: boolean }>;
   };
   toolPermissions: {
     get: () => Promise<ToolPermissions>;
@@ -348,6 +348,22 @@ interface NativeAPI {
     listAll: () => Promise<
       { id: string; shortcut: string; defaultShortcut: string; label: string }[]
     >;
+  };
+  share: {
+    isInstalled: () => Promise<boolean>;
+    checkPending: () => Promise<void>;
+    onAction: (
+      callback: (action: {
+        timestamp: number;
+        items: Array<{
+          type: string;
+          text?: string;
+          url?: string;
+          path?: string;
+          name?: string;
+        }>;
+      }) => void,
+    ) => () => void;
   };
   finder: {
     isInstalled: () => Promise<boolean>;

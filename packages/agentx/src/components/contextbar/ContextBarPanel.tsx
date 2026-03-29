@@ -559,8 +559,37 @@ export function ContextBarPanel() {
   );
 
   const handleQuickAction = useCallback(
-    (action: QuickAction) => {
+    async (action: QuickAction) => {
       const selectedText = context?.selectedText ?? "";
+
+      // For translate action, call translate_run directly for clean results
+      if (action.id === "translate" && selectedText) {
+        setAnswer("");
+        streamingRef.current = "";
+        setIsStreaming(true);
+        try {
+          // Auto-detect target language: if source is mostly Chinese → English, otherwise → Chinese
+          const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf]/g;
+          const chineseChars = (selectedText.match(chineseRegex) || []).length;
+          const targetLang = chineseChars > selectedText.length * 0.3 ? "en" : "zh";
+
+          const result = await invoke<{ text: string; error?: string }>("translate_run", {
+            text: selectedText,
+            targetLang,
+          });
+          if (result.error) {
+            setAnswer(`Error: ${result.error}`);
+          } else {
+            setAnswer(result.text);
+          }
+        } catch (err) {
+          setAnswer(`Error: ${err}`);
+        } finally {
+          setIsStreaming(false);
+        }
+        return;
+      }
+
       const prompt = action.prompt + selectedText;
       sendToAgent(prompt);
     },

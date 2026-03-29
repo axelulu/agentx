@@ -207,6 +207,32 @@ pub async fn execute_action(app: &AppHandle, action: ShortcutAction) -> Result<S
             Ok("ok".to_string())
         }
 
+        "share" => {
+            // Consume pending share action written by the Share Extension
+            if let Some(share_action) = crate::share::consume_pending_action() {
+                // Bring app to foreground
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+
+                // Emit event with the shared content for the frontend to handle
+                let _ = app.emit(
+                    "share:action",
+                    serde_json::to_value(&share_action).unwrap(),
+                );
+
+                // Clean up old shared content files in the background
+                std::thread::spawn(|| {
+                    crate::share::cleanup_shared_content();
+                });
+
+                Ok("ok".to_string())
+            } else {
+                Ok("no_pending_share".to_string())
+            }
+        }
+
         _ => Err(format!("Unknown action: {}", action.action)),
     }
 }

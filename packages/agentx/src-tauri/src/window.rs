@@ -345,6 +345,29 @@ pub fn get_palette_center() -> (f64, f64) {
     (540.0, 200.0)
 }
 
+/// Like `get_palette_center` but safe to call from any thread.
+/// Uses the main window's monitor info via Tauri API (thread-safe).
+pub fn get_palette_center_async(app: &AppHandle) -> Result<(f64, f64), String> {
+    const H: f64 = 480.0;
+    if let Some(win) = app.get_webview_window("main") {
+        if let Ok(Some(monitor)) = win.current_monitor() {
+            let scale = monitor.scale_factor();
+            let screen_pos = monitor.position();
+            let screen_size = monitor.size();
+            let sw = screen_size.width as f64 / scale;
+            let sh = screen_size.height as f64 / scale;
+            let sx = screen_pos.x as f64 / scale;
+            let sy = screen_pos.y as f64 / scale;
+            // Return coords that compute_position will transform to centered position
+            // compute_position: x = click_x - W/2, y = click_y + 8
+            let cx = sx + sw / 2.0;
+            let cy = sy + (sh - H) / 2.0 - 8.0;
+            return Ok((cx, cy));
+        }
+    }
+    Ok((540.0, 200.0))
+}
+
 #[allow(dead_code)]
 pub fn show_and_focus(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("main") {

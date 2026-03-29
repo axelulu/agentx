@@ -878,27 +878,75 @@ pub async fn export_print_to_pdf(_html: String) -> Result<String, String> {
 pub async fn permissions_check_all(app: AppHandle) -> Result<Value, String> {
     #[cfg(target_os = "macos")]
     {
-        // Check notifications via Tauri plugin (needs app bundle context)
+        // Check notifications: ncprefs.plist is the source of truth.
+        // UNUserNotificationCenter API is unreliable for ad-hoc signed apps
+        // (returns "granted" even when the app isn't registered, or "not-determined"
+        // even after the user enables notifications via System Settings GUI).
         let notif_status = {
-            use tauri_plugin_notification::NotificationExt;
-            match app.notification().permission_state() {
-                Ok(state) => match state {
-                    tauri_plugin_notification::PermissionState::Granted => "granted",
-                    tauri_plugin_notification::PermissionState::Denied => "denied",
-                    _ => "not-determined",
-                }.to_string(),
-                Err(_) => "unknown".to_string(),
+            if check_ncprefs_has_agentx() {
+                "granted".to_string()
+            } else {
+                let api_status = check_notification_status();
+                if api_status == "granted" {
+                    // API says granted but not in ncprefs — false positive
+                    "not-determined".to_string()
+                } else {
+                    api_status
+                }
             }
         };
 
+        // Detect dev mode: if the executable is NOT inside a .app bundle,
+        // permission checks will reflect the *terminal's* TCC identity
+        // (macOS "responsible process" mechanism), not the app's own identity.
+        let exe_path = std::env::current_exe()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let is_app_bundle = exe_path.contains(".app/Contents/MacOS/");
+
+        eprintln!(
+            "[Permissions] checkAll — pid={}, exe={:?}, bundle={:?}, is_app_bundle={}",
+            std::process::id(),
+            exe_path,
+            app.config().identifier,
+            is_app_bundle,
+        );
+
+        // Out-of-process helper for TCC APIs that cache in-process
+        // (accessibility, screen, microphone, camera).
+        // FDA, automation, notifications must be checked in-process because:
+        // - FDA: filesystem access checks the actual binary, not responsible process
+        // - Automation: Apple Event TCC attribution breaks for grandchild processes
+        // - Notifications: requires app bundle context (Tauri plugin)
+        let fresh = check_permissions_out_of_process();
+
+        let get_status_fresh = |perm: &str| -> String {
+            if let Some(ref results) = fresh {
+                if let Some(status) = results.get(perm) {
+                    eprintln!("[Permissions] {} = {} (out-of-process)", perm, status);
+                    return status.clone();
+                }
+            }
+            let status = check_permission_status_inprocess(perm);
+            eprintln!("[Permissions] {} = {} (in-process fallback)", perm, status);
+            status
+        };
+
+        // FDA and automation always in-process (no caching issue for these)
+        let fda_status = check_permission_status_inprocess("full-disk-access");
+        eprintln!("[Permissions] full-disk-access = {} (in-process)", fda_status);
+        let auto_status = check_permission_status_inprocess("automation");
+        eprintln!("[Permissions] automation = {} (in-process)", auto_status);
+
         Ok(serde_json::json!({
-            "accessibility": check_permission_status("accessibility"),
-            "screen": check_permission_status("screen"),
-            "microphone": check_permission_status("microphone"),
-            "camera": check_permission_status("camera"),
-            "full-disk-access": check_permission_status("full-disk-access"),
-            "automation": check_permission_status("automation"),
+            "accessibility": get_status_fresh("accessibility"),
+            "screen": get_status_fresh("screen"),
+            "microphone": get_status_fresh("microphone"),
+            "camera": get_status_fresh("camera"),
+            "full-disk-access": fda_status,
+            "automation": auto_status,
             "notifications": notif_status,
+            "isDevMode": !is_app_bundle,
         }))
     }
     #[cfg(not(target_os = "macos"))]
@@ -930,35 +978,18 @@ pub async fn permissions_check(perm_type: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn permissions_request(perm_type: String) -> Result<Value, String> {
+pub async fn permissions_request(app: AppHandle, perm_type: String) -> Result<Value, String> {
     #[cfg(target_os = "macos")]
     {
         match perm_type.as_str() {
             "accessibility" => {
-                // AXIsProcessTrustedWithOptions with prompt=true — run on main thread for UI
-                extern "C" {
-                    static _dispatch_main_q: std::ffi::c_void;
-                    fn dispatch_sync_f(
-                        queue: *mut std::ffi::c_void,
-                        context: *mut std::ffi::c_void,
-                        work: extern "C" fn(*mut std::ffi::c_void),
-                    );
-                }
-                extern "C" fn do_prompt(ctx: *mut std::ffi::c_void) {
-                    let result_ptr = ctx as *mut bool;
-                    unsafe { *result_ptr = crate::accessibility::prompt_trust(); }
-                }
-                let mut granted = false;
-                unsafe {
-                    dispatch_sync_f(
-                        std::ptr::addr_of!(_dispatch_main_q) as *mut std::ffi::c_void,
-                        &mut granted as *mut bool as *mut std::ffi::c_void,
-                        do_prompt,
-                    );
-                }
+                // Use the centralized main-thread prompt helper
+                let granted = crate::accessibility::prompt_trust_on_main_thread();
                 eprintln!("[Permissions] accessibility prompt_trust = {}", granted);
+                // Double-check — prompt may return false even if user already granted
+                let is_granted = granted || crate::accessibility::is_trusted();
                 Ok(serde_json::json!({
-                    "status": if granted { "granted" } else { "not-determined" },
+                    "status": if is_granted { "granted" } else { "not-determined" },
                     "canRequestDirectly": true,
                 }))
             }
@@ -1002,15 +1033,53 @@ pub async fn permissions_request(perm_type: String) -> Result<Value, String> {
                 }))
             }
             "notifications" => {
-                // Request notification permission via Tauri plugin
-                // The plugin handles the system dialog
+                // Register with notification center and add to ncprefs.plist.
+                // Having AgentX in notification settings = granted.
+                let _native = request_notification_on_main_thread();
+                post_test_notification(&app);
+                let ncprefs_ok = grant_notification_via_ncprefs();
+                eprintln!("[Permissions] notifications ncprefs insert = {}", ncprefs_ok);
+
                 Ok(serde_json::json!({
-                    "status": "not-determined",
-                    "canRequestDirectly": false,
+                    "status": if ncprefs_ok { "granted" } else { "not-determined" },
+                    "canRequestDirectly": ncprefs_ok,
                 }))
             }
+            "automation" => {
+                // Directly insert into user TCC database (same approach as FDA).
+                let tcc_ok = grant_tcc_entry(
+                    "kTCCServiceAppleEvents",
+                    "com.agentx.desktop",
+                    Some("com.apple.systemevents"),
+                );
+                eprintln!("[Permissions] automation TCC insert = {}", tcc_ok);
+                Ok(serde_json::json!({
+                    "status": if tcc_ok { "granted" } else { "not-determined" },
+                    "canRequestDirectly": tcc_ok,
+                }))
+            }
+            "full-disk-access" => {
+                // FDA cannot be requested via TCC API. Instead, insert directly
+                // into the system TCC database using admin privileges (osascript
+                // shows a native macOS password dialog).
+                // This works when SIP is disabled; with SIP enabled, falls back
+                // to opening System Settings.
+                let granted = grant_fda_via_tcc_db();
+                eprintln!("[Permissions] FDA grant_via_tcc_db = {}", granted);
+                if granted {
+                    Ok(serde_json::json!({
+                        "status": "granted",
+                        "canRequestDirectly": true,
+                    }))
+                } else {
+                    // Fall back to opening System Settings manually
+                    Ok(serde_json::json!({
+                        "status": "not-determined",
+                        "canRequestDirectly": false,
+                    }))
+                }
+            }
             _ => {
-                // full-disk-access, automation — cannot request programmatically
                 Ok(serde_json::json!({
                     "status": "not-determined",
                     "canRequestDirectly": false,
@@ -1020,7 +1089,7 @@ pub async fn permissions_request(perm_type: String) -> Result<Value, String> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = perm_type;
+        let _ = (app, perm_type);
         Ok(serde_json::json!({
             "status": "granted",
             "canRequestDirectly": true,
@@ -1039,7 +1108,7 @@ pub async fn permissions_open_settings(perm_type: String) -> Result<(), String> 
             "camera" => "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Camera",
             "full-disk-access" => "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles",
             "automation" => "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Automation",
-            "notifications" => "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Notifications",
+            "notifications" => "x-apple.systempreferences:com.apple.Notifications-Settings.extension",
             _ => return Err(format!("Unknown permission type: {}", perm_type)),
         };
         std::process::Command::new("open")
@@ -1059,6 +1128,16 @@ pub async fn permissions_open_settings(perm_type: String) -> Result<(), String> 
 pub async fn permissions_reset(perm_type: String) -> Result<Value, String> {
     #[cfg(target_os = "macos")]
     {
+        // Notifications: remove AgentX entry from ncprefs.plist
+        if perm_type == "notifications" {
+            let ok = revoke_notification_via_ncprefs();
+            eprintln!("[Permissions] notifications revoke = {}", ok);
+            return Ok(serde_json::json!({
+                "tccutilOk": ok,
+                "needsRestart": false,
+            }));
+        }
+
         let service = match perm_type.as_str() {
             "accessibility" => "Accessibility",
             "screen" => "ScreenCapture",
@@ -1066,22 +1145,70 @@ pub async fn permissions_reset(perm_type: String) -> Result<Value, String> {
             "camera" => "Camera",
             "full-disk-access" => "SystemPolicyAllFiles",
             "automation" => "AppleEvents",
-            _ => return Ok(serde_json::json!({ "success": false, "requiresManual": true })),
+            _ => return Ok(serde_json::json!({ "tccutilOk": false, "needsRestart": false })),
         };
+
+        // Try multiple identities for tccutil reset because TCC uses different
+        // identifiers depending on whether this is an installed .app (bundle ID)
+        // or a development binary (executable path).
+        let mut tcc_ok = false;
+
+        // 1) Reset by bundle ID (installed .app)
         let output = std::process::Command::new("tccutil")
             .args(["reset", service, "com.agentx.desktop"])
             .output();
-        match output {
-            Ok(o) if o.status.success() => {
-                Ok(serde_json::json!({ "success": true, "requiresManual": false }))
+        if let Ok(o) = &output {
+            if o.status.success() {
+                tcc_ok = true;
+                eprintln!("[Permissions] tccutil reset {} com.agentx.desktop — ok", service);
             }
-            _ => Ok(serde_json::json!({ "success": false, "requiresManual": true })),
         }
+
+        // 2) Reset by actual executable path (dev builds)
+        if let Ok(exe) = std::env::current_exe() {
+            let exe_str = exe.to_string_lossy();
+            let output2 = std::process::Command::new("tccutil")
+                .args(["reset", service, &exe_str])
+                .output();
+            if let Ok(o) = &output2 {
+                if o.status.success() {
+                    tcc_ok = true;
+                    eprintln!("[Permissions] tccutil reset {} {:?} — ok", service, exe_str);
+                }
+            }
+        }
+
+        // 3) Fall back to resetting ALL entries for the service
+        if !tcc_ok {
+            let output3 = std::process::Command::new("tccutil")
+                .args(["reset", service])
+                .output();
+            if let Ok(o) = output3 {
+                tcc_ok = o.status.success();
+                eprintln!("[Permissions] tccutil reset {} (all) — {}", service, if tcc_ok { "ok" } else { "failed" });
+            }
+        }
+
+        // NOTE: We deliberately do NOT try to verify the reset in-process.
+        // macOS caches permission state (especially screen recording and
+        // accessibility) at the process level — in-process APIs like
+        // CGPreflightScreenCaptureAccess / CGWindowListCreateImage /
+        // AXIsProcessTrusted will keep returning "granted" even after the
+        // TCC entry is removed. The only reliable way for the change to
+        // take effect is to restart the app.
+        let needs_restart = matches!(perm_type.as_str(),
+            "screen" | "accessibility"
+        );
+
+        Ok(serde_json::json!({
+            "tccutilOk": tcc_ok,
+            "needsRestart": needs_restart,
+        }))
     }
     #[cfg(not(target_os = "macos"))]
     {
         let _ = perm_type;
-        Ok(serde_json::json!({ "success": false, "requiresManual": false }))
+        Ok(serde_json::json!({ "tccutilOk": false, "needsRestart": false }))
     }
 }
 
@@ -2242,55 +2369,299 @@ fn looks_like_code(text: &str) -> bool {
 // Helper: macOS permission status check
 // ---------------------------------------------------------------------------
 
-/// Check a single permission status — all checks run **in-process** so macOS
-/// TCC resolves against *this* app's bundle ID, not a child process.
+/// Check a single permission status.
+///
+/// **Important platform notes (macOS Sequoia / development builds):**
+///
+/// - **Screen recording**: `CGPreflightScreenCaptureAccess()` is the most
+///   reliable API. On Sequoia, the old window-list heuristic (checking
+///   `kCGWindowName` on foreign windows) no longer works — window names are
+///   always visible regardless of screen-recording permission.
+///
+/// - **Accessibility**: `AXIsProcessTrusted()` checks the *responsible
+///   process*, not necessarily the current binary. When running via `cargo
+///   tauri dev` from a terminal that already has Accessibility permission,
+///   `AXIsProcessTrusted()` returns `true` even if the dev binary itself
+///   has no TCC entry. This is correct for functional purposes (the app
+///   CAN use the AX API), but may confuse users who remove the binary from
+///   System Settings and expect the status to change. In production .app
+///   bundles this is not an issue since the bundle has its own identity.
+// ---------------------------------------------------------------------------
+// Out-of-process permission checker (avoids in-process TCC API caching)
+// ---------------------------------------------------------------------------
+
+/// Swift source for the permission helper binary.
+/// This runs as a child of AgentX.app so macOS attributes TCC checks to AgentX.
 #[cfg(target_os = "macos")]
-fn check_permission_status(perm_type: &str) -> String {
+const PERMISSION_CHECKER_SWIFT: &str = r#"
+import Foundation
+import Cocoa
+import CoreGraphics
+import AVFoundation
+
+var r: [String: String] = [:]
+
+r["accessibility"] = AXIsProcessTrusted() ? "granted" : "denied"
+r["screen"] = CGPreflightScreenCaptureAccess() ? "granted" : "denied"
+
+switch AVCaptureDevice.authorizationStatus(for: .audio) {
+case .authorized: r["microphone"] = "granted"
+case .denied: r["microphone"] = "denied"
+case .restricted: r["microphone"] = "restricted"
+case .notDetermined: r["microphone"] = "not-determined"
+@unknown default: r["microphone"] = "unknown"
+}
+
+switch AVCaptureDevice.authorizationStatus(for: .video) {
+case .authorized: r["camera"] = "granted"
+case .denied: r["camera"] = "denied"
+case .restricted: r["camera"] = "restricted"
+case .notDetermined: r["camera"] = "not-determined"
+@unknown default: r["camera"] = "unknown"
+}
+
+let data = try! JSONSerialization.data(withJSONObject: r)
+FileHandle.standardOutput.write(data)
+"#;
+
+/// Get the path for the cached permission checker binary.
+#[cfg(target_os = "macos")]
+fn permission_checker_binary_path() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let cache_dir = std::path::PathBuf::from(home)
+        .join("Library/Caches/com.agentx.desktop");
+    std::fs::create_dir_all(&cache_dir).ok();
+    cache_dir.join("permission_checker")
+}
+
+/// Compile the swift permission checker if it doesn't exist or is outdated.
+/// Returns the path to the compiled binary, or None if compilation fails.
+#[cfg(target_os = "macos")]
+fn ensure_permission_checker() -> Option<std::path::PathBuf> {
+    let binary_path = permission_checker_binary_path();
+    let hash_path = binary_path.with_extension("hash");
+
+    // Simple cache key: hash of the swift source
+    let source_hash = format!("{:x}", {
+        let mut h: u64 = 0;
+        for b in PERMISSION_CHECKER_SWIFT.bytes() {
+            h = h.wrapping_mul(31).wrapping_add(b as u64);
+        }
+        h
+    });
+
+    // Check if we already have a valid binary
+    if binary_path.exists() {
+        if let Ok(cached_hash) = std::fs::read_to_string(&hash_path) {
+            if cached_hash.trim() == source_hash {
+                return Some(binary_path);
+            }
+        }
+    }
+
+    eprintln!("[Permissions] Compiling permission checker helper...");
+
+    // Write swift source to temp file
+    let swift_path = binary_path.with_extension("swift");
+    if std::fs::write(&swift_path, PERMISSION_CHECKER_SWIFT).is_err() {
+        return None;
+    }
+
+    // Compile with swiftc
+    let output = std::process::Command::new("swiftc")
+        .args([
+            "-O",
+            "-framework", "CoreGraphics",
+            "-framework", "AVFoundation",
+            swift_path.to_str()?,
+            "-o",
+            binary_path.to_str()?,
+        ])
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .ok()?;
+
+    std::fs::remove_file(&swift_path).ok();
+
+    if output.status.success() {
+        std::fs::write(&hash_path, &source_hash).ok();
+        eprintln!("[Permissions] Permission checker compiled successfully");
+        Some(binary_path)
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("[Permissions] swiftc failed: {}", stderr);
+        None
+    }
+}
+
+/// Run the out-of-process permission checker and return parsed results.
+/// Returns None if the helper isn't available or fails.
+#[cfg(target_os = "macos")]
+fn check_permissions_out_of_process() -> Option<std::collections::HashMap<String, String>> {
+    let binary = ensure_permission_checker()?;
+
+    let output = std::process::Command::new(&binary)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("[Permissions] helper failed: {}", stderr);
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    eprintln!("[Permissions] helper output: {}", stdout.trim());
+
+    let parsed: std::collections::HashMap<String, String> =
+        serde_json::from_str(stdout.trim()).ok()?;
+    Some(parsed)
+}
+
+/// Query TCC databases directly via sqlite3 for a specific service and client.
+/// Checks BOTH the user TCC.db and system TCC.db (both are readable on Sequoia).
+/// Returns Some("granted"), Some("denied"), or None if no entry / query failed.
+///
+/// auth_value meanings: 0=denied, 2=allowed, 3=limited, 4=provisional
+/// Some services (e.g. FDA) are in the SYSTEM TCC.db, others (e.g. automation)
+/// are in the USER TCC.db. We check both for robustness.
+#[cfg(target_os = "macos")]
+fn query_tcc_database(service: &str, client: &str) -> Option<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let user_tcc = format!("{}/Library/Application Support/com.apple.TCC/TCC.db", home);
+    let system_tcc = "/Library/Application Support/com.apple.TCC/TCC.db".to_string();
+
+    // For AppleEvents (automation), the query needs to match the indirect_object too
+    // but we just want to know if ANY automation entry exists for this client
+    let sql = format!(
+        "SELECT auth_value FROM access WHERE service='{}' AND client='{}'",
+        service, client
+    );
+
+    for (label, tcc_path) in [("user", &user_tcc), ("system", &system_tcc)] {
+        let output = std::process::Command::new("sqlite3")
+            .args([tcc_path.as_str(), &sql])
+            .output();
+
+        if let Ok(o) = output {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let trimmed = stdout.trim();
+            if !trimmed.is_empty() {
+                eprintln!(
+                    "[Permissions] TCC {} DB: service={}, client={}, auth_value='{}'",
+                    label, service, client, trimmed
+                );
+                // May have multiple rows (e.g. multiple automation targets).
+                // If ANY row has auth_value=2, consider it granted.
+                for line in trimmed.lines() {
+                    match line.trim() {
+                        "2" | "3" | "4" => return Some("granted".to_string()),
+                        _ => {}
+                    }
+                }
+                // All entries had auth_value != 2/3/4 — check for explicit deny
+                for line in trimmed.lines() {
+                    if line.trim() == "0" {
+                        return Some("denied".to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    eprintln!(
+        "[Permissions] TCC DB: no entry for service={}, client={}",
+        service, client
+    );
+    None // No entry in either database
+}
+
+/// In-process fallback for when the out-of-process helper is unavailable.
+#[cfg(target_os = "macos")]
+fn check_permission_status_inprocess(perm_type: &str) -> String {
     match perm_type {
         "accessibility" => {
             let trusted = crate::accessibility::is_trusted();
-            eprintln!("[Permissions] accessibility AXIsProcessTrusted = {}", trusted);
             if trusted { "granted" } else { "denied" }.to_string()
         }
         "screen" => {
-            // CGPreflightScreenCaptureAccess — in-process, no prompt
             extern "C" {
                 fn CGPreflightScreenCaptureAccess() -> bool;
             }
             let ok = unsafe { CGPreflightScreenCaptureAccess() };
-            eprintln!("[Permissions] screen CGPreflightScreenCaptureAccess = {}", ok);
             if ok { "granted" } else { "denied" }.to_string()
         }
         "microphone" => check_av_capture_status(false),
         "camera" => check_av_capture_status(true),
         "full-disk-access" => {
-            let protected = format!(
-                "{}/Library/Safari",
-                std::env::var("HOME").unwrap_or_default()
+            // On macOS Sequoia, non-sandboxed apps can read most "protected" files
+            // without FDA — filesystem probing gives false positives.
+            // Instead, query the TCC database directly for our app's FDA entry.
+            // FDA entries are stored in the SYSTEM TCC.db under
+            // kTCCServiceSystemPolicyAllFiles.
+            let tcc_status = query_tcc_database(
+                "kTCCServiceSystemPolicyAllFiles",
+                "com.agentx.desktop",
             );
-            if std::fs::read_dir(&protected).is_ok() {
-                "granted".to_string()
-            } else {
-                "denied".to_string()
+            eprintln!("[Permissions] FDA TCC DB query = {:?}", tcc_status);
+            match tcc_status.as_deref() {
+                Some("granted") => "granted".to_string(),
+                Some("denied") => "denied".to_string(),
+                _ => "not-determined".to_string(),
             }
         }
         "automation" => {
-            match std::process::Command::new("osascript")
-                .args(["-e", r#"tell application "System Events" to return """#])
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()
-            {
-                Ok(child) => match child.wait_with_output() {
-                    Ok(out) if out.status.success() => "granted".to_string(),
-                    Ok(_) => "denied".to_string(),
-                    Err(_) => "unknown".to_string(),
-                },
-                Err(_) => "unknown".to_string(),
+            // First check the user TCC database for an explicit entry.
+            // AEDeterminePermissionToAutomateTarget can return false positives
+            // for ad-hoc signed apps on Sequoia.
+            let tcc_status = query_tcc_database("kTCCServiceAppleEvents", "com.agentx.desktop");
+            eprintln!("[Permissions] automation TCC DB query = {:?}", tcc_status);
+            match tcc_status.as_deref() {
+                Some("granted") => "granted".to_string(),
+                Some("denied") => "denied".to_string(),
+                _ => {
+                    // No TCC entry — fall back to API check
+                    let api_status = check_automation_permission(false);
+                    eprintln!("[Permissions] automation API fallback = {}", api_status);
+                    // If API says granted but TCC has no entry, treat as not-determined
+                    // (the API can give false positives for ad-hoc signed apps)
+                    if api_status == "granted" {
+                        "not-determined".to_string()
+                    } else {
+                        api_status
+                    }
+                }
+            }
+        }
+        "notifications" => {
+            if check_ncprefs_has_agentx() {
+                "granted".to_string()
+            } else {
+                let api_status = check_notification_status();
+                if api_status == "granted" { "not-determined".to_string() } else { api_status }
             }
         }
         _ => "unknown".to_string(),
     }
+}
+
+/// Primary permission check — uses out-of-process helper for accuracy,
+/// falls back to in-process checks if the helper isn't available.
+#[cfg(target_os = "macos")]
+fn check_permission_status(perm_type: &str) -> String {
+    // Try out-of-process first for cache-free accuracy
+    if let Some(results) = check_permissions_out_of_process() {
+        if let Some(status) = results.get(perm_type) {
+            eprintln!("[Permissions] {} = {} (out-of-process)", perm_type, status);
+            return status.clone();
+        }
+    }
+    // Fallback to in-process
+    let status = check_permission_status_inprocess(perm_type);
+    eprintln!("[Permissions] {} = {} (in-process fallback)", perm_type, status);
+    status
 }
 
 /// Check microphone / camera via AVFoundation **in-process** using objc runtime.
@@ -2436,7 +2807,812 @@ fn request_av_capture_access(is_video: bool) -> bool {
     }
 }
 
+/// Check notification permission status via UNUserNotificationCenter.
+/// UNAuthorizationStatus: 0=notDetermined, 1=denied, 2=authorized, 3=provisional, 4=ephemeral
+#[cfg(target_os = "macos")]
+fn check_notification_status() -> String {
+    use std::ffi::CStr;
+    use std::sync::atomic::{AtomicI64, Ordering};
+    use std::sync::Arc;
+
+    extern "C" {
+        fn dlopen(path: *const std::ffi::c_char, mode: i32) -> *mut std::ffi::c_void;
+        fn dispatch_semaphore_create(value: isize) -> *mut std::ffi::c_void;
+        fn dispatch_semaphore_signal(dsema: *mut std::ffi::c_void) -> isize;
+        fn dispatch_semaphore_wait(dsema: *mut std::ffi::c_void, timeout: u64) -> isize;
+    }
+    const RTLD_LAZY: i32 = 0x1;
+    const DISPATCH_TIME_FOREVER: u64 = !0;
+
+    unsafe {
+        // Load UserNotifications framework
+        let fw_path = CStr::from_bytes_with_nul_unchecked(
+            b"/System/Library/Frameworks/UserNotifications.framework/UserNotifications\0"
+        );
+        dlopen(fw_path.as_ptr(), RTLD_LAZY);
+
+        let cls = match objc2::runtime::AnyClass::get(
+            CStr::from_bytes_with_nul_unchecked(b"UNUserNotificationCenter\0"),
+        ) {
+            Some(c) => c,
+            None => {
+                eprintln!("[Permissions] UNUserNotificationCenter class not found");
+                return "unknown".to_string();
+            }
+        };
+        let center: *mut objc2::runtime::AnyObject = objc2::msg_send![cls, currentNotificationCenter];
+        if center.is_null() {
+            return "unknown".to_string();
+        }
+
+        let sema = dispatch_semaphore_create(0);
+        let status_val = Arc::new(AtomicI64::new(-1));
+        let status_clone = status_val.clone();
+        let sema_raw = sema as usize;
+
+        // Build completion handler: ^(UNNotificationSettings *settings) { ... }
+        let block = block2::RcBlock::new(move |settings: *mut objc2::runtime::AnyObject| {
+            if !settings.is_null() {
+                let auth_status: isize = objc2::msg_send![settings, authorizationStatus];
+                status_clone.store(auth_status as i64, Ordering::SeqCst);
+            }
+            dispatch_semaphore_signal(sema_raw as *mut std::ffi::c_void);
+        });
+
+        // [center getNotificationSettingsWithCompletionHandler:]
+        let _: () = objc2::msg_send![center, getNotificationSettingsWithCompletionHandler: &*block];
+
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+
+        let status = status_val.load(Ordering::SeqCst);
+        eprintln!("[Permissions] notifications authorizationStatus = {}", status);
+
+        match status {
+            2 | 3 | 4 => "granted".to_string(),  // authorized, provisional, ephemeral
+            1 => "denied".to_string(),
+            0 => "not-determined".to_string(),
+            _ => "unknown".to_string(),
+        }
+    }
+}
+
+/// Check if com.agentx.desktop has an authorized entry in ncprefs.plist.
+#[cfg(target_os = "macos")]
+fn check_ncprefs_has_agentx() -> bool {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let plist_path = format!("{}/Library/Preferences/com.apple.ncprefs.plist", home);
+
+    // Use plutil to convert to XML, then grep for our bundle-id.
+    // plutil -convert json fails on binary data fields, but xml1 works fine.
+    let output = std::process::Command::new("/usr/bin/plutil")
+        .args(["-convert", "xml1", "-o", "-", &plist_path])
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            let xml = String::from_utf8_lossy(&o.stdout);
+            let found = xml.contains("com.agentx.desktop");
+            eprintln!("[Permissions] ncprefs check: agentx found = {}", found);
+            found
+        }
+        _ => {
+            eprintln!("[Permissions] ncprefs check: plutil failed");
+            false
+        }
+    }
+}
+
+/// Request notification permission via UNUserNotificationCenter.requestAuthorization.
+/// Explicitly loads UserNotifications framework to ensure the class is available.
+#[cfg(target_os = "macos")]
+fn request_notification_access() -> bool {
+    use std::ffi::CStr;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    extern "C" {
+        fn dlopen(path: *const std::ffi::c_char, mode: i32) -> *mut std::ffi::c_void;
+        fn dispatch_semaphore_create(value: isize) -> *mut std::ffi::c_void;
+        fn dispatch_semaphore_signal(dsema: *mut std::ffi::c_void) -> isize;
+        fn dispatch_semaphore_wait(dsema: *mut std::ffi::c_void, timeout: u64) -> isize;
+    }
+    const RTLD_LAZY: i32 = 0x1;
+    const DISPATCH_TIME_FOREVER: u64 = !0;
+
+    unsafe {
+        // Load UserNotifications framework (required for UNUserNotificationCenter)
+        let fw_path = CStr::from_bytes_with_nul_unchecked(
+            b"/System/Library/Frameworks/UserNotifications.framework/UserNotifications\0"
+        );
+        let handle = dlopen(fw_path.as_ptr(), RTLD_LAZY);
+        if handle.is_null() {
+            eprintln!("[Permissions] Failed to load UserNotifications framework");
+            return false;
+        }
+        eprintln!("[Permissions] UserNotifications framework loaded");
+
+        let cls = match objc2::runtime::AnyClass::get(
+            CStr::from_bytes_with_nul_unchecked(b"UNUserNotificationCenter\0"),
+        ) {
+            Some(c) => c,
+            None => {
+                eprintln!("[Permissions] UNUserNotificationCenter class not found");
+                return false;
+            }
+        };
+        eprintln!("[Permissions] UNUserNotificationCenter class found");
+
+        let center: *mut objc2::runtime::AnyObject =
+            objc2::msg_send![cls, currentNotificationCenter];
+        if center.is_null() {
+            eprintln!("[Permissions] currentNotificationCenter returned nil");
+            return false;
+        }
+        eprintln!("[Permissions] Got notification center, calling requestAuthorization...");
+
+        let sema = dispatch_semaphore_create(0);
+        let result = Arc::new(AtomicBool::new(false));
+        let result_clone = result.clone();
+        let sema_raw = sema as usize;
+
+        // UNAuthorizationOptionAlert | UNAuthorizationOptionSound | UNAuthorizationOptionBadge
+        let options: usize = (1 << 0) | (1 << 1) | (1 << 2);
+
+        let block = block2::RcBlock::new(
+            move |granted: objc2::runtime::Bool,
+                  error: *mut objc2::runtime::AnyObject| {
+                let g = granted.as_bool();
+                eprintln!(
+                    "[Permissions] requestAuthorization callback: granted={}, error_null={}",
+                    g,
+                    error.is_null()
+                );
+                result_clone.store(g, Ordering::SeqCst);
+                dispatch_semaphore_signal(sema_raw as *mut std::ffi::c_void);
+            },
+        );
+
+        // [center requestAuthorizationWithOptions:completionHandler:]
+        let _: () = objc2::msg_send![
+            center,
+            requestAuthorizationWithOptions: options,
+            completionHandler: &*block
+        ];
+
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+        let granted = result.load(Ordering::SeqCst);
+        eprintln!("[Permissions] requestAuthorization result: {}", granted);
+        granted
+    }
+}
+
+/// Check or request automation permission using AEDeterminePermissionToAutomateTarget.
+/// When `ask_user` is false, checks silently (no TCC dialog).
+/// When `ask_user` is true, triggers the TCC dialog if status is not-determined.
+#[cfg(target_os = "macos")]
+fn check_automation_permission(ask_user: bool) -> String {
+    // Apple's AEDesc uses mac68k alignment (#pragma options align=mac68k),
+    // which means max 2-byte alignment. Without packed(2), Rust would add
+    // 4 bytes of padding between the u32 and the pointer, making the struct
+    // 16 bytes instead of the correct 12 bytes. This layout mismatch causes
+    // AEDeterminePermissionToAutomateTarget to read garbage data.
+    #[repr(C, packed(2))]
+    struct AEDesc {
+        descriptor_type: u32,
+        data_handle: *mut std::ffi::c_void,
+    }
+
+    extern "C" {
+        fn AECreateDesc(
+            type_code: u32,
+            data_ptr: *const std::ffi::c_void,
+            data_size: usize,
+            result: *mut AEDesc,
+        ) -> i16; // OSErr is i16, not i32
+        fn AEDisposeDesc(desc: *mut AEDesc) -> i16;
+        fn AEDeterminePermissionToAutomateTarget(
+            target: *const AEDesc,
+            the_ae_event_class: u32,
+            the_ae_event_id: u32,
+            ask_user_if_needed: u8,
+        ) -> i32; // OSStatus is i32
+    }
+
+    // typeApplicationBundleID = 'bund'
+    const TYPE_APP_BUNDLE_ID: u32 = u32::from_be_bytes(*b"bund");
+    // kCoreEventClass = 'aevt'
+    const K_CORE_EVENT_CLASS: u32 = u32::from_be_bytes(*b"aevt");
+    // kAEOpenApplication = 'oapp'
+    const K_AE_OPEN_APP: u32 = u32::from_be_bytes(*b"oapp");
+
+    let bundle_id = b"com.apple.systemevents";
+
+    unsafe {
+        let mut target = AEDesc {
+            descriptor_type: 0,
+            data_handle: std::ptr::null_mut(),
+        };
+
+        let err = AECreateDesc(
+            TYPE_APP_BUNDLE_ID,
+            bundle_id.as_ptr() as *const std::ffi::c_void,
+            bundle_id.len(),
+            &mut target,
+        );
+        eprintln!("[Permissions] AECreateDesc = {}, sizeof(AEDesc) = {}", err, std::mem::size_of::<AEDesc>());
+        if err != 0 {
+            eprintln!("[Permissions] AECreateDesc failed: {}", err);
+            return "unknown".to_string();
+        }
+
+        let result = AEDeterminePermissionToAutomateTarget(
+            &target,
+            K_CORE_EVENT_CLASS,
+            K_AE_OPEN_APP,
+            if ask_user { 1 } else { 0 },
+        );
+
+        AEDisposeDesc(&mut target);
+
+        eprintln!(
+            "[Permissions] AEDeterminePermissionToAutomateTarget(ask={}) = {}",
+            ask_user, result
+        );
+
+        match result {
+            0 => "granted".to_string(),           // noErr
+            -1743 => "denied".to_string(),         // errAEEventNotPermitted
+            -1744 => "not-determined".to_string(),  // errAEEventWouldRequireUserConsent
+            -600 => "not-determined".to_string(),   // procNotFound (target not running)
+            _ => "unknown".to_string(),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
+/// Request notification permission on the main thread.
+/// TCC dialogs on macOS require the triggering call to happen on the main thread.
+/// We dispatch the requestAuthorization call to the main thread, but use a
+/// background-thread semaphore for the completion handler to avoid deadlock.
+#[cfg(target_os = "macos")]
+fn request_notification_on_main_thread() -> bool {
+    use std::ffi::CStr;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    extern "C" {
+        fn dlopen(path: *const std::ffi::c_char, mode: i32) -> *mut std::ffi::c_void;
+        static _dispatch_main_q: std::ffi::c_void;
+        fn dispatch_async_f(
+            queue: *mut std::ffi::c_void,
+            context: *mut std::ffi::c_void,
+            work: extern "C" fn(*mut std::ffi::c_void),
+        );
+        fn dispatch_semaphore_create(value: isize) -> *mut std::ffi::c_void;
+        fn dispatch_semaphore_signal(dsema: *mut std::ffi::c_void) -> isize;
+        fn dispatch_semaphore_wait(dsema: *mut std::ffi::c_void, timeout: u64) -> isize;
+    }
+    const RTLD_LAZY: i32 = 0x1;
+    const DISPATCH_TIME_FOREVER: u64 = !0;
+
+    // Shared state between main thread and this thread
+    struct Ctx {
+        result: Arc<AtomicBool>,
+        sema: *mut std::ffi::c_void,
+    }
+    // Safety: we control all access via the semaphore
+    unsafe impl Send for Ctx {}
+
+    extern "C" fn do_request(ctx_ptr: *mut std::ffi::c_void) {
+        extern "C" {
+            fn dlopen(path: *const std::ffi::c_char, mode: i32) -> *mut std::ffi::c_void;
+            fn dispatch_semaphore_signal(dsema: *mut std::ffi::c_void) -> isize;
+        }
+
+        unsafe {
+            let ctx = Box::from_raw(ctx_ptr as *mut Ctx);
+
+            // Load UserNotifications framework
+            let fw_path = std::ffi::CStr::from_bytes_with_nul_unchecked(
+                b"/System/Library/Frameworks/UserNotifications.framework/UserNotifications\0",
+            );
+            dlopen(fw_path.as_ptr(), 0x1);
+
+            let cls = match objc2::runtime::AnyClass::get(
+                std::ffi::CStr::from_bytes_with_nul_unchecked(b"UNUserNotificationCenter\0"),
+            ) {
+                Some(c) => c,
+                None => {
+                    eprintln!("[Permissions] UNUserNotificationCenter class not found (main thread)");
+                    dispatch_semaphore_signal(ctx.sema);
+                    return;
+                }
+            };
+
+            let center: *mut objc2::runtime::AnyObject =
+                objc2::msg_send![cls, currentNotificationCenter];
+            if center.is_null() {
+                eprintln!("[Permissions] currentNotificationCenter nil (main thread)");
+                dispatch_semaphore_signal(ctx.sema);
+                return;
+            }
+
+            eprintln!("[Permissions] Calling requestAuthorization on main thread...");
+
+            let options: usize = (1 << 0) | (1 << 1) | (1 << 2); // alert|sound|badge
+            let result_clone = ctx.result.clone();
+            let sema_raw = ctx.sema as usize;
+
+            let block = block2::RcBlock::new(
+                move |granted: objc2::runtime::Bool,
+                      _error: *mut objc2::runtime::AnyObject| {
+                    let g = granted.as_bool();
+                    eprintln!("[Permissions] requestAuthorization callback: granted={}", g);
+                    result_clone.store(g, std::sync::atomic::Ordering::SeqCst);
+                    dispatch_semaphore_signal(sema_raw as *mut std::ffi::c_void);
+                },
+            );
+
+            let _: () = objc2::msg_send![
+                center,
+                requestAuthorizationWithOptions: options,
+                completionHandler: &*block
+            ];
+            // Don't signal sema here — the block will do it
+        }
+    }
+
+    unsafe {
+        let sema = dispatch_semaphore_create(0);
+        let result = Arc::new(AtomicBool::new(false));
+
+        let ctx = Box::new(Ctx {
+            result: result.clone(),
+            sema,
+        });
+
+        eprintln!("[Permissions] Dispatching notification request to main thread...");
+        // Use dispatch_async to avoid blocking the main thread
+        // (the completion handler will signal our semaphore)
+        dispatch_async_f(
+            std::ptr::addr_of!(_dispatch_main_q) as *mut std::ffi::c_void,
+            Box::into_raw(ctx) as *mut std::ffi::c_void,
+            do_request,
+        );
+
+        // Wait on this (background) thread for the completion handler
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+        result.load(Ordering::SeqCst)
+    }
+}
+
+/// Post a test notification via the Tauri notification plugin.
+/// This forces macOS to register the app in System Settings > Notifications.
+#[cfg(target_os = "macos")]
+fn post_test_notification(app: &AppHandle) {
+    use tauri_plugin_notification::NotificationExt;
+    match app.notification()
+        .builder()
+        .title("AgentX")
+        .body("Notifications enabled for AgentX")
+        .show()
+    {
+        Ok(_) => eprintln!("[Permissions] Test notification posted"),
+        Err(e) => eprintln!("[Permissions] Test notification failed: {}", e),
+    }
+}
+
+/// Toggle "Allow Notifications" ON for AgentX via GUI automation of System Settings.
+/// Strategy: open notification settings, iterate through app buttons to find AgentX,
+/// click into its detail page, then toggle the "Allow Notifications" checkbox.
+#[cfg(target_os = "macos")]
+fn toggle_notification_via_gui() -> bool {
+    // Close System Settings first for a clean state
+    let _ = std::process::Command::new("osascript")
+        .args(["-e", r#"tell application "System Settings" to quit"#])
+        .output();
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    // Open System Settings > Notifications
+    let _ = std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.Notifications-Settings.extension")
+        .output();
+    std::thread::sleep(std::time::Duration::from_secs(3));
+
+    // Count the number of app buttons in the notification list
+    let count_output = std::process::Command::new("osascript")
+        .args(["-e", r#"
+tell application "System Events"
+    tell process "System Settings"
+        set sa to scroll area 1 of group 1 of group 2 of splitter group 1 of group 1 of window 1
+        set g3 to group 3 of sa
+        return count of every button of g3
+    end tell
+end tell
+"#])
+        .output();
+
+    let btn_count: usize = match count_output {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).trim().parse().unwrap_or(0),
+        Err(_) => 0,
+    };
+    eprintln!("[Permissions] notification list has {} app buttons", btn_count);
+
+    if btn_count == 0 {
+        return false;
+    }
+
+    // Iterate through each button: click it, check if it's AgentX's page,
+    // toggle the switch if found, otherwise close and reopen to try next button
+    for i in 1..=btn_count {
+        // Click button i
+        let click_script = format!(r#"
+tell application "System Events"
+    tell process "System Settings"
+        try
+            set sa to scroll area 1 of group 1 of group 2 of splitter group 1 of group 1 of window 1
+            set g3 to group 3 of sa
+            click button {} of g3
+            delay 1.5
+            -- Check if this is AgentX's detail page
+            set sa2 to scroll area 1 of group 1 of group 2 of splitter group 1 of group 1 of window 1
+            set mg to group 1 of sa2
+            set allTexts to value of every static text of mg
+            repeat with t in allTexts
+                if t as text is "AgentX" then
+                    -- Found AgentX! Toggle the first checkbox if OFF
+                    set switches to every checkbox of mg
+                    if (count of switches) > 0 then
+                        set sw to item 1 of switches
+                        if value of sw is 0 then
+                            click sw
+                            delay 0.5
+                            return "toggled_on"
+                        else
+                            return "already_on"
+                        end if
+                    end if
+                end if
+            end repeat
+            return "not_agentx"
+        on error e
+            return "error"
+        end try
+    end tell
+end tell
+"#, i);
+
+        let result = std::process::Command::new("osascript")
+            .args(["-e", &click_script])
+            .output();
+
+        if let Ok(o) = result {
+            let out = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            eprintln!("[Permissions] button {}: {}", i, out);
+            if out == "toggled_on" || out == "already_on" {
+                return true;
+            }
+        }
+
+        // Not AgentX — close and reopen Settings for next attempt
+        let _ = std::process::Command::new("osascript")
+            .args(["-e", r#"tell application "System Settings" to quit"#])
+            .output();
+        std::thread::sleep(std::time::Duration::from_millis(800));
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.Notifications-Settings.extension")
+            .output();
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+
+    eprintln!("[Permissions] AgentX not found in notification list");
+    false
+}
+
+/// Revoke notification permission by removing AgentX entry from ncprefs.plist.
+#[cfg(target_os = "macos")]
+fn revoke_notification_via_ncprefs() -> bool {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let script = format!(r#"
+ObjC.import("Foundation");
+var nsPath = $.NSString.alloc.initWithUTF8String("{home}/Library/Preferences/com.apple.ncprefs.plist");
+var data = $.NSData.dataWithContentsOfFile(nsPath);
+if (!data) {{ "NO_FILE"; }}
+var plist = $.NSPropertyListSerialization.propertyListWithDataOptionsFormatError(data, 2, null, null);
+var apps = plist.objectForKey("apps");
+var removed = false;
+for (var i = apps.count - 1; i >= 0; i--) {{
+    var e = apps.objectAtIndex(i);
+    var bid = e.objectForKey("bundle-id");
+    if (bid && bid.js === "com.agentx.desktop") {{
+        apps.removeObjectAtIndex(i);
+        removed = true;
+    }}
+}}
+if (removed) {{
+    var out = $.NSPropertyListSerialization.dataWithPropertyListFormatOptionsError(plist, 200, 0, null);
+    out.writeToFileAtomically(nsPath, true);
+}}
+removed ? "OK" : "NOT_FOUND";
+"#);
+
+    let output = std::process::Command::new("/usr/bin/osascript")
+        .args(["-l", "JavaScript", "-e", &script])
+        .output();
+
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            eprintln!("[Permissions] ncprefs revoke: {}", stdout);
+            if stdout == "OK" {
+                let _ = std::process::Command::new("/usr/bin/notifyutil")
+                    .args(["-p", "com.apple.ncprefs.change"])
+                    .output();
+            }
+            stdout == "OK" || stdout == "NOT_FOUND"
+        }
+        Err(e) => {
+            eprintln!("[Permissions] ncprefs revoke failed: {}", e);
+            false
+        }
+    }
+}
+
+/// Grant notification permission by adding an entry to ncprefs.plist.
+/// Uses osascript -l JavaScript (JXA) which has native Foundation API access,
+/// ensuring reliable binary plist manipulation from within .app bundles.
+#[cfg(target_os = "macos")]
+fn grant_notification_via_ncprefs() -> bool {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let script = format!(r#"
+ObjC.import("Foundation");
+var nsPath = $.NSString.alloc.initWithUTF8String("{home}/Library/Preferences/com.apple.ncprefs.plist");
+var data = $.NSData.dataWithContentsOfFile(nsPath);
+if (!data) {{ "NO_FILE"; }}
+var plist = $.NSPropertyListSerialization.propertyListWithDataOptionsFormatError(data, 2, null, null);
+var apps = plist.objectForKey("apps");
+for (var i = apps.count - 1; i >= 0; i--) {{
+    var e = apps.objectAtIndex(i);
+    var bid = e.objectForKey("bundle-id");
+    if (bid && bid.js === "com.agentx.desktop") apps.removeObjectAtIndex(i);
+}}
+var ne = $.NSMutableDictionary.alloc.init;
+ne.setObjectForKey($("com.agentx.desktop"), "bundle-id");
+ne.setObjectForKey($.NSNumber.numberWithInt(276832270), "flags");
+ne.setObjectForKey($("/Applications/AgentX.app"), "path");
+ne.setObjectForKey($.NSNumber.numberWithInt(0), "content_visibility");
+ne.setObjectForKey($.NSNumber.numberWithInt(0), "grouping");
+ne.setObjectForKey($.NSNumber.numberWithInt(7), "auth");
+apps.addObject(ne);
+var out = $.NSPropertyListSerialization.dataWithPropertyListFormatOptionsError(plist, 200, 0, null);
+out.writeToFileAtomically(nsPath, true);
+"OK";
+"#);
+
+    let output = std::process::Command::new("/usr/bin/osascript")
+        .args(["-l", "JavaScript", "-e", &script])
+        .output();
+
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            eprintln!("[Permissions] ncprefs JXA: stdout={}, stderr={}", stdout, stderr.trim());
+            if stdout != "OK" {
+                return false;
+            }
+            // Notify system to reload
+            let _ = std::process::Command::new("/usr/bin/notifyutil")
+                .args(["-p", "com.apple.ncprefs.change"])
+                .output();
+            true
+        }
+        Err(e) => {
+            eprintln!("[Permissions] ncprefs JXA failed: {}", e);
+            false
+        }
+    }
+}
+
+/// Insert a TCC entry into the appropriate database using admin privileges.
+/// Shows a native macOS password dialog via `osascript`.
+/// `indirect_object` is needed for AppleEvents (automation) — it specifies the target app.
+#[cfg(target_os = "macos")]
+fn grant_tcc_entry(service: &str, client: &str, indirect_object: Option<&str>) -> bool {
+    // Generate csreq for the client bundle ID
+    let csreq_cmd = format!(
+        r#"echo 'identifier "{}" and anchor apple generic' | csreq -r- -b /dev/stdout | xxd -p | tr -d '\n'"#,
+        client
+    );
+    let csreq_output = std::process::Command::new("sh")
+        .args(["-c", &csreq_cmd])
+        .output();
+
+    let csreq_hex = match csreq_output {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        _ => {
+            eprintln!("[Permissions] Failed to generate csreq for {}", client);
+            return false;
+        }
+    };
+    if csreq_hex.is_empty() {
+        return false;
+    }
+
+    // Determine which TCC database to use:
+    // - FDA (SystemPolicyAllFiles) → system TCC.db (requires root)
+    // - AppleEvents, PostEvent, etc. → user TCC.db (writable by user)
+    let home = std::env::var("HOME").unwrap_or_default();
+    let (tcc_path, needs_admin) = if service.contains("SystemPolicy") {
+        ("/Library/Application Support/com.apple.TCC/TCC.db".to_string(), true)
+    } else {
+        (format!("{}/Library/Application Support/com.apple.TCC/TCC.db", home), false)
+    };
+
+    // Build SQL — AppleEvents needs indirect_object fields
+    let (io_type, io_id, io_csreq) = if let Some(target) = indirect_object {
+        // Generate csreq for the target app too
+        let target_csreq_cmd = format!(
+            r#"echo 'identifier "{}" and anchor apple' | csreq -r- -b /dev/stdout | xxd -p | tr -d '\n'"#,
+            target
+        );
+        let target_hex = std::process::Command::new("sh")
+            .args(["-c", &target_csreq_cmd])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default();
+
+        if target_hex.is_empty() {
+            ("0".to_string(), format!("'{}'", target), "NULL".to_string())
+        } else {
+            ("0".to_string(), format!("'{}'", target), format!("X'{}'", target_hex))
+        }
+    } else {
+        ("0".to_string(), "'UNUSED'".to_string(), "NULL".to_string())
+    };
+
+    let sql = format!(
+        "INSERT OR REPLACE INTO access \
+         (service, client, client_type, auth_value, auth_reason, auth_version, \
+          csreq, policy_id, indirect_object_identifier_type, indirect_object_identifier, \
+          indirect_object_code_identity, flags, last_modified) \
+         VALUES ('{}', '{}', 0, 2, 4, 1, X'{}', NULL, {}, {}, {}, 0, \
+          CAST(strftime('%s','now') AS INTEGER));",
+        service, client, csreq_hex, io_type, io_id, io_csreq
+    );
+
+    eprintln!("[Permissions] TCC insert: service={}, needs_admin={}", service, needs_admin);
+
+    if needs_admin {
+        // Use osascript with admin privileges (shows password dialog)
+        let escaped_sql = sql.replace('\'', "'\\''");
+        let shell_cmd = format!("sqlite3 '{}' '{}'", tcc_path, escaped_sql);
+        let escaped = shell_cmd.replace('\\', "\\\\").replace('"', "\\\"");
+
+        let result = std::process::Command::new("osascript")
+            .args(["-e", &format!("do shell script \"{}\" with administrator privileges", escaped)])
+            .output();
+
+        match result {
+            Ok(o) => {
+                if !o.status.success() {
+                    eprintln!("[Permissions] TCC admin insert failed: {}", String::from_utf8_lossy(&o.stderr));
+                }
+                o.status.success()
+            }
+            Err(e) => {
+                eprintln!("[Permissions] TCC osascript failed: {}", e);
+                false
+            }
+        }
+    } else {
+        // User TCC.db — can write directly without admin
+        let result = std::process::Command::new("sqlite3")
+            .args([&tcc_path, &sql])
+            .output();
+
+        match result {
+            Ok(o) => {
+                if !o.status.success() {
+                    eprintln!("[Permissions] TCC insert failed: {}", String::from_utf8_lossy(&o.stderr));
+                }
+                o.status.success()
+            }
+            Err(e) => {
+                eprintln!("[Permissions] sqlite3 failed: {}", e);
+                false
+            }
+        }
+    }
+}
+
+/// Grant Full Disk Access using the shared TCC entry insertion.
+#[cfg(target_os = "macos")]
+fn grant_fda_via_tcc_db() -> bool {
+    grant_tcc_entry("kTCCServiceSystemPolicyAllFiles", "com.agentx.desktop", None)
+}
+
+/// Request automation permission on the main thread using NSAppleScript.
+/// Sends a real Apple Event to System Events, triggering the TCC dialog.
+#[cfg(target_os = "macos")]
+fn request_automation_on_main_thread() -> bool {
+    extern "C" {
+        static _dispatch_main_q: std::ffi::c_void;
+        fn dispatch_sync_f(
+            queue: *mut std::ffi::c_void,
+            context: *mut std::ffi::c_void,
+            work: extern "C" fn(*mut std::ffi::c_void),
+        );
+    }
+
+    extern "C" fn do_request(ctx_ptr: *mut std::ffi::c_void) {
+        let result_ptr = ctx_ptr as *mut bool;
+        unsafe {
+            // Get NSAppleScript class
+            let cls = match objc2::runtime::AnyClass::get(
+                std::ffi::CStr::from_bytes_with_nul_unchecked(b"NSAppleScript\0"),
+            ) {
+                Some(c) => c,
+                None => {
+                    eprintln!("[Permissions] NSAppleScript class not found");
+                    *result_ptr = false;
+                    return;
+                }
+            };
+
+            // Create NSString source
+            let src_cls =
+                objc2::runtime::AnyClass::get(std::ffi::CStr::from_bytes_with_nul_unchecked(
+                    b"NSString\0",
+                ))
+                .unwrap();
+            let source_cstr = std::ffi::CStr::from_bytes_with_nul_unchecked(
+                b"tell application \"System Events\" to return \"\"\0",
+            );
+            let ns_source: *mut objc2::runtime::AnyObject =
+                objc2::msg_send![src_cls, stringWithUTF8String: source_cstr.as_ptr()];
+
+            // [[NSAppleScript alloc] initWithSource:]
+            let script: *mut objc2::runtime::AnyObject = objc2::msg_send![cls, alloc];
+            let script: *mut objc2::runtime::AnyObject =
+                objc2::msg_send![script, initWithSource: ns_source];
+
+            if script.is_null() {
+                eprintln!("[Permissions] Failed to create NSAppleScript");
+                *result_ptr = false;
+                return;
+            }
+
+            // [script executeAndReturnError:]
+            let mut error_dict: *mut objc2::runtime::AnyObject = std::ptr::null_mut();
+            let _result: *mut objc2::runtime::AnyObject = objc2::msg_send![
+                script,
+                executeAndReturnError: &mut error_dict as *mut *mut objc2::runtime::AnyObject
+            ];
+
+            let granted = error_dict.is_null();
+            eprintln!(
+                "[Permissions] NSAppleScript on main thread: success={}",
+                granted
+            );
+            *result_ptr = granted;
+        }
+    }
+
+    let mut granted = false;
+    unsafe {
+        eprintln!("[Permissions] Dispatching automation request to main thread...");
+        dispatch_sync_f(
+            std::ptr::addr_of!(_dispatch_main_q) as *mut std::ffi::c_void,
+            &mut granted as *mut bool as *mut std::ffi::c_void,
+            do_request,
+        );
+    }
+    granted
+}
+
 // Simulate paste (Cmd+V) via osascript — used by contextbar "Apply" action
 // ---------------------------------------------------------------------------
 
@@ -2446,6 +3622,23 @@ pub fn simulate_paste() -> Result<(), String> {
     {
         crate::translate::simulate_key_with_cmd(0x09) // 0x09 = kVK_V
             .map_err(|e| format!("Failed to simulate Cmd+V: {}", e))?;
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Share Extension commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn share_is_installed() -> Result<bool, String> {
+    Ok(crate::share::is_installed())
+}
+
+#[tauri::command]
+pub fn share_check_pending(app: AppHandle) -> Result<(), String> {
+    if let Some(action) = crate::share::consume_pending_action() {
+        let _ = app.emit("share:action", serde_json::to_value(&action).unwrap());
     }
     Ok(())
 }

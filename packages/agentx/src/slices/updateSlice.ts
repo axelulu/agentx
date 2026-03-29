@@ -22,6 +22,8 @@ export interface UpdateSliceState {
   progress: UpdateProgress | null;
   error: string | null;
   dialogOpen: boolean;
+  /** When true, update was triggered silently (auto-update) — don't pop dialog */
+  silent: boolean;
 }
 
 const initialState: UpdateSliceState = {
@@ -30,6 +32,7 @@ const initialState: UpdateSliceState = {
   progress: null,
   error: null,
   dialogOpen: false,
+  silent: false,
 };
 
 export const checkForUpdates = createAsyncThunk("update/checkForUpdates", async () => {
@@ -44,6 +47,11 @@ export const installUpdate = createAsyncThunk("update/installUpdate", async () =
   await window.api.updater.installUpdate();
 });
 
+/** Silent auto-update: check → download in background, no dialog */
+export const silentAutoUpdate = createAsyncThunk("update/silentAutoUpdate", async () => {
+  await window.api.updater.checkForUpdates();
+});
+
 const updateSlice = createSlice({
   name: "update",
   initialState,
@@ -52,6 +60,9 @@ const updateSlice = createSlice({
       state.state = "downloading";
       state.progress = { percent: 0, bytesPerSecond: 0, transferred: 0, total: 0 };
       state.error = null;
+    });
+    builder.addCase(silentAutoUpdate.pending, (state) => {
+      state.silent = true;
     });
   },
   reducers: {
@@ -69,9 +80,11 @@ const updateSlice = createSlice({
       state.progress = action.payload.progress ?? null;
       state.error = action.payload.error ?? null;
 
-      // Auto-open dialog when update is available (from periodic checks)
-      if (action.payload.state === "available" || action.payload.state === "downloaded") {
-        state.dialogOpen = true;
+      // Auto-open dialog only for non-silent updates
+      if (!state.silent) {
+        if (action.payload.state === "available" || action.payload.state === "downloaded") {
+          state.dialogOpen = true;
+        }
       }
     },
     openUpdateDialog(state) {
@@ -83,9 +96,12 @@ const updateSlice = createSlice({
     resetUpdateState() {
       return initialState;
     },
+    setSilent(state, action: PayloadAction<boolean>) {
+      state.silent = action.payload;
+    },
   },
 });
 
-export const { setUpdateStatus, openUpdateDialog, closeUpdateDialog, resetUpdateState } =
+export const { setUpdateStatus, openUpdateDialog, closeUpdateDialog, resetUpdateState, setSilent } =
   updateSlice.actions;
 export default updateSlice.reducer;

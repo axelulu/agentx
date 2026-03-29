@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/slices/store";
-import { DownloadIcon, FileTextIcon, FileJsonIcon, FileIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, FileJsonIcon, FileIcon, EyeIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { l10n } from "@agentx/l10n";
 import { exportConversation, type ExportFormat } from "@/lib/performExport";
@@ -85,6 +85,12 @@ export function ExportMenu() {
             icon={FileIcon}
             label={l10n.t("Export as PDF")}
             onClick={() => handleExport("pdf")}
+          />
+          <div className="my-1 border-t border-border" />
+          <MenuItem
+            icon={EyeIcon}
+            label={l10n.t("Export for Quick Look")}
+            onClick={() => handleExport("agentx")}
           />
         </div>
       )}

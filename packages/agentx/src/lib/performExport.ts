@@ -7,12 +7,13 @@ import {
   singleMessageToJSON,
 } from "./exportConversation";
 
-export type ExportFormat = "markdown" | "json" | "pdf";
+export type ExportFormat = "markdown" | "json" | "pdf" | "agentx";
 
 async function saveTextFile(content: string, defaultName: string, ext: string): Promise<boolean> {
   const filters: Record<string, { name: string; extensions: string[] }[]> = {
     md: [{ name: "Markdown", extensions: ["md"] }],
     json: [{ name: "JSON", extensions: ["json"] }],
+    agentx: [{ name: "AgentX Conversation", extensions: ["agentx"] }],
   };
 
   const filePath = await window.api.fs.showSaveDialog({
@@ -60,6 +61,10 @@ export async function exportConversation(
     case "pdf": {
       const html = messagesToHTML(messages, title);
       return savePDF(html, `${safeName}.pdf`);
+    }
+    case "agentx": {
+      const json = messagesToJSON(messages, title);
+      return saveTextFile(json, `${safeName}.agentx`, "agentx");
     }
   }
 }

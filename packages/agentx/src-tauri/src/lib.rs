@@ -6,6 +6,7 @@ mod finder;
 mod menubar;
 mod ocr;
 pub mod quickchat;
+mod share;
 mod shortcuts;
 mod sidecar;
 mod spotlight;
@@ -80,6 +81,48 @@ pub fn run() {
             app.listen("app:quit-requested", move |_| {
                 quit_handle.exit(0);
             });
+
+            // ── Accessibility permission (critical for context bar, OCR, text capture) ──
+            // Prompt on startup and keep polling in the background.  The app
+            // continues to run regardless — features degrade gracefully and
+            // re-prompt when triggered without permission.
+            {
+                let perm_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    // Small delay so the main window is visible before the prompt
+                    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+
+                    #[cfg(target_os = "macos")]
+                    {
+                        if crate::accessibility::is_trusted() {
+                            eprintln!("[Setup] Accessibility permission: granted ✓");
+                            return;
+                        }
+
+                        eprintln!("[Setup] Accessibility NOT granted — prompting user...");
+
+                        // Show the system prompt (non-blocking from tokio's perspective)
+                        tokio::task::spawn_blocking(|| {
+                            crate::accessibility::prompt_trust_on_main_thread();
+                        })
+                        .await
+                        .ok();
+
+                        // Poll in background — detect when user grants in Settings
+                        use tauri::Emitter;
+                        let handle = perm_handle.clone();
+                        for i in 0..120 {
+                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                            if crate::accessibility::is_trusted() {
+                                eprintln!("[Setup] Accessibility permission: granted (detected at {}s) ✓", i + 1);
+                                let _ = handle.emit("permissions:accessibility-changed", "granted");
+                                return;
+                            }
+                        }
+                        eprintln!("[Setup] Accessibility permission: not granted after 2min polling");
+                    }
+                });
+            }
 
             // Register command palette shortcut (default: Ctrl+Space, customizable via preferences)
             // Preference is loaded asynchronously after sidecar starts;
@@ -157,6 +200,16 @@ pub fn run() {
             }
             window::registry_set(app.handle(), "contextbar", "Option+S");
 
+            // Pre-create context bar window (hidden) so the first Option+S
+            // doesn't trigger app activation / desktop switch.
+            {
+                let cb_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
+                    contextbar::precreate_contextbar_window(&cb_handle);
+                });
+            }
+
             // Register deep link handler for agentx:// URLs (Shortcuts.app integration)
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
@@ -183,7 +236,7 @@ pub fn run() {
                 });
             }
 
-            // Check for pending Finder actions on startup
+            // Check for pending Finder actions and Share Extension actions on startup
             let finder_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 // Small delay to let the frontend initialize
@@ -191,6 +244,10 @@ pub fn run() {
                 if let Some(action) = finder::consume_pending_action() {
                     use tauri::Emitter;
                     let _ = finder_handle.emit("finder:action", serde_json::to_value(&action).unwrap());
+                }
+                if let Some(action) = share::consume_pending_action() {
+                    use tauri::Emitter;
+                    let _ = finder_handle.emit("share:action", serde_json::to_value(&action).unwrap());
                 }
             });
 
@@ -200,13 +257,17 @@ pub fn run() {
                 let finder_app_handle = app.handle().clone();
                 win.on_window_event(move |event| {
                     window::handle_window_event(&win_clone, event);
-                    // Check for pending Finder actions when window gains focus
+                    // Check for pending Finder/Share actions when window gains focus
                     if let tauri::WindowEvent::Focused(true) = event {
                         let h = finder_app_handle.clone();
                         tauri::async_runtime::spawn(async move {
                             if let Some(action) = finder::consume_pending_action() {
                                 use tauri::Emitter;
                                 let _ = h.emit("finder:action", serde_json::to_value(&action).unwrap());
+                            }
+                            if let Some(action) = share::consume_pending_action() {
+                                use tauri::Emitter;
+                                let _ = h.emit("share:action", serde_json::to_value(&action).unwrap());
                             }
                         });
                     }
@@ -357,6 +418,9 @@ pub fn run() {
             commands::file_tags_get_metadata,
             commands::file_tags_analyze,
             commands::file_tags_analyze_batch,
+            // Share Extension commands
+            commands::share_is_installed,
+            commands::share_check_pending,
             // Drop content detection
             commands::detect_drop_content_type,
             // Accessibility commands

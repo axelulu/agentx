@@ -16,6 +16,10 @@ pub fn simulate_key_with_cmd(keycode: u16) -> Result<(), String> {
     type CGEventSourceRef = *mut std::ffi::c_void;
     type CGEventFlags = u64;
     const K_CG_EVENT_SOURCE_STATE_COMBINED: i32 = 0;
+    // Use PRIVATE event source — completely independent of physical keyboard state.
+    // Combined state can inherit the Option modifier from the shortcut trigger,
+    // causing Cmd+C to be seen as Option+Cmd+C by some apps.
+    const K_CG_EVENT_SOURCE_STATE_PRIVATE: i32 = 1;
     const K_CG_HID_EVENT_TAP: i32 = 0;
     const K_CG_EVENT_FLAG_COMMAND: u64 = 0x00100000;
 
@@ -33,22 +37,24 @@ pub fn simulate_key_with_cmd(keycode: u16) -> Result<(), String> {
     }
 
     unsafe {
-        // Wait until ALL modifier keys (Option, Cmd, Shift, Ctrl) are released.
-        // When called from a global shortcut handler (e.g. Option+S), the Option
-        // key may still be held — posting Cmd+C while Option is held sends
-        // Option+Cmd+C which doesn't trigger copy.
+        // Brief wait for modifier keys to release. We use a PRIVATE event
+        // source below so the synthetic event only carries the flags we set,
+        // but some apps check physical keyboard state via CGEventSourceFlagsState.
+        // Keep the wait short — the user typically releases Option within ~100ms.
         let modifier_mask: u64 = 0x00FF0000; // all modifier flags
-        for _ in 0..50 {
+        for _ in 0..20 {
             let flags = CGEventSourceFlagsState(K_CG_EVENT_SOURCE_STATE_COMBINED);
             if (flags & modifier_mask) == 0 {
                 break;
             }
-            thread::sleep(Duration::from_millis(10));
+            thread::sleep(Duration::from_millis(5));
         }
-        // Extra small delay after modifiers released
-        thread::sleep(Duration::from_millis(30));
+        // Minimal settle time after modifiers released
+        thread::sleep(Duration::from_millis(10));
 
-        let source = CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_COMBINED);
+        // Use PRIVATE source so the synthetic event carries ONLY the flags we set,
+        // completely isolated from the physical keyboard state.
+        let source = CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_PRIVATE);
         if source.is_null() {
             return Err("Failed to create CGEventSource".into());
         }
@@ -114,24 +120,52 @@ pub fn get_selected_text() -> Result<String, String> {
         });
 
     // Simulate Cmd+C using CGEventPost (bypasses osascript permission issues)
+    // Try up to 2 attempts with increasing wait times for reliability.
     eprintln!("[get_selected_text] Simulating Cmd+C via CGEventPost...");
-    simulate_key_with_cmd(0x08) // 0x08 = kVK_C
-        .map_err(|e| {
-            eprintln!("[get_selected_text] CGEventPost failed: {}", e);
-            format!("Failed to simulate Cmd+C: {}", e)
-        })?;
-    eprintln!("[get_selected_text] CGEventPost succeeded, waiting for clipboard...");
 
-    // Wait for clipboard to update (250ms for reliability)
-    thread::sleep(Duration::from_millis(250));
+    let waits_ms = [200, 350]; // 1st attempt 200ms, retry 350ms
+    let mut last_result = String::new();
 
-    // Read the new clipboard content
-    let selected = Command::new("pbpaste")
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-        .map_err(|e| format!("Failed to read clipboard: {}", e))?;
+    for (attempt, wait) in waits_ms.iter().enumerate() {
+        simulate_key_with_cmd(0x08) // 0x08 = kVK_C
+            .map_err(|e| {
+                eprintln!("[get_selected_text] CGEventPost failed: {}", e);
+                format!("Failed to simulate Cmd+C: {}", e)
+            })?;
+        eprintln!("[get_selected_text] attempt {} — waiting {}ms for clipboard...", attempt + 1, wait);
 
-    // Restore original clipboard (in background to avoid blocking)
+        thread::sleep(Duration::from_millis(*wait));
+
+        let selected = Command::new("pbpaste")
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+            .map_err(|e| format!("Failed to read clipboard: {}", e))?;
+
+        let trimmed = selected.trim().to_string();
+        eprintln!("[get_selected_text] attempt {} clipboard: {:?}",
+            attempt + 1, &trimmed[..trimmed.len().min(100)]);
+
+        if !trimmed.is_empty() && trimmed != sentinel {
+            // Success — restore clipboard and return
+            let old = old_clipboard.clone();
+            thread::spawn(move || {
+                let _ = Command::new("pbcopy")
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .and_then(|mut child| {
+                        use std::io::Write;
+                        if let Some(ref mut stdin) = child.stdin {
+                            let _ = stdin.write_all(old.as_bytes());
+                        }
+                        child.wait()
+                    });
+            });
+            return Ok(trimmed);
+        }
+        last_result = trimmed;
+    }
+
+    // Both attempts failed — restore clipboard and return error
     let old = old_clipboard.clone();
     thread::spawn(move || {
         let _ = Command::new("pbcopy")
@@ -146,13 +180,8 @@ pub fn get_selected_text() -> Result<String, String> {
             });
     });
 
-    let trimmed = selected.trim().to_string();
-    eprintln!("[get_selected_text] clipboard after Cmd+C: {:?}", &trimmed[..trimmed.len().min(100)]);
-    if trimmed.is_empty() || trimmed == sentinel {
-        return Err("No text selected".to_string());
-    }
-
-    Ok(trimmed)
+    eprintln!("[get_selected_text] All Cmd+C attempts failed. Last result: {:?}", last_result);
+    Err("No text selected".to_string())
 }
 
 #[cfg(not(target_os = "macos"))]

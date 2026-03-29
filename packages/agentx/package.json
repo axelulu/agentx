@@ -11,7 +11,10 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "build": "pnpm build:sidecar && tauri build",
+    "build": "pnpm build:sidecar && (tauri build || true) && pnpm resign:macos && pnpm embed:share-extension",
+    "resign:macos": "codesign --force --deep --sign - --identifier com.agentx.desktop src-tauri/target/release/bundle/macos/AgentX.app || true",
+    "build:share-extension": "bash share-extension/build.sh --release",
+    "embed:share-extension": "bash scripts/embed-share-extension.sh",
     "build:sidecar": "esbuild sidecar/src/main.ts --bundle --platform=node --outfile=sidecar/dist/index.cjs --external:esdk-obs-nodejs --external:etcd3 --external:aws-sdk",
     "download:browser-bin": "node scripts/download-agent-browser.mjs",
     "vite:dev": "vite",

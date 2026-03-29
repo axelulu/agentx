@@ -395,13 +395,17 @@ unsafe fn serialize_element_compact(element: AXUIElementRef, depth: u32, max_dep
 // Public API
 // ---------------------------------------------------------------------------
 
-/// Check if accessibility permission is granted
+/// Check if accessibility permission is granted.
 #[cfg(target_os = "macos")]
 pub fn is_trusted() -> bool {
     unsafe { AXIsProcessTrusted() }
 }
 
-/// Prompt user to grant accessibility permission (shows system dialog)
+/// Prompt user to grant accessibility permission (shows system dialog).
+///
+/// IMPORTANT: On macOS this displays a system alert. Calling from the main
+/// thread is recommended so the alert appears over the app window.  The
+/// function returns immediately; the user may not have responded yet.
 #[cfg(target_os = "macos")]
 pub fn prompt_trust() -> bool {
     unsafe {
@@ -412,6 +416,87 @@ pub fn prompt_trust() -> bool {
         )]);
         AXIsProcessTrustedWithOptions(dict.as_CFTypeRef())
     }
+}
+
+/// Run `prompt_trust()` on the main thread via GCD `dispatch_sync`.
+///
+/// macOS requires certain UI operations (including the trust prompt alert)
+/// to happen on the main thread.  This helper dispatches synchronously so
+/// the caller can wait for the result.
+#[cfg(target_os = "macos")]
+pub fn prompt_trust_on_main_thread() -> bool {
+    extern "C" {
+        static _dispatch_main_q: std::ffi::c_void;
+        fn dispatch_sync_f(
+            queue: *mut std::ffi::c_void,
+            context: *mut std::ffi::c_void,
+            work: extern "C" fn(*mut std::ffi::c_void),
+        );
+    }
+    extern "C" fn do_prompt(ctx: *mut std::ffi::c_void) {
+        let result_ptr = ctx as *mut bool;
+        unsafe {
+            let key = CFString::new("AXTrustedCheckOptionPrompt");
+            let dict = core_foundation::dictionary::CFDictionary::from_CFType_pairs(&[(
+                key.as_CFType(),
+                CFBoolean::true_value().as_CFType(),
+            )]);
+            *result_ptr = AXIsProcessTrustedWithOptions(dict.as_CFTypeRef());
+        }
+    }
+    let mut granted = false;
+    unsafe {
+        dispatch_sync_f(
+            std::ptr::addr_of!(_dispatch_main_q) as *mut std::ffi::c_void,
+            &mut granted as *mut bool as *mut std::ffi::c_void,
+            do_prompt,
+        );
+    }
+    granted
+}
+
+/// Best-effort attempt to ensure accessibility permission.
+///
+/// 1. If already trusted → returns `true` immediately.
+/// 2. Otherwise shows the system prompt on the main thread.
+/// 3. Polls for up to `timeout_secs` in case the user enables it in Settings.
+///
+/// Returns `true` once permission is detected, `false` on timeout.
+#[cfg(target_os = "macos")]
+pub fn ensure_trusted(timeout_secs: u64) -> bool {
+    if is_trusted() {
+        eprintln!("[Accessibility] Already trusted ✓");
+        return true;
+    }
+
+    eprintln!("[Accessibility] Not trusted — showing system prompt...");
+    let immediate = prompt_trust_on_main_thread();
+    if immediate || is_trusted() {
+        eprintln!("[Accessibility] Granted immediately after prompt ✓");
+        return true;
+    }
+
+    // Poll — user may be enabling in System Settings
+    eprintln!("[Accessibility] Waiting up to {}s for user to grant permission...", timeout_secs);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    while std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        if is_trusted() {
+            eprintln!("[Accessibility] Granted (detected during poll) ✓");
+            return true;
+        }
+    }
+
+    eprintln!("[Accessibility] ✗ Timed out waiting for permission");
+    false
+}
+
+/// Open System Settings to the Accessibility privacy pane.
+#[cfg(target_os = "macos")]
+pub fn open_accessibility_settings() {
+    let _ = std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility")
+        .spawn();
 }
 
 /// Get info about the frontmost application
@@ -467,20 +552,121 @@ pub fn get_frontmost_app() -> Result<Value, String> {
 /// This is instant — no clipboard manipulation, no Cmd+C simulation.
 #[cfg(target_os = "macos")]
 pub fn get_selected_text_ax() -> Option<String> {
-    unsafe {
-        let pid = get_frontmost_pid()?;
-        let app = AXUIElementCreateApplication(pid);
-        let focused = ax_get_attribute(app, "AXFocusedUIElement");
+    let pid = unsafe { get_frontmost_pid()? };
+    get_selected_text_for_pid(pid)
+}
 
-        let result = focused.and_then(|el| {
-            let text = ax_get_string(el, "AXSelectedText");
-            cf_release(el);
-            text
-        }).filter(|s| !s.is_empty());
+/// Walk up the parent chain looking for an element that exposes AXSelectedText.
+/// Many apps (Electron, Chrome, VS Code) expose selection on a parent/container
+/// rather than on the deepest focused element.
+#[cfg(target_os = "macos")]
+unsafe fn walk_parents_for_selected_text(start: AXUIElementRef, max_depth: u32) -> Option<String> {
+    let mut to_release: AXUIElementRef = std::ptr::null();
+    let mut current = start;
+
+    for _depth in 0..max_depth {
+        let parent = match ax_get_attribute(current, "AXParent") {
+            Some(p) => p,
+            None => {
+                if !to_release.is_null() { cf_release(to_release); }
+                return None;
+            }
+        };
+        // Safe to release previous parent now — we no longer need `current`
+        if !to_release.is_null() {
+            cf_release(to_release);
+        }
+
+        if let Some(text) = ax_get_string(parent, "AXSelectedText").filter(|s| !s.is_empty()) {
+            eprintln!("[AX] ✓ Got text from ancestor (depth {})", _depth + 1);
+            cf_release(parent);
+            return Some(text);
+        }
+
+        to_release = parent;
+        current = parent;
+    }
+
+    if !to_release.is_null() {
+        cf_release(to_release);
+    }
+    None
+}
+
+/// Get selected text from a specific app PID, trying multiple AX strategies.
+///
+/// Strategies (in order):
+///  0. System-wide focused element → AXSelectedText (bypasses PID lookup)
+///  1. App-specific focused element → AXSelectedText (works for native text fields)
+///  2. Walk parent chain up to 3 levels              (works for Electron / WebArea)
+///  3. Focused window → AXSelectedText               (works for some browsers)
+#[cfg(target_os = "macos")]
+pub fn get_selected_text_for_pid(pid: i32) -> Option<String> {
+    unsafe {
+        // --- Method 0: system-wide focused element → AXSelectedText ---
+        // Uses the system-wide accessibility element which may return a more
+        // accurate focused element than the PID-based approach.
+        {
+            let system = AXUIElementCreateSystemWide();
+            if let Some(focused) = ax_get_attribute(system, "AXFocusedUIElement") {
+                let role = ax_get_string(focused, "AXRole").unwrap_or_default();
+                eprintln!("[AX] Method 0: system-wide focused element role={}", role);
+                if let Some(text) = ax_get_string(focused, "AXSelectedText").filter(|s| !s.is_empty()) {
+                    eprintln!("[AX] ✓ Got text from system-wide focused element ({} chars)", text.len());
+                    cf_release(focused);
+                    cf_release(system);
+                    return Some(text);
+                }
+                cf_release(focused);
+            }
+            cf_release(system);
+        }
+
+        let app = AXUIElementCreateApplication(pid);
+
+        // --- Method 1: app focused element → AXSelectedText ---
+        if let Some(focused) = ax_get_attribute(app, "AXFocusedUIElement") {
+            let role = ax_get_string(focused, "AXRole").unwrap_or_default();
+            eprintln!("[AX] Method 1: app focused element role={}", role);
+            if let Some(text) = ax_get_string(focused, "AXSelectedText").filter(|s| !s.is_empty()) {
+                eprintln!("[AX] ✓ Got text from app focused element ({} chars)", text.len());
+                cf_release(focused);
+                cf_release(app);
+                return Some(text);
+            }
+
+            // --- Method 2: walk parent chain ---
+            eprintln!("[AX] Method 2: walking parent chain...");
+            let text = walk_parents_for_selected_text(focused, 3);
+            cf_release(focused);
+            if text.is_some() {
+                cf_release(app);
+                return text;
+            }
+        }
+
+        // --- Method 3: focused window → AXSelectedText ---
+        eprintln!("[AX] Method 3: trying focused window...");
+        if let Some(window) = ax_get_attribute(app, "AXFocusedWindow") {
+            if let Some(text) = ax_get_string(window, "AXSelectedText").filter(|s| !s.is_empty()) {
+                eprintln!("[AX] ✓ Got text from focused window ({} chars)", text.len());
+                cf_release(window);
+                cf_release(app);
+                return Some(text);
+            }
+            cf_release(window);
+        }
 
         cf_release(app);
-        result
+        eprintln!("[AX] ✗ All 4 methods failed for pid {}", pid);
+        None
     }
+}
+
+/// Make get_frontmost_pid available to other modules (e.g. contextbar).
+#[cfg(target_os = "macos")]
+pub fn frontmost_pid() -> Option<i32> {
+    unsafe { get_frontmost_pid() }
 }
 
 /// Get the UI element tree of the frontmost app's focused window

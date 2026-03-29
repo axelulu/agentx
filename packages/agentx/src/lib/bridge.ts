@@ -362,6 +362,19 @@ const bridge: NativeAPI = {
       >,
   },
 
+  share: {
+    isInstalled: () => invoke("share_is_installed") as Promise<boolean>,
+    checkPending: () => invoke("share_check_pending") as Promise<void>,
+    onAction: (
+      callback: (action: {
+        timestamp: number;
+        items: Array<{ type: string; text?: string; url?: string; path?: string; name?: string }>;
+      }) => void,
+    ) => {
+      return createEventListener("share:action", callback as (...args: unknown[]) => void);
+    },
+  },
+
   finder: {
     isInstalled: () => invoke("finder_is_installed") as Promise<boolean>,
     install: () => invoke("finder_install") as Promise<void>,

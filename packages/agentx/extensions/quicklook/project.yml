@@ -1,0 +1,27 @@
+name: QuickLookPreview
+options:
+  deploymentTarget:
+    macOS: "12.0"
+  xcodeVersion: "15.0"
+  bundleIdPrefix: com.agentx.desktop
+
+targets:
+  QuickLookPreview:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentx.desktop.QuickLookPreview
+        PRODUCT_NAME: QuickLookPreview
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: Entitlements.plist
+        SWIFT_VERSION: "5.9"
+        SKIP_INSTALL: "YES"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        MACOSX_DEPLOYMENT_TARGET: "12.0"
+        GENERATE_INFOPLIST_FILE: "NO"
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.0"

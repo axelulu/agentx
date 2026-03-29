@@ -42,9 +42,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { ImagePreviewOverlay } from "@/components/ui/ImagePreviewOverlay";
 import { SkillSelector } from "@/components/skills/SkillSelector";
-import { ConversationPromptButton } from "./ConversationPromptBar";
+import { ConversationPromptButton, type ConversationPromptHandle } from "./ConversationPromptBar";
 import { DropActionPanel, type DroppedContent } from "./DropActionPanel";
 import { FileTagsPanel } from "./FileTagsPanel";
+import { SlashCommandMenu } from "./SlashCommandMenu";
 
 interface AttachedFile {
   path: string;
@@ -119,6 +120,10 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
   // File Tags state
   const [fileTagsPaths, setFileTagsPaths] = useState<string[] | null>(null);
 
+  // Slash command menu
+  const slashEnterRef = useRef<(() => void) | null>(null);
+  const promptRef = useRef<ConversationPromptHandle>(null);
+
   // Tauri native drag-drop: ref is set below after addFiles is defined
   const addFilesRef = useRef<(paths: string[]) => Promise<void>>(async () => {});
 
@@ -187,12 +192,12 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     return cleanup;
   }, [performOcrCapture]);
 
-  // Auto-focus textarea on mount and when streaming ends
+  // Auto-focus textarea on mount, conversation switch, and when streaming ends
   useEffect(() => {
     if (!isStreaming) {
       textareaRef.current?.focus();
     }
-  }, [isStreaming]);
+  }, [isStreaming, currentConversationId]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -388,6 +393,12 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
     // keyCode 229 means the keystroke is being processed by an IME (e.g. Chinese pinyin);
     // we must ignore it so that Enter confirms the composition instead of sending the message.
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+      // If slash command menu is active, let it handle Enter
+      if (slashEnterRef.current) {
+        e.preventDefault();
+        slashEnterRef.current();
+        return;
+      }
       e.preventDefault();
       handleSend();
     }
@@ -551,6 +562,24 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
           </div>
         )}
 
+        {/* Slash command menu */}
+        <SlashCommandMenu
+          inputValue={inputValue}
+          onClearInput={() => dispatch(setInputValue(""))}
+          onClose={() => textareaRef.current?.focus()}
+          onConsumeEnter={(handler) => {
+            slashEnterRef.current = handler;
+          }}
+          actions={{
+            onAttachFiles: handleAttachFiles,
+            onAttachFolder: handleAttachDirectory,
+            onScreenCapture: handleScreenCapture,
+            onOcrCapture: handleOcrCapture,
+            onMic: handleMicClick,
+            onSystemPrompt: () => promptRef.current?.open(),
+          }}
+        />
+
         {/* Drop Action Panel — OUTSIDE overflow-hidden so it's visible above the input */}
         <DropActionPanel
           detection={dropDetection}
@@ -614,7 +643,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
             onPaste={handlePaste}
             placeholder={l10n.t("Message AgentX...")}
             rows={1}
-            className="w-full bg-transparent resize-none outline-none text-sm text-foreground/70 placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-4 pt-3.5 pb-3 min-h-[52px] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-transparent resize-none outline-none text-[13px] text-foreground/70 placeholder:text-foreground/35 max-h-[200px] leading-relaxed px-3 pt-2.5 pb-2 min-h-[42px] disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isStreaming}
           />
 
@@ -655,7 +684,7 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
               isTranscribing={isTranscribing}
             />
             <SkillSelector />
-            <ConversationPromptButton />
+            <ConversationPromptButton ref={promptRef} />
 
             {/* Model label */}
             <div className="flex items-center gap-1.5 ml-1.5 text-xs tabular-nums">
