@@ -17,7 +17,7 @@ mod window;
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
-use tauri::{Listener, Manager};
+use tauri::{Emitter, Listener, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -76,9 +76,16 @@ pub fn run() {
                 });
             });
 
-            // Listen for quit requests from frontend (e.g. QuickChat panel)
-            let quit_handle = app.handle().clone();
+            // Listen for quit requests from frontend (e.g. QuickChat panel, menu)
+            // → forward to frontend for a localised confirmation dialog
+            let quit_req_handle = app.handle().clone();
             app.listen("app:quit-requested", move |_| {
+                let _ = quit_req_handle.emit("app:quit-confirm", ());
+            });
+
+            // Frontend sends this after the user confirms the quit dialog
+            let quit_handle = app.handle().clone();
+            app.listen("app:quit-confirmed", move |_| {
                 quit_handle.exit(0);
             });
 

@@ -114,7 +114,7 @@ pub fn create_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             let _ = handle.emit("shortcut:settings", ());
         }
         "menu_quit" => {
-            handle.exit(0);
+            let _ = handle.emit("app:quit-confirm", ());
         }
         _ => {}
     });

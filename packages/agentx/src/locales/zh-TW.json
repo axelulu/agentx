@@ -371,6 +371,8 @@
   "Type a message...": "輸入訊息...",
   "Open AgentX": "打開 AgentX",
   "Quit": "退出",
+  "Quit AgentX": "結束 AgentX",
+  "Quitting AgentX will stop all background automations, channels, and scheduled tasks.": "結束 AgentX 將停止所有背景自動化、頻道和排程任務。",
   "Esc to close": "按 Esc 關閉",
   "What can I help with?": "有什麼可以幫您的？",
   "Refactor a function": "重構函式",

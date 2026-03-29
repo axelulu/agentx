@@ -371,6 +371,8 @@
   "Type a message...": "اكتب رسالة...",
   "Open AgentX": "فتح AgentX",
   "Quit": "خروج",
+  "Quit AgentX": "إنهاء AgentX",
+  "Quitting AgentX will stop all background automations, channels, and scheduled tasks.": "سيؤدي إنهاء AgentX إلى إيقاف جميع الأتمتة في الخلفية والقنوات والمهام المجدولة.",
   "Esc to close": "Esc للإغلاق",
   "What can I help with?": "كيف يمكنني مساعدتك؟",
   "Refactor a function": "إعادة هيكلة دالة",

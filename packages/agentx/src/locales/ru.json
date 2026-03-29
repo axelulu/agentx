@@ -371,6 +371,8 @@
   "Type a message...": "Введите сообщение...",
   "Open AgentX": "Открыть AgentX",
   "Quit": "Выйти",
+  "Quit AgentX": "Выйти из AgentX",
+  "Quitting AgentX will stop all background automations, channels, and scheduled tasks.": "Выход из AgentX остановит все фоновые автоматизации, каналы и запланированные задачи.",
   "Esc to close": "Esc для закрытия",
   "What can I help with?": "Чем могу помочь?",
   "Refactor a function": "Рефакторинг функции",

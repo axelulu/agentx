@@ -371,6 +371,8 @@
   "Type a message...": "输入消息...",
   "Open AgentX": "打开 AgentX",
   "Quit": "退出",
+  "Quit AgentX": "退出 AgentX",
+  "Quitting AgentX will stop all background automations, channels, and scheduled tasks.": "退出 AgentX 将停止所有后台自动化、频道和定时任务。",
   "Esc to close": "按 Esc 关闭",
   "What can I help with?": "有什么可以帮您的？",
   "Refactor a function": "重构函数",

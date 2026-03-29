@@ -371,6 +371,8 @@
   "Type a message...": "Tapez un message...",
   "Open AgentX": "Ouvrir AgentX",
   "Quit": "Quitter",
+  "Quit AgentX": "Quitter AgentX",
+  "Quitting AgentX will stop all background automations, channels, and scheduled tasks.": "Quitter AgentX arrêtera toutes les automatisations en arrière-plan, les canaux et les tâches planifiées.",
   "Esc to close": "Esc pour fermer",
   "What can I help with?": "Comment puis-je vous aider ?",
   "Refactor a function": "Refactoriser une fonction",

@@ -4,8 +4,9 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ask } from "@tauri-apps/plugin-dialog";
 
 // ---------------------------------------------------------------------------
 // Drag-and-drop: Tauri intercepts native file drops at the window level,
@@ -404,11 +405,40 @@ const bridge: NativeAPI = {
 // ---------------------------------------------------------------------------
 // Initialize the bridge
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Quit confirmation — listens for app:quit-confirm from Rust, shows a
+// native dialog with localised strings, and emits app:quit-confirmed if
+// the user agrees.
+// ---------------------------------------------------------------------------
+async function setupQuitConfirmation(): Promise<void> {
+  const { l10n } = await import("@agentx/l10n");
+  await listen("app:quit-confirm", async () => {
+    const confirmed = await ask(
+      l10n.t(
+        "Quitting AgentX will stop all background automations, channels, and scheduled tasks.",
+      ),
+      {
+        title: l10n.t("Quit AgentX"),
+        kind: "warning",
+        okLabel: l10n.t("Quit"),
+        cancelLabel: l10n.t("Cancel"),
+      },
+    );
+    if (confirmed) {
+      await emit("app:quit-confirmed", {});
+    }
+  });
+}
+
 export function initBridge(): void {
   (window as unknown as { api: NativeAPI }).api = bridge;
 
   setupDragDrop().catch((err) => {
     console.error("[Bridge] Failed to setup drag-drop:", err);
+  });
+
+  setupQuitConfirmation().catch((err) => {
+    console.error("[Bridge] Failed to setup quit confirmation:", err);
   });
 
   console.log("[Bridge] Initialized");

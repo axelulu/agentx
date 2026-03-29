@@ -371,6 +371,8 @@
   "Type a message...": "메시지를 입력하세요...",
   "Open AgentX": "AgentX 열기",
   "Quit": "종료",
+  "Quit AgentX": "AgentX 종료",
+  "Quitting AgentX will stop all background automations, channels, and scheduled tasks.": "AgentX를 종료하면 모든 백그라운드 자동화, 채널 및 예약된 작업이 중지됩니다.",
   "Esc to close": "Esc로 닫기",
   "What can I help with?": "무엇을 도와드릴까요?",
   "Refactor a function": "함수 리팩터링",
