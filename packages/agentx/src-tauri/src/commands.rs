@@ -831,6 +831,20 @@ pub async fn fs_select_directory(app: AppHandle) -> Result<Option<String>, Strin
 }
 
 #[tauri::command]
+pub async fn fs_list_dir(path: String) -> Result<Vec<String>, String> {
+    let entries = std::fs::read_dir(&path).map_err(|e| e.to_string())?;
+    let mut files = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let file_path = entry.path();
+        if let Some(s) = file_path.to_str() {
+            files.push(s.to_string());
+        }
+    }
+    Ok(files)
+}
+
+#[tauri::command]
 pub async fn fs_open_path(path: String) -> Result<Value, String> {
     match open::that(&path) {
         Ok(_) => Ok(serde_json::json!({ "success": true, "error": null })),

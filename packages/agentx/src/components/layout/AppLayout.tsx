@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
-import { openTab, toggleSidebar } from "@/slices/uiSlice";
+import { openTab, toggleSidebar, setWeChatImportOpen } from "@/slices/uiSlice";
 import { switchConversation } from "@/slices/chatSlice";
 import { TitleBar } from "./TitleBar";
 import { Sidebar } from "@/components/sidebar/Sidebar";
@@ -13,6 +13,7 @@ import { TabBar } from "@/components/chat/TabBar";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { UpdateDialog } from "@/components/update/UpdateDialog";
 import { ClipboardDialog } from "@/components/clipboard/ClipboardDialog";
+import { WeChatImportDialog } from "@/components/wechat/WeChatImportDialog";
 import { useUpdateListener } from "@/hooks/useUpdateListener";
 import { useAutoUpdate } from "@/hooks/useAutoUpdate";
 import { useShortcuts } from "@/hooks/useShortcuts";
@@ -25,7 +26,9 @@ import { l10n } from "@agentx/l10n";
 
 export function AppLayout() {
   const dispatch = useDispatch<AppDispatch>();
-  const { sidebarOpen, settingsOpen, activeView } = useSelector((state: RootState) => state.ui);
+  const { sidebarOpen, settingsOpen, activeView, wechatImportOpen } = useSelector(
+    (state: RootState) => state.ui,
+  );
   useUpdateListener();
   useAutoUpdate();
   useShortcuts();
@@ -92,6 +95,10 @@ export function AppLayout() {
 
       {settingsOpen && <SettingsPanel />}
       <ClipboardDialog />
+      <WeChatImportDialog
+        open={wechatImportOpen}
+        onOpenChange={(open) => dispatch(setWeChatImportOpen(open))}
+      />
     </div>
   );
 }

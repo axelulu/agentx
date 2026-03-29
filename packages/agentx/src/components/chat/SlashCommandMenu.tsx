@@ -2,7 +2,7 @@ import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { createNewConversation } from "@/slices/chatSlice";
-import { openTab, openSettingsSection } from "@/slices/uiSlice";
+import { openTab, openSettingsSection, setWeChatImportOpen } from "@/slices/uiSlice";
 import { toggleSkill } from "@/slices/chatSlice";
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ import {
   CameraIcon,
   ScanTextIcon,
   ScrollTextIcon,
+  MessageCircleIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -141,6 +142,13 @@ export function SlashCommandMenu({
         label: l10n.t("MCP Servers"),
         keywords: ["mcp", "server", "plugin", "tools"],
         action: () => dispatch(openSettingsSection("mcp")),
+      },
+      {
+        id: "cmd:wechat",
+        icon: MessageCircleIcon,
+        label: l10n.t("WeChat Roleplay"),
+        keywords: ["wechat", "roleplay", "chat", "simulate", "微信", "角色扮演"],
+        action: () => dispatch(setWeChatImportOpen(true)),
       },
     ],
     [dispatch, actions],

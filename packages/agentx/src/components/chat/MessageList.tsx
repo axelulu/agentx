@@ -105,7 +105,7 @@ export function MessageList({
         return (
           <div
             key={message.id}
-            className={cn(isConsecutiveAssistant ? "mt-3" : idx > 0 ? "mt-8" : "")}
+            className={cn(isConsecutiveAssistant ? "mt-2" : idx > 0 ? "mt-4" : "")}
           >
             <MessageBubble
               message={message}
@@ -134,7 +134,7 @@ export function MessageList({
 
       {/* Typing indicator before assistant message arrives */}
       {needsStandaloneIndicator && (
-        <div className="flex mt-8 animate-slide-up">
+        <div className="flex mt-4 animate-slide-up">
           <div className="flex items-center gap-1 pt-1.5">
             <span className="typing-dot w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
             <span className="typing-dot w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />

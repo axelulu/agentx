@@ -93,7 +93,7 @@ export const ConversationPromptButton = forwardRef<ConversationPromptHandle>(
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogContent
             showCloseButton={false}
-            maxWidth="xl"
+            maxWidth="3xl"
             className="p-0 gap-0 overflow-hidden"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -119,11 +119,11 @@ export const ConversationPromptButton = forwardRef<ConversationPromptHandle>(
               onBlur={commit}
               disabled={!loaded}
               placeholder={l10n.t("Instructions for this conversation...")}
-              rows={8}
+              rows={12}
               className={cn(
                 "w-full bg-transparent px-4 py-3",
                 "text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/30",
-                "outline-none resize-none min-h-[180px] max-h-[50vh]",
+                "outline-none resize-none min-h-[320px] max-h-[60vh]",
                 "disabled:opacity-50",
               )}
             />

@@ -301,7 +301,7 @@ function UserBubble({
   return (
     <div className={cn("group/msg flex flex-col items-end", animate && "animate-slide-up")}>
       {/* Bubble */}
-      <div className="text-[13px] leading-relaxed bg-foreground/[0.06] dark:bg-foreground/[0.08] rounded-xl px-3.5 py-2.5 max-w-2xl">
+      <div className="text-[13px] leading-relaxed bg-foreground/[0.06] dark:bg-foreground/[0.08] rounded-xl px-3.5 py-2.5 max-w-2xl select-text">
         {/* Inline image thumbnails */}
         {hasImages && (
           <div className={cn("flex flex-wrap gap-2", (text || hasAttachments) && "mb-2")}>
@@ -418,8 +418,14 @@ function AssistantBubble({
   const showStreamingUI = isActiveStreamingMessage ?? isStreaming;
 
   // Drag-out handler: allow dragging AI response to other apps
+  // Only allow drag when user hasn't selected text (to preserve text selection)
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        // Let the browser handle native text drag
+        return;
+      }
       const text = message.content ?? "";
       if (!text) return;
       e.dataTransfer.setData("text/plain", text);
@@ -436,12 +442,8 @@ function AssistantBubble({
         animate && !isConsecutiveAssistant && "animate-slide-up",
       )}
     >
-      {/* Content + actions — draggable for drag-out to other apps */}
-      <div
-        className="flex-1 min-w-0"
-        draggable={!!message.content && !showStreamingUI}
-        onDragStart={handleDragStart}
-      >
+      {/* Content + actions — supports drag-out to other apps, but preserves text selection */}
+      <div className="flex-1 min-w-0 select-text" onDragStart={handleDragStart}>
         {/* Tool call blocks — each rendered as a prominent step */}
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div className="flex flex-col gap-1.5 mb-2">

@@ -267,6 +267,7 @@ interface NativeAPI {
     writeFile: (path: string, content: string) => Promise<boolean>;
     selectFile: (options?: { filters?: unknown[]; multi?: boolean }) => Promise<string[] | null>;
     selectDirectory: () => Promise<string | null>;
+    listDir: (path: string) => Promise<string[]>;
     stat: (path: string) => Promise<{ size: number; isDirectory: boolean; isFile: boolean } | null>;
     openPath: (path: string) => Promise<{ success: boolean; error: string | null }>;
     showItemInFolder: (path: string) => Promise<boolean>;

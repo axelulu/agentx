@@ -28,6 +28,7 @@ export interface UIState {
   activeView: "chat" | "automation" | "skills" | "notifications";
   searchOpen: boolean;
   clipboardOpen: boolean;
+  wechatImportOpen: boolean;
   openTabs: string[];
   collapsedFolderIds: string[];
 }
@@ -46,6 +47,7 @@ const initialState: UIState = {
   activeView: "chat",
   searchOpen: false,
   clipboardOpen: false,
+  wechatImportOpen: false,
   openTabs: [],
   collapsedFolderIds: [],
 };
@@ -118,6 +120,9 @@ const uiSlice = createSlice({
     toggleClipboard(state) {
       state.clipboardOpen = !state.clipboardOpen;
     },
+    setWeChatImportOpen(state, action: PayloadAction<boolean>) {
+      state.wechatImportOpen = action.payload;
+    },
 
     // Tab management
     openTab(state, action: PayloadAction<string>) {
@@ -176,6 +181,7 @@ export const {
   setActiveView,
   setClipboardOpen,
   toggleClipboard,
+  setWeChatImportOpen,
   openTab,
   closeTab,
   closeOtherTabs,

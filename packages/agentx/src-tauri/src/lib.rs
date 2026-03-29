@@ -373,6 +373,7 @@ pub fn run() {
             commands::fs_stat,
             commands::fs_select_file,
             commands::fs_select_directory,
+            commands::fs_list_dir,
             commands::fs_open_path,
             commands::fs_show_item_in_folder,
             commands::fs_show_save_dialog,

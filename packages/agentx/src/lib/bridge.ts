@@ -233,6 +233,7 @@ const bridge: NativeAPI = {
     selectFile: (options?: { filters?: unknown[]; multi?: boolean }) =>
       invoke("fs_select_file", { filters: options?.filters, multi: options?.multi }),
     selectDirectory: () => invoke("fs_select_directory"),
+    listDir: (path: string) => invoke("fs_list_dir", { path }) as Promise<string[]>,
     stat: (path: string) => invoke("fs_stat", { path }),
     openPath: (path: string) => invoke("fs_open_path", { path }),
     showItemInFolder: (path: string) => invoke("fs_show_item_in_folder", { path }),
@@ -411,6 +412,8 @@ const bridge: NativeAPI = {
 // the user agrees.
 // ---------------------------------------------------------------------------
 async function setupQuitConfirmation(): Promise<void> {
+  // Only listen in the main window to avoid duplicate dialogs
+  if (getCurrentWebviewWindow().label !== "main") return;
   const { l10n } = await import("@agentx/l10n");
   await listen("app:quit-confirm", async () => {
     const confirmed = await ask(
