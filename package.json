@@ -40,5 +40,8 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "dependencies": {
+    "node-pty": "^1.1.0"
   }
 }

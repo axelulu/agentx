@@ -3656,3 +3656,65 @@ pub fn share_check_pending(app: AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Terminal PTY commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn terminal_create(
+    state: State<'_, SidecarState>,
+    session_id: String,
+    cols: u32,
+    rows: u32,
+    cwd: Option<String>,
+) -> Result<Value, String> {
+    sidecar_call(
+        &state,
+        "terminal:create",
+        serde_json::json!([session_id, cols, rows, cwd]),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn terminal_write(
+    state: State<'_, SidecarState>,
+    session_id: String,
+    data: String,
+) -> Result<(), String> {
+    sidecar_notify(
+        &state,
+        "terminal:write",
+        serde_json::json!([session_id, data]),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn terminal_resize(
+    state: State<'_, SidecarState>,
+    session_id: String,
+    cols: u32,
+    rows: u32,
+) -> Result<(), String> {
+    sidecar_notify(
+        &state,
+        "terminal:resize",
+        serde_json::json!([session_id, cols, rows]),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn terminal_destroy(
+    state: State<'_, SidecarState>,
+    session_id: String,
+) -> Result<Value, String> {
+    sidecar_call(
+        &state,
+        "terminal:destroy",
+        serde_json::json!([session_id]),
+    )
+    .await
+}

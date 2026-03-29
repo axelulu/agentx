@@ -22,6 +22,8 @@ import { MessageList } from "./MessageList";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ToolApprovalBanner } from "./ToolApprovalBanner";
 import { WelcomePage } from "./WelcomePage";
+import { TerminalPanel } from "@/components/terminal/TerminalPanel";
+import { ResizeHandle } from "@/components/terminal/ResizeHandle";
 
 export function ChatPanel() {
   const dispatch = useDispatch<AppDispatch>();
@@ -29,6 +31,7 @@ export function ChatPanel() {
     useSelector((state: RootState) => state.chat);
 
   const autoReadReplies = useSelector((s: RootState) => s.settings.voice.autoReadReplies);
+  const terminalOpen = useSelector((s: RootState) => s.ui.terminalOpen);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
@@ -106,38 +109,49 @@ export function ChatPanel() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden" style={{ scrollbarGutter: "stable" }}>
-      {currentConversationId ? (
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto"
-          style={{ scrollbarGutter: "stable" }}
-        >
-          <MessageList
-            messages={messages}
-            isStreaming={isStreaming}
-            streamingMessageId={streamingMessageId}
-            scrollContainerRef={scrollContainerRef}
-            onEditMessage={handleEdit}
-            onRegenerateMessage={handleRegenerate}
-            onSpeak={handleSpeak}
-            onStopSpeaking={stopSpeaking}
-            speakingMessageId={speakingMessageId}
-            branchInfo={branchInfo}
-            onSwitchBranch={handleSwitchBranch}
+      {/* Chat area — shrinks when terminal is open */}
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        {currentConversationId ? (
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto"
+            style={{ scrollbarGutter: "stable" }}
+          >
+            <MessageList
+              messages={messages}
+              isStreaming={isStreaming}
+              streamingMessageId={streamingMessageId}
+              scrollContainerRef={scrollContainerRef}
+              onEditMessage={handleEdit}
+              onRegenerateMessage={handleRegenerate}
+              onSpeak={handleSpeak}
+              onStopSpeaking={stopSpeaking}
+              speakingMessageId={speakingMessageId}
+              branchInfo={branchInfo}
+              onSwitchBranch={handleSwitchBranch}
+            />
+          </div>
+        ) : (
+          <WelcomePage
+            onSelectPrompt={(text) => {
+              dispatch(setInputValue(text));
+              // Allow Redux state to flush so the textarea renders the new value,
+              // then move the cursor to the end and focus.
+              requestAnimationFrame(() => chatInputRef.current?.focus());
+            }}
           />
-        </div>
-      ) : (
-        <WelcomePage
-          onSelectPrompt={(text) => {
-            dispatch(setInputValue(text));
-            // Allow Redux state to flush so the textarea renders the new value,
-            // then move the cursor to the end and focus.
-            requestAnimationFrame(() => chatInputRef.current?.focus());
-          }}
-        />
+        )}
+        {currentConversationId && <ToolApprovalBanner />}
+        <ChatInput ref={chatInputRef} />
+      </div>
+
+      {/* Terminal panel */}
+      {terminalOpen && (
+        <>
+          <ResizeHandle />
+          <TerminalPanel />
+        </>
       )}
-      {currentConversationId && <ToolApprovalBanner />}
-      <ChatInput ref={chatInputRef} />
     </div>
   );
 }

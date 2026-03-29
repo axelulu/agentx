@@ -364,6 +364,24 @@ const bridge: NativeAPI = {
       >,
   },
 
+  terminal: {
+    create: (sessionId: string, cols: number, rows: number, cwd?: string) =>
+      invoke("terminal_create", { sessionId, cols, rows, cwd }) as Promise<void>,
+    write: (sessionId: string, data: string) => {
+      invoke("terminal_write", { sessionId, data });
+    },
+    resize: (sessionId: string, cols: number, rows: number) => {
+      invoke("terminal_resize", { sessionId, cols, rows });
+    },
+    destroy: (sessionId: string) => invoke("terminal_destroy", { sessionId }) as Promise<void>,
+    onData: (cb: (event: { sessionId: string; data: string }) => void) => {
+      return createEventListener("terminal:data", cb as (...args: unknown[]) => void);
+    },
+    onExit: (cb: (event: { sessionId: string; exitCode: number }) => void) => {
+      return createEventListener("terminal:exit", cb as (...args: unknown[]) => void);
+    },
+  },
+
   share: {
     isInstalled: () => invoke("share_is_installed") as Promise<boolean>,
     checkPending: () => invoke("share_check_pending") as Promise<void>,

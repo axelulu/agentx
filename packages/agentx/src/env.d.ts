@@ -350,6 +350,14 @@ interface NativeAPI {
       { id: string; shortcut: string; defaultShortcut: string; label: string }[]
     >;
   };
+  terminal: {
+    create: (sessionId: string, cols: number, rows: number, cwd?: string) => Promise<void>;
+    write: (sessionId: string, data: string) => void;
+    resize: (sessionId: string, cols: number, rows: number) => void;
+    destroy: (sessionId: string) => Promise<void>;
+    onData: (cb: (event: { sessionId: string; data: string }) => void) => () => void;
+    onExit: (cb: (event: { sessionId: string; exitCode: number }) => void) => () => void;
+  };
   share: {
     isInstalled: () => Promise<boolean>;
     checkPending: () => Promise<void>;

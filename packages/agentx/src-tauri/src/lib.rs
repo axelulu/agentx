@@ -426,6 +426,11 @@ pub fn run() {
             commands::file_tags_get_metadata,
             commands::file_tags_analyze,
             commands::file_tags_analyze_batch,
+            // Terminal PTY commands
+            commands::terminal_create,
+            commands::terminal_write,
+            commands::terminal_resize,
+            commands::terminal_destroy,
             // Share Extension commands
             commands::share_is_installed,
             commands::share_check_pending,

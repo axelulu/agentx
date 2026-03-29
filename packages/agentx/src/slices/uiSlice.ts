@@ -1,11 +1,6 @@
-import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { loadPreferences } from "./settingsSlice";
-import {
-  switchConversation,
-  resetToWelcome,
-  removeConversation,
-  removeConversations,
-} from "./chatSlice";
+import { removeConversation, removeConversations } from "./chatSlice";
 
 export type SettingsSection =
   | "general"
@@ -31,6 +26,8 @@ export interface UIState {
   wechatImportOpen: boolean;
   openTabs: string[];
   collapsedFolderIds: string[];
+  terminalOpen: boolean;
+  terminalHeight: number;
 }
 
 function persistSidebar(open: boolean): void {
@@ -50,32 +47,9 @@ const initialState: UIState = {
   wechatImportOpen: false,
   openTabs: [],
   collapsedFolderIds: [],
+  terminalOpen: false,
+  terminalHeight: 250,
 };
-
-export const closeTabAndSwitch = createAsyncThunk(
-  "ui/closeTabAndSwitch",
-  async (tabId: string, { getState, dispatch }) => {
-    const state = getState() as { ui: UIState; chat: { currentConversationId: string | null } };
-    const { openTabs } = state.ui;
-    const currentId = state.chat.currentConversationId;
-    const idx = openTabs.indexOf(tabId);
-
-    // If closing the active tab, switch to an adjacent one or go to welcome
-    if (tabId === currentId && idx !== -1) {
-      if (openTabs.length > 1) {
-        const nextIdx = idx === openTabs.length - 1 ? idx - 1 : idx + 1;
-        const nextId = openTabs[nextIdx];
-        if (nextId) {
-          dispatch(switchConversation(nextId));
-        }
-      } else {
-        dispatch(resetToWelcome());
-      }
-    }
-
-    return tabId;
-  },
-);
 
 const uiSlice = createSlice({
   name: "ui",
@@ -124,20 +98,21 @@ const uiSlice = createSlice({
       state.wechatImportOpen = action.payload;
     },
 
-    // Tab management
+    // Tab management — single tab only (replaces previous)
     openTab(state, action: PayloadAction<string>) {
-      if (!state.openTabs.includes(action.payload)) {
-        state.openTabs.push(action.payload);
-      }
+      state.openTabs = [action.payload];
     },
     closeTab(state, action: PayloadAction<string>) {
       state.openTabs = state.openTabs.filter((id) => id !== action.payload);
     },
-    closeOtherTabs(state, action: PayloadAction<string>) {
-      state.openTabs = state.openTabs.includes(action.payload) ? [action.payload] : [];
+    toggleTerminal(state) {
+      state.terminalOpen = !state.terminalOpen;
     },
-    closeAllTabs(state) {
-      state.openTabs = [];
+    setTerminalOpen(state, action: PayloadAction<boolean>) {
+      state.terminalOpen = action.payload;
+    },
+    setTerminalHeight(state, action: PayloadAction<number>) {
+      state.terminalHeight = Math.max(100, Math.min(600, action.payload));
     },
     toggleFolderCollapsed(state, action: PayloadAction<string>) {
       const idx = state.collapsedFolderIds.indexOf(action.payload);
@@ -154,9 +129,6 @@ const uiSlice = createSlice({
         if (typeof action.payload.sidebarOpen === "boolean") {
           state.sidebarOpen = action.payload.sidebarOpen;
         }
-      })
-      .addCase(closeTabAndSwitch.fulfilled, (state, action) => {
-        state.openTabs = state.openTabs.filter((id) => id !== action.payload);
       })
       // Auto-close tabs when conversations are deleted
       .addCase(removeConversation.fulfilled, (state, action) => {
@@ -184,9 +156,10 @@ export const {
   setWeChatImportOpen,
   openTab,
   closeTab,
-  closeOtherTabs,
-  closeAllTabs,
   toggleFolderCollapsed,
+  toggleTerminal,
+  setTerminalOpen,
+  setTerminalHeight,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

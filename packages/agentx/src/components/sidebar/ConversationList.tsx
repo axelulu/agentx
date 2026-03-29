@@ -58,37 +58,7 @@ import { useConversationDnd } from "@/hooks/useConversationDnd";
 // Icon inference from conversation title
 // ---------------------------------------------------------------------------
 
-const ICON_RULES: Array<{ keywords: string[]; icon: LucideIcon }> = [
-  { keywords: ["telegram ·", "telegram:"], icon: SendIcon },
-  { keywords: ["discord ·", "discord:"], icon: SmartphoneIcon },
-  { keywords: ["bug", "fix", "error", "issue", "debug", "crash"], icon: BugIcon },
-  {
-    keywords: ["code", "function", "implement", "refactor", "class", "typescript", "javascript"],
-    icon: CodeIcon,
-  },
-  { keywords: ["design", "ui", "style", "css", "layout", "color", "theme"], icon: PaletteIcon },
-  { keywords: ["search", "find", "query", "lookup", "filter"], icon: SearchIcon },
-  { keywords: ["deploy", "build", "release", "launch", "ship", "ci", "cd"], icon: RocketIcon },
-  { keywords: ["config", "setup", "install", "tool", "setting"], icon: WrenchIcon },
-  { keywords: ["data", "database", "sql", "schema", "migration", "table"], icon: DatabaseIcon },
-  { keywords: ["api", "http", "endpoint", "request", "rest", "graphql", "web"], icon: GlobeIcon },
-  { keywords: ["security", "auth", "password", "token", "permission"], icon: ShieldIcon },
-  { keywords: ["performance", "optimize", "fast", "speed", "cache"], icon: ZapIcon },
-  { keywords: ["doc", "readme", "write", "text", "markdown", "comment"], icon: FileTextIcon },
-  { keywords: ["learn", "explain", "how", "what", "why", "tutorial", "guide"], icon: BookOpenIcon },
-  { keywords: ["idea", "suggest", "plan", "think", "brainstorm"], icon: LightbulbIcon },
-  { keywords: ["test", "spec", "assert", "coverage", "unit", "e2e"], icon: LayersIcon },
-];
-
-function getConversationIcon(title: string): LucideIcon {
-  const lower = title.toLowerCase();
-  for (const rule of ICON_RULES) {
-    if (rule.keywords.some((kw) => lower.includes(kw))) {
-      return rule.icon;
-    }
-  }
-  return MessageSquareIcon;
-}
+import { getConversationIcon } from "@/lib/conversationIcon";
 
 // ---------------------------------------------------------------------------
 // Relative time formatting
@@ -313,7 +283,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
       // Star / Unstar
       {
         label: isFav ? l10n.t("Remove from Favorites") : l10n.t("Add to Favorites"),
-        icon: <StarIcon className={cn("w-4 h-4", isFav && "fill-current")} />,
+        icon: <StarIcon className={cn("w-4 h-4", isFav && "fill-yellow-400 text-yellow-400")} />,
         onClick: () =>
           dispatch(toggleConversationFavorite({ id: conversationId, isFavorite: !isFav })),
       },
@@ -561,7 +531,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
               )}
             >
               {conversation.isFavorite && (
-                <StarIcon className="w-3 h-3 inline-block mr-1 text-foreground/60 fill-foreground/60 -mt-0.5" />
+                <StarIcon className="w-3 h-3 inline-block mr-1 text-yellow-400 fill-yellow-400 -mt-0.5" />
               )}
               {conversation.title}
             </span>

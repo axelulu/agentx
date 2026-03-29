@@ -33,6 +33,7 @@ import type {
   ChannelConfig,
 } from "@agentx/runtime";
 import { ChannelManager } from "@agentx/runtime";
+import { PtyManager } from "./pty";
 import { searchSkills } from "@agentx/runtime";
 
 // ---------------------------------------------------------------------------
@@ -683,6 +684,12 @@ async function main() {
     mcpCall: true,
     allowedPaths: [],
   };
+
+  // ---------------------------------------------------------------------------
+  // PTY manager
+  // ---------------------------------------------------------------------------
+
+  const ptyManager = new PtyManager(pushNotification);
 
   // ---------------------------------------------------------------------------
   // Method handlers
@@ -1525,6 +1532,20 @@ ${contentPreview.slice(0, 3000)}`;
         };
       }
     },
+
+    // Terminal PTY
+    "terminal:create": (sessionId: string, cols: number, rows: number, cwd?: string) => {
+      ptyManager.create(sessionId, cols, rows, cwd);
+    },
+    "terminal:write": (sessionId: string, data: string) => {
+      ptyManager.write(sessionId, data);
+    },
+    "terminal:resize": (sessionId: string, cols: number, rows: number) => {
+      ptyManager.resize(sessionId, cols, rows);
+    },
+    "terminal:destroy": (sessionId: string) => {
+      ptyManager.destroy(sessionId);
+    },
   };
 
   // ---------------------------------------------------------------------------
@@ -1579,6 +1600,7 @@ ${contentPreview.slice(0, 3000)}`;
   rl.on("close", async () => {
     console.error("[Sidecar] stdin closed, shutting down...");
     try {
+      ptyManager.destroyAll();
       await channelManager.shutdown();
       await runtime?.shutdown();
     } catch (err) {

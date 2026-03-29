@@ -127,12 +127,8 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
         resource_dir.join("sidecar").join("index.cjs")
     };
 
-    // Always run with node (try bun first in dev for speed)
-    let program = if cfg!(debug_assertions) && which_exists("bun") {
-        "bun".to_string()
-    } else {
-        "node".to_string()
-    };
+    // Use node (not bun) — node-pty requires native Node.js addon support
+    let program = "node".to_string();
     let args = vec![sidecar_path.to_string_lossy().to_string()];
 
     // Pass data paths as CLI args
@@ -302,6 +298,12 @@ fn handle_sidecar_notification(app: &AppHandle, method: &str, params: Value) {
         }
         "notification:navigateToConversation" => {
             let _ = app.emit("notification:navigateToConversation", params);
+        }
+        "terminal:data" => {
+            let _ = app.emit("terminal:data", params);
+        }
+        "terminal:exit" => {
+            let _ = app.emit("terminal:exit", params);
         }
         _ => {
             // Forward unknown notifications as generic events
