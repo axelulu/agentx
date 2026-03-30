@@ -187,13 +187,13 @@ interface NativeAPI {
   provider: {
     list: () => Promise<unknown[]>;
     set: (config: unknown) => Promise<void>;
-    remove: (id: string) => void;
-    setActive: (id: string) => void;
+    remove: (id: string) => Promise<void>;
+    setActive: (id: string) => Promise<void>;
   };
   knowledgeBase: {
     list: () => Promise<unknown[]>;
     set: (item: unknown) => Promise<void>;
-    remove: (id: string) => void;
+    remove: (id: string) => Promise<void>;
   };
   skills: {
     search: (
@@ -210,7 +210,7 @@ interface NativeAPI {
   mcp: {
     list: () => Promise<unknown[]>;
     set: (config: unknown) => Promise<void>;
-    remove: (id: string) => void;
+    remove: (id: string) => Promise<void>;
     status: () => Promise<MCPServerState[]>;
     reconnect: (id?: string) => Promise<void>;
     onStatusUpdate: (callback: (states: MCPServerState[]) => void) => () => void;
@@ -229,7 +229,7 @@ interface NativeAPI {
   scheduler: {
     list: () => Promise<ScheduledTaskConfig[]>;
     set: (task: ScheduledTaskConfig) => Promise<void>;
-    remove: (id: string) => void;
+    remove: (id: string) => Promise<void>;
     runNow: (id: string) => Promise<void>;
     onStatusUpdate: (callback: (tasks: ScheduledTaskConfig[]) => void) => () => void;
   };

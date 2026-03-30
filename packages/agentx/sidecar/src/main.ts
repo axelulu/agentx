@@ -19,7 +19,7 @@ console.log = (...args: unknown[]) => {
 
 import { createInterface } from "readline";
 import { join } from "path";
-import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, renameSync } from "fs";
 import { tmpdir, homedir } from "os";
 import { execFile, execFileSync } from "child_process";
 import { AgentRuntime } from "@agentx/runtime";
@@ -76,13 +76,29 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
       return JSON.parse(readFileSync(filePath, "utf-8")) as T;
     }
   } catch {
-    // corrupted
+    // Main file corrupted — try to recover from tmp file
+    const tmpPath = filePath + ".tmp";
+    try {
+      if (existsSync(tmpPath)) {
+        const data = JSON.parse(readFileSync(tmpPath, "utf-8")) as T;
+        // Recovery succeeded — promote tmp to main file
+        try {
+          renameSync(tmpPath, filePath);
+        } catch {}
+        return data;
+      }
+    } catch {
+      // Both files corrupted
+    }
   }
   return fallback;
 }
 
+/** Atomic write: write to a temp file first, then rename to avoid corruption on crash. */
 function writeJsonFile(filePath: string, data: unknown): void {
-  writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+  const tmpPath = filePath + ".tmp";
+  writeFileSync(tmpPath, JSON.stringify(data, null, 2), "utf-8");
+  renameSync(tmpPath, filePath);
 }
 
 // ---------------------------------------------------------------------------

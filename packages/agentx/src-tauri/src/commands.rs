@@ -266,16 +266,16 @@ pub async fn provider_set(
 pub async fn provider_remove(
     state: State<'_, SidecarState>,
     id: String,
-) -> Result<(), String> {
-    sidecar_notify(&state, "provider:remove", serde_json::json!([id])).await
+) -> Result<Value, String> {
+    sidecar_call(&state, "provider:remove", serde_json::json!([id])).await
 }
 
 #[tauri::command]
 pub async fn provider_set_active(
     state: State<'_, SidecarState>,
     id: String,
-) -> Result<(), String> {
-    sidecar_notify(&state, "provider:setActive", serde_json::json!([id])).await
+) -> Result<Value, String> {
+    sidecar_call(&state, "provider:setActive", serde_json::json!([id])).await
 }
 
 // ---------------------------------------------------------------------------
@@ -293,8 +293,8 @@ pub async fn kb_set(state: State<'_, SidecarState>, item: Value) -> Result<Value
 }
 
 #[tauri::command]
-pub async fn kb_remove(state: State<'_, SidecarState>, id: String) -> Result<(), String> {
-    sidecar_notify(&state, "kb:remove", serde_json::json!([id])).await
+pub async fn kb_remove(state: State<'_, SidecarState>, id: String) -> Result<Value, String> {
+    sidecar_call(&state, "kb:remove", serde_json::json!([id])).await
 }
 
 // ---------------------------------------------------------------------------
@@ -379,8 +379,8 @@ pub async fn mcp_set(state: State<'_, SidecarState>, config: Value) -> Result<Va
 }
 
 #[tauri::command]
-pub async fn mcp_remove(state: State<'_, SidecarState>, id: String) -> Result<(), String> {
-    sidecar_notify(&state, "mcp:remove", serde_json::json!([id])).await
+pub async fn mcp_remove(state: State<'_, SidecarState>, id: String) -> Result<Value, String> {
+    sidecar_call(&state, "mcp:remove", serde_json::json!([id])).await
 }
 
 #[tauri::command]
@@ -417,8 +417,8 @@ pub async fn scheduler_set(
 pub async fn scheduler_remove(
     state: State<'_, SidecarState>,
     id: String,
-) -> Result<(), String> {
-    sidecar_notify(&state, "scheduler:remove", serde_json::json!([id])).await
+) -> Result<Value, String> {
+    sidecar_call(&state, "scheduler:remove", serde_json::json!([id])).await
 }
 
 #[tauri::command]

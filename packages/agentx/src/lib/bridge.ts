@@ -122,20 +122,14 @@ const bridge: NativeAPI = {
   provider: {
     list: () => invoke("provider_list"),
     set: (config: unknown) => invoke("provider_set", { config }),
-    remove: (id: string) => {
-      invoke("provider_remove", { id });
-    },
-    setActive: (id: string) => {
-      invoke("provider_set_active", { id });
-    },
+    remove: (id: string) => invoke("provider_remove", { id }),
+    setActive: (id: string) => invoke("provider_set_active", { id }),
   },
 
   knowledgeBase: {
     list: () => invoke("kb_list"),
     set: (item: unknown) => invoke("kb_set", { item }),
-    remove: (id: string) => {
-      invoke("kb_remove", { id });
-    },
+    remove: (id: string) => invoke("kb_remove", { id }),
   },
 
   skills: {
@@ -152,9 +146,7 @@ const bridge: NativeAPI = {
   mcp: {
     list: () => invoke("mcp_list"),
     set: (config: unknown) => invoke("mcp_set", { config }),
-    remove: (id: string) => {
-      invoke("mcp_remove", { id });
-    },
+    remove: (id: string) => invoke("mcp_remove", { id }),
     status: () => invoke("mcp_status"),
     reconnect: (id?: string) => invoke("mcp_reconnect", { id }),
     onStatusUpdate: (callback: (states: MCPServerState[]) => void) => {
@@ -186,9 +178,7 @@ const bridge: NativeAPI = {
   scheduler: {
     list: () => invoke("scheduler_list"),
     set: (task: ScheduledTaskConfig) => invoke("scheduler_set", { task }),
-    remove: (id: string) => {
-      invoke("scheduler_remove", { id });
-    },
+    remove: (id: string) => invoke("scheduler_remove", { id }),
     runNow: (id: string) => invoke("scheduler_run_now", { id }),
     onStatusUpdate: (callback: (tasks: ScheduledTaskConfig[]) => void) => {
       return createEventListener(

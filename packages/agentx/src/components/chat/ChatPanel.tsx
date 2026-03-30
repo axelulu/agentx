@@ -14,6 +14,8 @@ import {
   loadMCPServers,
   loadToolPermissions,
   loadInstalledSkills,
+  loadChannels,
+  loadScheduledTasks,
 } from "@/slices/settingsSlice";
 import { useAgentEventListener } from "@/hooks/useAgent";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
@@ -50,6 +52,8 @@ export function ChatPanel() {
     dispatch(loadMCPServers());
     dispatch(loadToolPermissions());
     dispatch(loadInstalledSkills());
+    dispatch(loadChannels());
+    dispatch(loadScheduledTasks());
   }, [dispatch]);
 
   // Refresh conversation list when a channel creates/recreates a conversation

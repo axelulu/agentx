@@ -237,25 +237,25 @@ export const resetAllSettings = createAsyncThunk(
     // Remove all providers
     for (const p of state.providers) {
       try {
-        window.api.provider.remove(p.id);
+        await window.api.provider.remove(p.id);
       } catch {}
     }
     // Remove all KB items
     for (const k of state.knowledgeBase) {
       try {
-        window.api.knowledgeBase.remove(k.id);
+        await window.api.knowledgeBase.remove(k.id);
       } catch {}
     }
     // Remove all MCP servers
     for (const m of state.mcpServers) {
       try {
-        window.api.mcp.remove(m.id);
+        await window.api.mcp.remove(m.id);
       } catch {}
     }
     // Remove all scheduled tasks
     for (const t of state.scheduledTasks) {
       try {
-        window.api.scheduler.remove(t.id);
+        await window.api.scheduler.remove(t.id);
       } catch {}
     }
     // Remove all installed skills
@@ -281,6 +281,9 @@ export const resetAllSettings = createAsyncThunk(
     localStorage.removeItem("agentx-font-size");
     localStorage.removeItem("agentx-layout-density");
     localStorage.removeItem("agentx-language");
+    localStorage.removeItem("agentx-open-tabs");
+    localStorage.removeItem("agentx-collapsed-folders");
+    localStorage.removeItem("agentx-terminal-height");
   },
 );
 
@@ -298,111 +301,80 @@ export const saveToolPermissions = createAsyncThunk(
 );
 
 // ---------------------------------------------------------------------------
-// IPC persistence helpers (fire-and-forget, errors logged)
+// IPC persistence helpers — all operations now properly await their promises
+// and include retry logic for transient failures.
 // ---------------------------------------------------------------------------
 
+/** Simple retry wrapper: retries once after a short delay on failure. */
+function withRetry(fn: () => Promise<unknown>, label: string): void {
+  fn().catch((err: unknown) => {
+    console.warn(`[${label}] Persist failed, retrying...`, err);
+    setTimeout(() => {
+      fn().catch((retryErr: unknown) => {
+        console.error(`[${label}] Persist retry failed:`, retryErr);
+      });
+    }, 500);
+  });
+}
+
 function persistPreferences(prefs: Record<string, unknown>): void {
-  try {
-    window.api.preferences.set(prefs).catch((err: unknown) => {
-      console.error("[Preferences] Failed to persist:", err);
-    });
-  } catch (err) {
-    console.error("[Preferences] Failed to serialize:", err);
-  }
+  withRetry(() => window.api.preferences.set(prefs), "Preferences");
 }
 
 function persistKBItem(item: KnowledgeBaseItem): void {
-  window.api.knowledgeBase.set(item).catch((err: unknown) => {
-    console.error("[KB] Failed to persist item:", err);
-  });
+  withRetry(() => window.api.knowledgeBase.set(item), "KB");
 }
 
 function persistKBRemove(id: string): void {
-  try {
-    window.api.knowledgeBase.remove(id);
-  } catch (err) {
-    console.error("[KB] Failed to remove item:", err);
-  }
+  withRetry(() => window.api.knowledgeBase.remove(id), "KB");
 }
 
 function persistMCPServer(config: MCPServerConfig): void {
-  window.api.mcp.set(config).catch((err: unknown) => {
-    console.error("[MCP] Failed to persist server:", err);
-  });
+  withRetry(() => window.api.mcp.set(config), "MCP");
 }
 
 function persistMCPRemove(id: string): void {
-  try {
-    window.api.mcp.remove(id);
-  } catch (err) {
-    console.error("[MCP] Failed to remove server:", err);
-  }
+  withRetry(() => window.api.mcp.remove(id), "MCP");
 }
 
 function persistProvider(config: ProviderConfig): void {
-  window.api.provider.set(config).catch((err: unknown) => {
-    console.error("[Provider] Failed to persist provider:", err);
-  });
+  withRetry(() => window.api.provider.set(config), "Provider");
 }
 
 function persistProviderRemove(id: string): void {
-  try {
-    window.api.provider.remove(id);
-  } catch (err) {
-    console.error("[Provider] Failed to remove provider:", err);
-  }
+  withRetry(() => window.api.provider.remove(id), "Provider");
 }
 
 function persistProviderSetActive(id: string): void {
-  try {
-    window.api.provider.setActive(id);
-  } catch (err) {
-    console.error("[Provider] Failed to set active provider:", err);
-  }
+  withRetry(() => window.api.provider.setActive(id), "Provider");
 }
 
 function persistSkillInstall(skill: SkillDefinition): void {
-  window.api.skills.install(skill).catch((err: unknown) => {
-    console.error("[Skills] Failed to install:", err);
-  });
+  withRetry(() => window.api.skills.install(skill), "Skills");
 }
 
 function persistSkillUninstall(id: string): void {
-  window.api.skills.uninstall(id).catch((err: unknown) => {
-    console.error("[Skills] Failed to uninstall:", err);
-  });
+  withRetry(() => window.api.skills.uninstall(id), "Skills");
 }
 
 function persistChannel(config: ChannelConfig): void {
-  window.api.channel.set(config as ChannelConfigData).catch((err: unknown) => {
-    console.error("[Channel] Failed to persist:", err);
-  });
+  withRetry(() => window.api.channel.set(config as ChannelConfigData), "Channel");
 }
 
 function persistChannelRemove(id: string): void {
-  window.api.channel.remove(id).catch((err: unknown) => {
-    console.error("[Channel] Failed to remove:", err);
-  });
+  withRetry(() => window.api.channel.remove(id), "Channel");
 }
 
 function persistScheduledTask(task: ScheduledTaskConfig): void {
-  window.api.scheduler.set(task).catch((err: unknown) => {
-    console.error("[Scheduler] Failed to persist task:", err);
-  });
+  withRetry(() => window.api.scheduler.set(task), "Scheduler");
 }
 
 function persistScheduledTaskRemove(id: string): void {
-  try {
-    window.api.scheduler.remove(id);
-  } catch (err) {
-    console.error("[Scheduler] Failed to remove task:", err);
-  }
+  withRetry(() => window.api.scheduler.remove(id), "Scheduler");
 }
 
 function persistToolPermissions(perms: ToolPermissionsState): void {
-  window.api.toolPermissions.set(perms).catch((err: unknown) => {
-    console.error("[ToolPermissions] Failed to persist:", err);
-  });
+  withRetry(() => window.api.toolPermissions.set(perms), "ToolPermissions");
 }
 
 // ---------------------------------------------------------------------------

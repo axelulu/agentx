@@ -30,9 +30,14 @@ export interface UIState {
   terminalHeight: number;
 }
 
-function persistSidebar(open: boolean): void {
-  window.api.preferences.set({ sidebarOpen: open }).catch((err: unknown) => {
-    console.error("[Preferences] Failed to persist sidebar:", err);
+function persistUIPreference(prefs: Record<string, unknown>): void {
+  window.api.preferences.set(prefs).catch((err: unknown) => {
+    console.warn("[UI] Persist failed, retrying...", err);
+    setTimeout(() => {
+      window.api.preferences.set(prefs).catch((retryErr: unknown) => {
+        console.error("[UI] Persist retry failed:", retryErr);
+      });
+    }, 500);
   });
 }
 
@@ -45,10 +50,10 @@ const initialState: UIState = {
   searchOpen: false,
   clipboardOpen: false,
   wechatImportOpen: false,
-  openTabs: [],
-  collapsedFolderIds: [],
+  openTabs: JSON.parse(localStorage.getItem("agentx-open-tabs") || "[]"),
+  collapsedFolderIds: JSON.parse(localStorage.getItem("agentx-collapsed-folders") || "[]"),
   terminalOpen: false,
-  terminalHeight: 250,
+  terminalHeight: Number(localStorage.getItem("agentx-terminal-height")) || 250,
 };
 
 const uiSlice = createSlice({
@@ -57,11 +62,11 @@ const uiSlice = createSlice({
   reducers: {
     toggleSidebar(state) {
       state.sidebarOpen = !state.sidebarOpen;
-      persistSidebar(state.sidebarOpen);
+      persistUIPreference({ sidebarOpen: state.sidebarOpen });
     },
     setSidebarOpen(state, action: PayloadAction<boolean>) {
       state.sidebarOpen = action.payload;
-      persistSidebar(action.payload);
+      persistUIPreference({ sidebarOpen: action.payload });
     },
     toggleSettings(state) {
       state.settingsOpen = !state.settingsOpen;
@@ -101,9 +106,11 @@ const uiSlice = createSlice({
     // Tab management — single tab only (replaces previous)
     openTab(state, action: PayloadAction<string>) {
       state.openTabs = [action.payload];
+      localStorage.setItem("agentx-open-tabs", JSON.stringify(state.openTabs));
     },
     closeTab(state, action: PayloadAction<string>) {
       state.openTabs = state.openTabs.filter((id) => id !== action.payload);
+      localStorage.setItem("agentx-open-tabs", JSON.stringify(state.openTabs));
     },
     toggleTerminal(state) {
       state.terminalOpen = !state.terminalOpen;
@@ -113,6 +120,7 @@ const uiSlice = createSlice({
     },
     setTerminalHeight(state, action: PayloadAction<number>) {
       state.terminalHeight = Math.max(100, Math.min(600, action.payload));
+      localStorage.setItem("agentx-terminal-height", String(state.terminalHeight));
     },
     toggleFolderCollapsed(state, action: PayloadAction<string>) {
       const idx = state.collapsedFolderIds.indexOf(action.payload);
@@ -121,6 +129,7 @@ const uiSlice = createSlice({
       } else {
         state.collapsedFolderIds.push(action.payload);
       }
+      localStorage.setItem("agentx-collapsed-folders", JSON.stringify(state.collapsedFolderIds));
     },
   },
   extraReducers: (builder) => {
@@ -133,10 +142,12 @@ const uiSlice = createSlice({
       // Auto-close tabs when conversations are deleted
       .addCase(removeConversation.fulfilled, (state, action) => {
         state.openTabs = state.openTabs.filter((id) => id !== action.payload);
+        localStorage.setItem("agentx-open-tabs", JSON.stringify(state.openTabs));
       })
       .addCase(removeConversations.fulfilled, (state, action) => {
         const deleted = new Set(action.payload);
         state.openTabs = state.openTabs.filter((id) => !deleted.has(id));
+        localStorage.setItem("agentx-open-tabs", JSON.stringify(state.openTabs));
       });
   },
 });
