@@ -45,7 +45,7 @@ mkdir -p "$MACOS_DIR"
 SWIFT_FLAGS=(
     -sdk "$SDK_PATH"
     -parse-as-library
-    -import-objc-header /dev/null
+    -import-objc-header "$SCRIPT_DIR/BridgingHeader.h"
     -framework Foundation
     -framework AppKit
     -framework UniformTypeIdentifiers
