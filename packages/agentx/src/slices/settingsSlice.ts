@@ -119,6 +119,40 @@ export interface SettingsState {
 }
 
 // ---------------------------------------------------------------------------
+// localStorage backup keys — used as fallback when sidecar file I/O fails.
+// The sidecar may fail to persist JSON files in production (macOS app sandbox,
+// race conditions, etc.), so we mirror all critical settings to localStorage
+// which the WebView reliably persists.
+// ---------------------------------------------------------------------------
+
+const LS_PROVIDERS = "agentx-providers";
+const LS_PREFERENCES = "agentx-preferences";
+const LS_KB = "agentx-knowledgebase";
+const LS_MCP = "agentx-mcpservers";
+const LS_SKILLS = "agentx-skills";
+const LS_CHANNELS = "agentx-channels";
+const LS_SCHEDULED = "agentx-scheduled-tasks";
+const LS_TOOL_PERMS = "agentx-tool-permissions";
+
+function lsGet<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw) as T;
+  } catch {
+    /* corrupted — ignore */
+  }
+  return fallback;
+}
+
+function lsSet(key: string, data: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    /* quota exceeded — ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Async thunks — load only (read from main process)
 // ---------------------------------------------------------------------------
 
@@ -126,39 +160,76 @@ export interface SettingsState {
 // Preferences (theme, language, sidebar — disk-persisted via main process)
 // ---------------------------------------------------------------------------
 
+type PrefsPayload = {
+  theme?: string;
+  accentColor?: string;
+  fontSize?: string;
+  layoutDensity?: string;
+  language?: string;
+  sidebarOpen?: boolean;
+  proxyUrl?: string;
+  workspacePath?: string;
+  dataPath?: string;
+  globalSystemPrompt?: string;
+  voice?: VoiceSettings;
+  folders?: Folder[];
+  conversationOrder?: ConversationOrder;
+};
+
 export const loadPreferences = createAsyncThunk("settings/loadPreferences", async () => {
-  const prefs = await window.api.preferences.get();
-  return prefs as {
-    theme?: string;
-    accentColor?: string;
-    fontSize?: string;
-    layoutDensity?: string;
-    language?: string;
-    sidebarOpen?: boolean;
-    proxyUrl?: string;
-    workspacePath?: string;
-    dataPath?: string;
-    globalSystemPrompt?: string;
-    voice?: VoiceSettings;
-    folders?: Folder[];
-    conversationOrder?: ConversationOrder;
-  };
+  let prefs: PrefsPayload = {};
+  try {
+    prefs = (await window.api.preferences.get()) as PrefsPayload;
+  } catch {
+    /* sidecar unavailable */
+  }
+
+  // If sidecar returned empty, try localStorage backup
+  if (!prefs || Object.keys(prefs).length === 0) {
+    prefs = lsGet<PrefsPayload>(LS_PREFERENCES, {});
+  } else {
+    // Sidecar succeeded — mirror to localStorage
+    lsSet(LS_PREFERENCES, prefs);
+  }
+  return prefs;
 });
 
 export const loadProviders = createAsyncThunk("settings/loadProviders", async () => {
-  const configs = await window.api.provider.list();
-  return configs as ProviderConfig[];
+  let configs: ProviderConfig[] = [];
+  try {
+    configs = (await window.api.provider.list()) as ProviderConfig[];
+  } catch {
+    /* sidecar unavailable */
+  }
+
+  // If sidecar returned empty, try localStorage backup
+  if (!configs || configs.length === 0) {
+    const backup = lsGet<ProviderConfig[]>(LS_PROVIDERS, []);
+    if (backup.length > 0) {
+      configs = backup;
+      // Re-sync to sidecar so runtime has the providers
+      for (const c of configs) {
+        window.api.provider.set(c).catch(() => {});
+      }
+    }
+  } else {
+    // Sidecar succeeded — mirror to localStorage
+    lsSet(LS_PROVIDERS, configs);
+  }
+  return configs;
 });
 
 export const saveProvider = createAsyncThunk(
   "settings/saveProvider",
   async (config: ProviderConfig) => {
+    lsUpsert(LS_PROVIDERS, config);
     await window.api.provider.set(config);
     return config;
   },
 );
 
 export const removeProvider = createAsyncThunk("settings/removeProvider", async (id: string) => {
+  lsRemove(LS_PROVIDERS, id);
   await window.api.provider.remove(id);
   return id;
 });
@@ -166,24 +237,69 @@ export const removeProvider = createAsyncThunk("settings/removeProvider", async 
 export const setActiveProvider = createAsyncThunk(
   "settings/setActiveProvider",
   async (id: string) => {
+    const list = lsGet<ProviderConfig[]>(LS_PROVIDERS, []);
+    for (const p of list) p.isActive = p.id === id;
+    lsSet(LS_PROVIDERS, list);
     await window.api.provider.setActive(id);
     return id;
   },
 );
 
 export const loadKnowledgeBase = createAsyncThunk("settings/loadKnowledgeBase", async () => {
-  const items = await window.api.knowledgeBase.list();
-  return items as KnowledgeBaseItem[];
+  let items: KnowledgeBaseItem[] = [];
+  try {
+    items = (await window.api.knowledgeBase.list()) as KnowledgeBaseItem[];
+  } catch {
+    /* sidecar unavailable */
+  }
+  if (!items || items.length === 0) {
+    const backup = lsGet<KnowledgeBaseItem[]>(LS_KB, []);
+    if (backup.length > 0) {
+      items = backup;
+      for (const it of items) window.api.knowledgeBase.set(it).catch(() => {});
+    }
+  } else {
+    lsSet(LS_KB, items);
+  }
+  return items;
 });
 
 export const loadMCPServers = createAsyncThunk("settings/loadMCPServers", async () => {
-  const configs = await window.api.mcp.list();
-  return configs as MCPServerConfig[];
+  let configs: MCPServerConfig[] = [];
+  try {
+    configs = (await window.api.mcp.list()) as MCPServerConfig[];
+  } catch {
+    /* sidecar unavailable */
+  }
+  if (!configs || configs.length === 0) {
+    const backup = lsGet<MCPServerConfig[]>(LS_MCP, []);
+    if (backup.length > 0) {
+      configs = backup;
+      for (const c of configs) window.api.mcp.set(c).catch(() => {});
+    }
+  } else {
+    lsSet(LS_MCP, configs);
+  }
+  return configs;
 });
 
 export const loadInstalledSkills = createAsyncThunk("settings/loadInstalledSkills", async () => {
-  const skills = await window.api.skills.listInstalled();
-  return skills as SkillDefinition[];
+  let skills: SkillDefinition[] = [];
+  try {
+    skills = (await window.api.skills.listInstalled()) as SkillDefinition[];
+  } catch {
+    /* sidecar unavailable */
+  }
+  if (!skills || skills.length === 0) {
+    const backup = lsGet<SkillDefinition[]>(LS_SKILLS, []);
+    if (backup.length > 0) {
+      skills = backup;
+      for (const s of skills) window.api.skills.install(s).catch(() => {});
+    }
+  } else {
+    lsSet(LS_SKILLS, skills);
+  }
+  return skills;
 });
 
 export const searchSkillStore = createAsyncThunk(
@@ -195,13 +311,41 @@ export const searchSkillStore = createAsyncThunk(
 );
 
 export const loadChannels = createAsyncThunk("settings/loadChannels", async () => {
-  const configs = await window.api.channel.list();
-  return configs as ChannelConfig[];
+  let configs: ChannelConfig[] = [];
+  try {
+    configs = (await window.api.channel.list()) as ChannelConfig[];
+  } catch {
+    /* sidecar unavailable */
+  }
+  if (!configs || configs.length === 0) {
+    const backup = lsGet<ChannelConfig[]>(LS_CHANNELS, []);
+    if (backup.length > 0) {
+      configs = backup;
+      for (const c of configs) window.api.channel.set(c).catch(() => {});
+    }
+  } else {
+    lsSet(LS_CHANNELS, configs);
+  }
+  return configs;
 });
 
 export const loadScheduledTasks = createAsyncThunk("settings/loadScheduledTasks", async () => {
-  const tasks = await window.api.scheduler.list();
-  return tasks as ScheduledTaskConfig[];
+  let tasks: ScheduledTaskConfig[] = [];
+  try {
+    tasks = (await window.api.scheduler.list()) as ScheduledTaskConfig[];
+  } catch {
+    /* sidecar unavailable */
+  }
+  if (!tasks || tasks.length === 0) {
+    const backup = lsGet<ScheduledTaskConfig[]>(LS_SCHEDULED, []);
+    if (backup.length > 0) {
+      tasks = backup;
+      for (const t of tasks) window.api.scheduler.set(t).catch(() => {});
+    }
+  } else {
+    lsSet(LS_SCHEDULED, tasks);
+  }
+  return tasks;
 });
 
 export const resetAllSettings = createAsyncThunk(
@@ -275,7 +419,7 @@ export const resetAllSettings = createAsyncThunk(
     };
     await window.api.toolPermissions.set(defaultPerms);
 
-    // Clear localStorage
+    // Clear localStorage (UI settings + data mirrors)
     localStorage.removeItem("agentx-theme");
     localStorage.removeItem("agentx-accent-color");
     localStorage.removeItem("agentx-font-size");
@@ -284,17 +428,40 @@ export const resetAllSettings = createAsyncThunk(
     localStorage.removeItem("agentx-open-tabs");
     localStorage.removeItem("agentx-collapsed-folders");
     localStorage.removeItem("agentx-terminal-height");
+    localStorage.removeItem(LS_PROVIDERS);
+    localStorage.removeItem(LS_PREFERENCES);
+    localStorage.removeItem(LS_KB);
+    localStorage.removeItem(LS_MCP);
+    localStorage.removeItem(LS_SKILLS);
+    localStorage.removeItem(LS_CHANNELS);
+    localStorage.removeItem(LS_SCHEDULED);
+    localStorage.removeItem(LS_TOOL_PERMS);
   },
 );
 
 export const loadToolPermissions = createAsyncThunk("settings/loadToolPermissions", async () => {
-  const perms = await window.api.toolPermissions.get();
+  let perms: ToolPermissionsState | null = null;
+  try {
+    perms = (await window.api.toolPermissions.get()) as ToolPermissionsState;
+  } catch {
+    /* sidecar unavailable */
+  }
+  if (!perms || !perms.approvalMode) {
+    const backup = lsGet<ToolPermissionsState | null>(LS_TOOL_PERMS, null);
+    if (backup && backup.approvalMode) {
+      perms = backup;
+      window.api.toolPermissions.set(backup).catch(() => {});
+    }
+  } else {
+    lsSet(LS_TOOL_PERMS, perms);
+  }
   return perms as ToolPermissionsState;
 });
 
 export const saveToolPermissions = createAsyncThunk(
   "settings/saveToolPermissions",
   async (permissions: ToolPermissionsState) => {
+    lsSet(LS_TOOL_PERMS, permissions);
     await window.api.toolPermissions.set(permissions);
     return permissions;
   },
@@ -317,63 +484,102 @@ function withRetry(fn: () => Promise<unknown>, label: string): void {
   });
 }
 
+// --- localStorage-backed upsert/remove helpers ---
+
+function lsUpsert<T extends { id: string }>(key: string, item: T): void {
+  const list = lsGet<T[]>(key, []);
+  const idx = list.findIndex((x) => x.id === item.id);
+  if (idx >= 0) list[idx] = item;
+  else list.push(item);
+  lsSet(key, list);
+}
+
+function lsRemove(key: string, id: string): void {
+  const list = lsGet<{ id: string }[]>(key, []);
+  lsSet(
+    key,
+    list.filter((x) => x.id !== id),
+  );
+}
+
+// --- Persist functions: write to sidecar + localStorage mirror ---
+
 function persistPreferences(prefs: Record<string, unknown>): void {
+  // Merge into existing localStorage prefs
+  const existing = lsGet<Record<string, unknown>>(LS_PREFERENCES, {});
+  lsSet(LS_PREFERENCES, { ...existing, ...prefs });
   withRetry(() => window.api.preferences.set(prefs), "Preferences");
 }
 
 function persistKBItem(item: KnowledgeBaseItem): void {
+  lsUpsert(LS_KB, item);
   withRetry(() => window.api.knowledgeBase.set(item), "KB");
 }
 
 function persistKBRemove(id: string): void {
+  lsRemove(LS_KB, id);
   withRetry(() => window.api.knowledgeBase.remove(id), "KB");
 }
 
 function persistMCPServer(config: MCPServerConfig): void {
+  lsUpsert(LS_MCP, config);
   withRetry(() => window.api.mcp.set(config), "MCP");
 }
 
 function persistMCPRemove(id: string): void {
+  lsRemove(LS_MCP, id);
   withRetry(() => window.api.mcp.remove(id), "MCP");
 }
 
 function persistProvider(config: ProviderConfig): void {
+  lsUpsert(LS_PROVIDERS, config);
   withRetry(() => window.api.provider.set(config), "Provider");
 }
 
 function persistProviderRemove(id: string): void {
+  lsRemove(LS_PROVIDERS, id);
   withRetry(() => window.api.provider.remove(id), "Provider");
 }
 
 function persistProviderSetActive(id: string): void {
+  const list = lsGet<ProviderConfig[]>(LS_PROVIDERS, []);
+  for (const p of list) p.isActive = p.id === id;
+  lsSet(LS_PROVIDERS, list);
   withRetry(() => window.api.provider.setActive(id), "Provider");
 }
 
 function persistSkillInstall(skill: SkillDefinition): void {
+  lsUpsert(LS_SKILLS, skill);
   withRetry(() => window.api.skills.install(skill), "Skills");
 }
 
 function persistSkillUninstall(id: string): void {
+  lsRemove(LS_SKILLS, id);
   withRetry(() => window.api.skills.uninstall(id), "Skills");
 }
 
 function persistChannel(config: ChannelConfig): void {
+  lsUpsert(LS_CHANNELS, config);
   withRetry(() => window.api.channel.set(config as ChannelConfigData), "Channel");
 }
 
 function persistChannelRemove(id: string): void {
+  lsRemove(LS_CHANNELS, id);
   withRetry(() => window.api.channel.remove(id), "Channel");
 }
 
 function persistScheduledTask(task: ScheduledTaskConfig): void {
+  lsUpsert(LS_SCHEDULED, task);
   withRetry(() => window.api.scheduler.set(task), "Scheduler");
 }
 
 function persistScheduledTaskRemove(id: string): void {
+  lsRemove(LS_SCHEDULED, id);
   withRetry(() => window.api.scheduler.remove(id), "Scheduler");
 }
 
 function persistToolPermissions(perms: ToolPermissionsState): void {
+  lsSet(LS_TOOL_PERMS, perms);
   withRetry(() => window.api.toolPermissions.set(perms), "ToolPermissions");
 }
 
@@ -387,23 +593,23 @@ const initialState: SettingsState = {
   fontSize: (localStorage.getItem("agentx-font-size") as FontSize) || "default",
   layoutDensity: (localStorage.getItem("agentx-layout-density") as LayoutDensity) || "comfortable",
   language: localStorage.getItem("agentx-language") || "en",
-  proxyUrl: "",
-  workspacePath: "",
-  dataPath: "",
-  globalSystemPrompt: "",
-  providers: [],
-  knowledgeBase: [],
-  mcpServers: [],
-  channels: [],
-  scheduledTasks: [],
-  toolPermissions: {
+  proxyUrl: lsGet<PrefsPayload>(LS_PREFERENCES, {}).proxyUrl ?? "",
+  workspacePath: lsGet<PrefsPayload>(LS_PREFERENCES, {}).workspacePath ?? "",
+  dataPath: lsGet<PrefsPayload>(LS_PREFERENCES, {}).dataPath ?? "",
+  globalSystemPrompt: lsGet<PrefsPayload>(LS_PREFERENCES, {}).globalSystemPrompt ?? "",
+  providers: lsGet<ProviderConfig[]>(LS_PROVIDERS, []),
+  knowledgeBase: lsGet<KnowledgeBaseItem[]>(LS_KB, []),
+  mcpServers: lsGet<MCPServerConfig[]>(LS_MCP, []),
+  channels: lsGet<ChannelConfig[]>(LS_CHANNELS, []),
+  scheduledTasks: lsGet<ScheduledTaskConfig[]>(LS_SCHEDULED, []),
+  toolPermissions: lsGet<ToolPermissionsState>(LS_TOOL_PERMS, {
     approvalMode: "smart",
     fileRead: true,
     fileWrite: true,
     shellExecute: true,
     mcpCall: true,
     allowedPaths: [],
-  },
+  }),
   voice: {
     sttApiUrl: "",
     sttApiKey: "",
@@ -413,7 +619,7 @@ const initialState: SettingsState = {
     ttsPitch: 1.0,
     autoReadReplies: false,
   },
-  installedSkills: [],
+  installedSkills: lsGet<SkillDefinition[]>(LS_SKILLS, []),
   folders: [],
   conversationOrder: { favorites: [], ungrouped: [], folders: {} },
   lastCreatedFolderId: null,
