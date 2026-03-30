@@ -270,10 +270,10 @@ export function MenuBarPanel() {
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background border border-border/20">
+    <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background border border-border">
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-3.5 py-2 border-b border-border/30 shrink-0"
+        className="flex items-center gap-2 px-3.5 py-2 border-b border-border shrink-0"
         data-tauri-drag-region
       >
         <span className="text-xs font-medium text-foreground/50" data-tauri-drag-region>
@@ -290,7 +290,7 @@ export function MenuBarPanel() {
 
       {/* Quick Ask — fixed */}
       <div className="shrink-0">
-        <div className="px-3.5 py-2.5 border-b border-border/20">
+        <div className="px-3.5 py-2.5 border-b border-border">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[10px] font-medium text-foreground/30 uppercase tracking-wider">
               {l10n.t("Quick Ask")}
@@ -314,7 +314,7 @@ export function MenuBarPanel() {
               onKeyDown={handleKeyDown}
               placeholder={l10n.t("Ask anything...")}
               rows={1}
-              className="flex-1 bg-foreground/[0.04] border border-border/40 rounded-lg resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/25 max-h-[100px] leading-relaxed px-2.5 py-1.5 focus:border-foreground/15 transition-colors overflow-hidden"
+              className="flex-1 bg-foreground/[0.04] border border-border rounded-lg resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/25 max-h-[100px] leading-relaxed px-2.5 py-1.5 focus:border-foreground/15 transition-colors overflow-hidden"
               disabled={isStreaming}
             />
             {isStreaming ? (
@@ -340,7 +340,7 @@ export function MenuBarPanel() {
             )}
           </div>
           {/* Answer area — always visible */}
-          <div className="mt-2 rounded-lg bg-foreground/[0.03] border border-border/20 min-h-[80px] max-h-[160px] overflow-y-auto">
+          <div className="mt-2 rounded-lg bg-foreground/[0.03] border border-border min-h-[80px] max-h-[160px] overflow-y-auto">
             {quickAnswer ? (
               <div className="p-2.5 text-[13px] leading-relaxed text-foreground/80 whitespace-pre-wrap">
                 {quickAnswer}
@@ -358,7 +358,7 @@ export function MenuBarPanel() {
       </div>
 
       {/* Recent conversations — fills remaining space */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-2.5 border-b border-border/20">
+      <div className="flex-1 overflow-y-auto px-3.5 py-2.5 border-b border-border">
         <div className="text-[10px] font-medium text-foreground/30 uppercase tracking-wider mb-2">
           {l10n.t("Recent Conversations")}
         </div>
@@ -396,7 +396,7 @@ export function MenuBarPanel() {
       </div>
 
       {/* Bottom actions */}
-      <div className="border-t border-border/30 px-2 py-1.5 flex items-center gap-0.5 shrink-0">
+      <div className="border-t border-border px-2 py-1.5 flex items-center gap-0.5 shrink-0">
         <ActionButton
           icon={AppWindowIcon}
           label={l10n.t("Open AgentX")}

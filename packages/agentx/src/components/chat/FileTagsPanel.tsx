@@ -155,10 +155,10 @@ export function FileTagsPanel({ filePaths, onClose, onTagApplied }: FileTagsPane
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
-        className="border border-border/50 rounded-xl bg-card shadow-lg overflow-hidden"
+        className="border border-border rounded-xl bg-card shadow-lg overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <div className="flex items-center gap-2">
             <TagIcon className="w-4 h-4 text-foreground/60" />
             <span className="text-sm font-medium text-foreground/80">
@@ -203,7 +203,7 @@ export function FileTagsPanel({ filePaths, onClose, onTagApplied }: FileTagsPane
         {/* File list */}
         <div className="max-h-[300px] overflow-y-auto">
           {files.map((file) => (
-            <div key={file.path} className="px-4 py-3 border-b border-border/20 last:border-b-0">
+            <div key={file.path} className="px-4 py-3 border-b border-border last:border-b-0">
               {/* File name + status */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -262,7 +262,7 @@ export function FileTagsPanel({ filePaths, onClose, onTagApplied }: FileTagsPane
                       }
                     }}
                     placeholder={l10n.t("Add tag...")}
-                    className="w-16 px-1.5 py-0.5 text-[11px] bg-transparent border-b border-border/30 focus:border-foreground/30 outline-none text-foreground/60 placeholder:text-muted-foreground/30"
+                    className="w-16 px-1.5 py-0.5 text-[11px] bg-transparent border-b border-border focus:border-foreground/30 outline-none text-foreground/60 placeholder:text-muted-foreground/30"
                   />
                   <button
                     onClick={() => handleAddNewTag(file.path)}

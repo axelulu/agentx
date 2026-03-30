@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { glassPanelStyle } from "@/lib/glassStyle";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { l10n } from "@agentx/l10n";
@@ -104,13 +103,12 @@ function DialogContent({
       />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        data-glass
         className={cn(
-          "border border-border/50 flex flex-col gap-4 rounded-2xl p-6 fixed top-[50%] left-[50%] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] shadow-lg",
+          "border border-border flex flex-col gap-4 rounded-2xl p-6 fixed top-[50%] left-[50%] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] shadow-lg",
           maxWidthClasses[maxWidth],
           className,
         )}
-        style={{ zIndex: "var(--z-modal)", ...glassPanelStyle, ...style }}
+        style={{ zIndex: "var(--z-modal)", background: "var(--background)", ...style }}
         onPointerDownOutside={(e) => {
           // Radix fires a custom event whose .target is the DismissableLayer itself.
           // The real click target lives at .detail.originalEvent.target.

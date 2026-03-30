@@ -421,10 +421,10 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
           selectMode
             ? isSelected
               ? "bg-foreground/[0.08] text-foreground"
-              : "text-muted-foreground hover:bg-foreground/[0.08] hover:text-foreground"
+              : "text-foreground/70 hover:bg-foreground/[0.08] hover:text-foreground"
             : isActive
               ? "bg-foreground/[0.08] text-foreground"
-              : "text-muted-foreground hover:bg-foreground/[0.08] hover:text-foreground",
+              : "text-foreground/70 hover:bg-foreground/[0.08] hover:text-foreground",
         )}
         onClick={() => {
           if (selectMode) {
@@ -539,7 +539,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
         </div>
 
         {/* Time */}
-        <span className="shrink-0 text-[11px] text-muted-foreground/50 leading-snug">
+        <span className="shrink-0 text-[11px] text-foreground/50 leading-snug">
           {formatRelativeTime(conversation.updatedAt)}
         </span>
 
@@ -552,7 +552,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
                   e.stopPropagation();
                   setDeleteTarget({ id: conversation.id, title: conversation.title });
                 }}
-                className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/15 hover:text-destructive transition-all text-muted-foreground/60"
+                className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/15 hover:text-destructive transition-all text-foreground/50"
               >
                 <TrashIcon className="w-3.5 h-3.5" />
               </button>
@@ -604,7 +604,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
     >
       <SectionIcon className="w-3.5 h-3.5 shrink-0" />
       <span className="flex-1 min-w-0 truncate font-medium">{label}</span>
-      <span className="text-[10px] text-muted-foreground/40 tabular-nums">{count}</span>
+      <span className="text-[10px] text-foreground/40 tabular-nums">{count}</span>
     </div>
   );
 
@@ -652,9 +652,9 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
     return (
       <>
         <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-          <MessageSquareIcon className="w-8 h-8 text-muted-foreground/20 mb-3" />
-          <p className="text-[13px] text-muted-foreground/50">{l10n.t("No conversations yet")}</p>
-          <p className="text-[11px] text-muted-foreground/30 mt-1">
+          <MessageSquareIcon className="w-8 h-8 text-foreground/20 mb-3" />
+          <p className="text-[13px] text-foreground/50">{l10n.t("No conversations yet")}</p>
+          <p className="text-[11px] text-foreground/30 mt-1">
             {l10n.t("Start a new chat to begin")}
           </p>
         </div>
@@ -765,7 +765,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
                         <span className="flex-1 min-w-0 truncate font-medium">{folder.name}</span>
                       )}
                       {!isFolderEditing && (
-                        <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+                        <span className="text-[10px] text-foreground/40 tabular-nums">
                           {folderConvs.length}
                         </span>
                       )}
@@ -781,7 +781,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
                             e.preventDefault();
                             handleFolderDelete(folder.id);
                           }}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/15 hover:text-destructive transition-all text-muted-foreground/40"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/15 hover:text-destructive transition-all text-foreground/40"
                         >
                           <TrashIcon className="w-3 h-3" />
                         </button>
@@ -892,7 +892,7 @@ export function ConversationList({ selectMode, onExitSelectMode }: ConversationL
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="sticky bottom-2 mx-2 mt-auto px-3 py-2 rounded-lg bg-sidebar-accent border border-sidebar-border flex items-center gap-2"
             >
-              <span className="text-[12px] text-muted-foreground tabular-nums">
+              <span className="text-[12px] text-foreground/70 tabular-nums">
                 {selectedIds.size} {l10n.t("selected")}
               </span>
               <button

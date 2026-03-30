@@ -234,7 +234,7 @@ export function QuickChatPanel() {
     <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background">
       {/* Header — draggable */}
       <div
-        className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border/30 shrink-0"
+        className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border shrink-0"
         data-tauri-drag-region
       >
         <MessageSquarePlusIcon className="w-3.5 h-3.5 text-foreground/40" />
@@ -315,7 +315,7 @@ export function QuickChatPanel() {
       )}
 
       {/* Input */}
-      <div className="border-t border-border/30 px-3 py-2.5 shrink-0">
+      <div className="border-t border-border px-3 py-2.5 shrink-0">
         <div className="flex items-center gap-2">
           <textarea
             ref={textareaRef}
@@ -324,7 +324,7 @@ export function QuickChatPanel() {
             onKeyDown={handleKeyDown}
             placeholder={l10n.t("Type a message...")}
             rows={1}
-            className="flex-1 bg-foreground/[0.04] border border-border/40 rounded-lg resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/25 max-h-[100px] leading-relaxed px-3 py-2 focus:border-foreground/15 transition-colors overflow-hidden"
+            className="flex-1 bg-foreground/[0.04] border border-border rounded-lg resize-none outline-none text-[13px] text-foreground placeholder:text-foreground/25 max-h-[100px] leading-relaxed px-3 py-2 focus:border-foreground/15 transition-colors overflow-hidden"
             disabled={isStreaming}
           />
           {isStreaming ? (
@@ -356,7 +356,7 @@ export function QuickChatPanel() {
       </div>
 
       {/* Quick actions */}
-      <div className="border-t border-border/30 px-2 py-1.5 flex items-center gap-0.5 shrink-0">
+      <div className="border-t border-border px-2 py-1.5 flex items-center gap-0.5 shrink-0">
         <ActionButton
           icon={AppWindowIcon}
           label={l10n.t("Open AgentX")}

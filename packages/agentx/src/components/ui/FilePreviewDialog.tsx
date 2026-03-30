@@ -23,7 +23,7 @@ export function FilePreviewDialog({ path, onClose }: FilePreviewDialogProps) {
         maxWidth="4xl"
         showCloseButton
         className="bg-transparent border-none shadow-none p-0 gap-0"
-        overlayStyle={{ backgroundColor: "rgba(0,0,0,0.15)" }}
+        overlayStyle={{ backgroundColor: "var(--shadow-S)" }}
       >
         <div className="flex flex-col items-center gap-3">
           {type === "image" && (

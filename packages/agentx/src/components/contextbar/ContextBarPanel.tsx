@@ -664,10 +664,10 @@ export function ContextBarPanel() {
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background border border-border/20">
+    <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background border border-border">
       {/* Header: App context */}
       <div
-        className="flex items-center gap-2 px-3.5 py-2 border-b border-border/30 shrink-0"
+        className="flex items-center gap-2 px-3.5 py-2 border-b border-border shrink-0"
         data-tauri-drag-region
       >
         <CategoryIcon className="w-3.5 h-3.5 text-primary/70" />
@@ -706,7 +706,7 @@ export function ContextBarPanel() {
 
       {/* Selected text preview */}
       {selectedText ? (
-        <div className="px-3.5 py-2 border-b border-border/20 shrink-0">
+        <div className="px-3.5 py-2 border-b border-border shrink-0">
           <div className="text-[10px] font-medium text-foreground/30 uppercase tracking-wider mb-1">
             {l10n.t("Selected Text")}
           </div>
@@ -716,7 +716,7 @@ export function ContextBarPanel() {
           </div>
         </div>
       ) : hasContext ? (
-        <div className="px-3.5 py-1.5 border-b border-border/20 shrink-0">
+        <div className="px-3.5 py-1.5 border-b border-border shrink-0">
           <div className="text-[10px] text-foreground/25 italic">
             {l10n.t("No text selected — select text first, then press shortcut")}
           </div>
@@ -724,7 +724,7 @@ export function ContextBarPanel() {
       ) : null}
 
       {/* Quick actions */}
-      <div className="px-3.5 py-2 border-b border-border/20 shrink-0">
+      <div className="px-3.5 py-2 border-b border-border shrink-0">
         <div className="text-[10px] font-medium text-foreground/30 uppercase tracking-wider mb-1.5">
           {l10n.t("Quick Actions")}
         </div>
@@ -752,7 +752,7 @@ export function ContextBarPanel() {
       </div>
 
       {/* Custom input */}
-      <div className="px-3.5 py-2 border-b border-border/20 shrink-0">
+      <div className="px-3.5 py-2 border-b border-border shrink-0">
         <div className="flex items-center gap-1.5">
           <textarea
             ref={textareaRef}
@@ -763,7 +763,7 @@ export function ContextBarPanel() {
               selectedText ? l10n.t("Ask about selected text...") : l10n.t("Ask anything...")
             }
             rows={1}
-            className="flex-1 bg-foreground/[0.04] border border-border/40 rounded-lg resize-none outline-none text-[12px] text-foreground placeholder:text-foreground/25 max-h-[80px] leading-relaxed px-2.5 py-1.5 focus:border-foreground/15 transition-colors overflow-hidden"
+            className="flex-1 bg-foreground/[0.04] border border-border rounded-lg resize-none outline-none text-[12px] text-foreground placeholder:text-foreground/25 max-h-[80px] leading-relaxed px-2.5 py-1.5 focus:border-foreground/15 transition-colors overflow-hidden"
             disabled={isStreaming}
           />
           {isStreaming ? (
@@ -810,7 +810,7 @@ export function ContextBarPanel() {
 
       {/* Bottom bar — always visible when there's an answer */}
       {answer && !isStreaming && (
-        <div className="border-t border-border/30 px-2.5 py-1.5 flex items-center gap-1 shrink-0">
+        <div className="border-t border-border px-2.5 py-1.5 flex items-center gap-1 shrink-0">
           {/* Copy to clipboard */}
           <button
             onClick={handleCopy}

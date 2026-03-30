@@ -172,14 +172,14 @@ export function AutomationPanel() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setUsageOpen(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all"
             >
               <InfoIcon className="w-3 h-3" />
               {l10n.t("Guide")}
             </button>
             <button
               onClick={() => openCreateDialog("shell")}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all"
             >
               <TerminalIcon className="w-3 h-3" />
               {l10n.t("Shell")}
@@ -196,13 +196,13 @@ export function AutomationPanel() {
 
         {/* Task cards */}
         {tasks.length === 0 ? (
-          <div className="border border-dashed border-border/40 rounded-xl flex flex-col items-center justify-center py-16 gap-3">
+          <div className="border border-dashed border-border rounded-xl flex flex-col items-center justify-center py-16 gap-3">
             <ClockIcon className="w-6 h-6 text-muted-foreground" />
             <p className="text-[12px] text-muted-foreground">{l10n.t("No scheduled tasks")}</p>
             <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={() => setUsageOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all"
               >
                 <InfoIcon className="w-3 h-3" />
                 {l10n.t("How to use")}
@@ -231,7 +231,7 @@ export function AutomationPanel() {
             {/* Add more card */}
             <button
               onClick={() => openCreateDialog("prompt")}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border/40 hover:border-border/60 hover:bg-foreground/[0.01] transition-all"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border hover:border-border hover:bg-foreground/[0.01] transition-all"
             >
               <PlusIcon className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-[11px] text-muted-foreground font-medium">
@@ -323,7 +323,7 @@ function TaskCard({
   return (
     <div
       onClick={onClick}
-      className="group relative flex items-center gap-3 px-3.5 py-3 rounded-xl border border-border/40 hover:border-border/60 hover:bg-foreground/[0.015] transition-all cursor-pointer"
+      className="group relative flex items-center gap-3 px-3.5 py-3 rounded-xl border border-border hover:border-border hover:bg-foreground/[0.015] transition-all cursor-pointer"
     >
       {/* Icon */}
       <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
@@ -455,7 +455,7 @@ function TaskDetailDialog({
         <div className="flex items-center gap-1.5">
           <button
             onClick={onRunNow}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all"
           >
             <PlayIcon className="w-3 h-3" />
             {l10n.t("Run Now")}
@@ -625,7 +625,7 @@ function TaskDetailDialog({
                   }
                   placeholder={l10n.t("Agent prompt text...")}
                   rows={3}
-                  className="w-full bg-background border border-border/60 rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring resize-y min-h-[72px]"
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring resize-y min-h-[72px]"
                 />
               </Field>
             )}
@@ -666,7 +666,7 @@ function TaskDetailDialog({
 
                 {/* Success output */}
                 {task.lastRunResult && !task.lastRunError && (
-                  <div className="mt-2 px-3 py-2 rounded-lg bg-foreground/[0.02] border border-border/30">
+                  <div className="mt-2 px-3 py-2 rounded-lg bg-foreground/[0.02] border border-border">
                     <p className="text-[10px] font-mono text-muted-foreground break-all max-h-24 overflow-y-auto">
                       {task.lastRunResult}
                     </p>
@@ -687,7 +687,7 @@ function TaskDetailDialog({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-t border-border/30 pt-5">
+    <div className="border-t border-border pt-5">
       <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3">
         {title}
       </h3>
@@ -795,7 +795,7 @@ function CreateTaskDialog({
                 "flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-xl border transition-all text-left",
                 actionType === "prompt"
                   ? "border-foreground/20 bg-foreground/[0.03]"
-                  : "border-border/40 hover:border-border/60 hover:bg-foreground/[0.01]",
+                  : "border-border hover:border-border hover:bg-foreground/[0.01]",
               )}
             >
               <div
@@ -825,7 +825,7 @@ function CreateTaskDialog({
                 "flex-1 flex items-center gap-2.5 px-3.5 py-3 rounded-xl border transition-all text-left",
                 actionType === "shell"
                   ? "border-foreground/20 bg-foreground/[0.03]"
-                  : "border-border/40 hover:border-border/60 hover:bg-foreground/[0.01]",
+                  : "border-border hover:border-border hover:bg-foreground/[0.01]",
               )}
             >
               <div
@@ -898,7 +898,7 @@ function CreateTaskDialog({
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder={l10n.t("e.g. Check for new issues and summarize...")}
                 rows={3}
-                className="w-full bg-background border border-border/60 rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring resize-y min-h-[72px]"
+                className="w-full bg-background border border-border rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring resize-y min-h-[72px]"
               />
             )}
           </div>
@@ -954,7 +954,7 @@ function CreateTaskDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/20">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
           <button
             type="button"
             onClick={() => onOpenChange(false)}
@@ -1054,8 +1054,8 @@ function AutomationUsageDialog({
         </div>
 
         {/* Tips */}
-        <div className="border-t border-border/30 pt-4 mt-2">
-          <div className="px-3 py-2.5 rounded-xl bg-foreground/[0.02] border border-border/20">
+        <div className="border-t border-border pt-4 mt-2">
+          <div className="px-3 py-2.5 rounded-xl bg-foreground/[0.02] border border-border">
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               <span className="font-medium text-muted-foreground">{l10n.t("Tip:")}</span>{" "}
               {l10n.t(

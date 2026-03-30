@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Languages, Copy, Check, X, ChevronDown, Loader2 } from "lucide-react";
-import { glassPanelStyle, glassPopoverStyle } from "@/lib/glassStyle";
 
 const TARGET_LANGUAGES = [
   { code: "zh", label: "中文" },
@@ -145,12 +144,12 @@ export function TranslatorPanel() {
   return (
     <div className={isDark ? "dark" : ""}>
       <div
-        className="w-screen h-screen flex flex-col overflow-hidden rounded-xl border border-border/50 shadow-2xl"
-        style={glassPanelStyle}
+        className="w-screen h-screen flex flex-col overflow-hidden rounded-xl border border-border shadow-2xl"
+        style={{ background: "var(--background)" }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-3 py-2 border-b border-border/30"
+          className="flex items-center justify-between px-3 py-2 border-b border-border"
           data-tauri-drag-region
         >
           <div className="flex items-center gap-2">
@@ -169,8 +168,8 @@ export function TranslatorPanel() {
               </button>
               {showLangMenu && (
                 <div
-                  className="absolute right-0 top-full mt-1 z-50 border border-border/50 rounded-lg shadow-lg py-1 min-w-[120px] animate-fade-in"
-                  style={glassPopoverStyle}
+                  className="absolute right-0 top-full mt-1 z-50 border border-border rounded-lg shadow-lg py-1 min-w-[120px] animate-fade-in"
+                  style={{ background: "var(--background)" }}
                 >
                   {TARGET_LANGUAGES.map((lang) => (
                     <button
@@ -199,7 +198,7 @@ export function TranslatorPanel() {
         </div>
 
         {/* Source text */}
-        <div className="px-3 py-2 border-b border-border/20 max-h-[120px] overflow-y-auto">
+        <div className="px-3 py-2 border-b border-border max-h-[120px] overflow-y-auto">
           <p className="text-xs text-foreground/60 mb-1">Source</p>
           <p className="text-sm text-foreground leading-relaxed select-text">{sourceText}</p>
         </div>
@@ -235,7 +234,7 @@ export function TranslatorPanel() {
         </div>
 
         {/* Footer hint */}
-        <div className="px-3 py-1.5 border-t border-border/20 flex items-center justify-between">
+        <div className="px-3 py-1.5 border-t border-border flex items-center justify-between">
           <span className="text-[10px] text-foreground/30">⌥D to translate selection</span>
           <span className="text-[10px] text-foreground/30">Esc to close</span>
         </div>

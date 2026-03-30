@@ -177,13 +177,13 @@ export function SkillsPanel() {
 
             {/* Markdown content */}
             {activeSkill.content ? (
-              <div className="border-t border-border/30 pt-6">
+              <div className="border-t border-border pt-6">
                 <div className="prose-skill">
                   <MarkdownRenderer content={activeSkill.content} />
                 </div>
               </div>
             ) : (
-              <div className="border-t border-border/30 pt-6">
+              <div className="border-t border-border pt-6">
                 <p className="text-[12px] text-muted-foreground text-center py-8">
                   {l10n.t("No documentation available for this skill.")}
                 </p>
@@ -239,7 +239,7 @@ export function SkillsPanel() {
 
         {/* Skill cards */}
         {installedSkills.length === 0 ? (
-          <div className="border border-dashed border-border/40 rounded-xl flex flex-col items-center justify-center py-16 gap-3">
+          <div className="border border-dashed border-border rounded-xl flex flex-col items-center justify-center py-16 gap-3">
             <ZapIcon className="w-6 h-6 text-muted-foreground" />
             <p className="text-[12px] text-muted-foreground">{l10n.t("No skills installed")}</p>
             <div className="flex items-center gap-2 mt-1">
@@ -276,7 +276,7 @@ export function SkillsPanel() {
             {/* Add more card */}
             <button
               onClick={() => setStoreOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border/40 hover:border-border/60 hover:bg-foreground/[0.01] transition-all"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border hover:border-border hover:bg-foreground/[0.01] transition-all"
             >
               <ExternalLinkIcon className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-[11px] text-muted-foreground font-medium">
@@ -317,7 +317,7 @@ function SkillCard({
   return (
     <div
       onClick={onClick}
-      className="group relative flex items-center gap-3 px-3.5 py-3 rounded-xl border border-border/40 hover:border-border/60 hover:bg-foreground/[0.015] transition-all cursor-pointer"
+      className="group relative flex items-center gap-3 px-3.5 py-3 rounded-xl border border-border hover:border-border hover:bg-foreground/[0.015] transition-all cursor-pointer"
     >
       {/* Icon */}
       <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">

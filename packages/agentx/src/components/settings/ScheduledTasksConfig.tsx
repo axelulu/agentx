@@ -316,7 +316,7 @@ export function ScheduledTasksConfig() {
           </FieldRow>
 
           {/* Status info */}
-          <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
+          <div className="mt-2 pt-2 border-t border-border space-y-1">
             <div className="flex items-center justify-between">
               <div className="text-[11px] text-muted-foreground/60 space-y-0.5">
                 {task.lastRunAt && (

@@ -10,22 +10,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip
 import { l10n } from "@agentx/l10n";
 import "@xterm/xterm/css/xterm.css";
 
-const darkTheme: ITheme = {
-  background: "#1a1a1a",
-  foreground: "#d4d4d4",
-  cursor: "#d4d4d4",
-  selectionBackground: "#264f78",
-};
-
-const lightTheme: ITheme = {
-  background: "#f5f5f5",
-  foreground: "#1a1a1a",
-  cursor: "#1a1a1a",
-  selectionBackground: "#add6ff",
-};
-
 function getTermTheme(): ITheme {
-  return document.documentElement.classList.contains("dark") ? darkTheme : lightTheme;
+  const style = getComputedStyle(document.documentElement);
+  return {
+    background: style.getPropertyValue("--terminal-bg").trim(),
+    foreground: style.getPropertyValue("--terminal-fg").trim(),
+    cursor: style.getPropertyValue("--terminal-cursor").trim(),
+    selectionBackground: style.getPropertyValue("--terminal-selection").trim(),
+  };
 }
 
 export function TerminalPanel() {
@@ -155,7 +147,7 @@ export function TerminalPanel() {
       style={{ height: terminalHeight }}
     >
       {/* Header bar — flush against terminal content */}
-      <div className="flex items-center justify-between px-2 py-1 shrink-0 bg-[#f5f5f5] dark:bg-[#1a1a1a]">
+      <div className="flex items-center justify-between px-2 py-1 shrink-0 bg-[var(--terminal-bg)]">
         <span className="text-xs font-medium text-muted-foreground">{l10n.t("Terminal")}</span>
         <Tooltip>
           <TooltipTrigger asChild>

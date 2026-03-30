@@ -42,7 +42,7 @@ export function DropdownMenu({
         onClose={() => setOpen(false)}
         anchorRef={btnRef}
         placement={placement}
-        className={cn("min-w-[180px] py-1.5", className)}
+        className={cn("min-w-[180px] py-1", className)}
       >
         {items.map((item, i) => (
           <button
@@ -51,7 +51,7 @@ export function DropdownMenu({
               item.onClick();
               setOpen(false);
             }}
-            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-[13px] text-foreground/70 hover:text-foreground/90 hover:bg-foreground/[0.05] transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-foreground/70 hover:text-foreground/90 hover:bg-foreground/[0.05] transition-colors"
           >
             {item.icon && (
               <item.icon className={cn("w-4 h-4 text-muted-foreground/60", item.iconClassName)} />

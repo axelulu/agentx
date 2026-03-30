@@ -956,7 +956,7 @@ export function CommandPalette() {
     <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background shadow-2xl">
       {/* Search input */}
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-border/30 shrink-0"
+        className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0"
         data-tauri-drag-region
       >
         <div className="flex items-center justify-center w-5 h-5 text-foreground/30">
@@ -1248,7 +1248,7 @@ export function CommandPalette() {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-border/30 px-3 py-1.5 flex items-center gap-3 shrink-0 text-[10px] text-foreground/25">
+      <div className="border-t border-border px-3 py-1.5 flex items-center gap-3 shrink-0 text-[10px] text-foreground/25">
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 rounded bg-foreground/[0.06] text-[9px]">↑↓</kbd>
           {l10n.t("navigate")}
@@ -1359,7 +1359,7 @@ function ClipboardView({
   return (
     <div className="flex flex-col h-full">
       {/* Tabs */}
-      <div className="flex px-4 py-1.5 gap-0.5 border-b border-border/30 shrink-0">
+      <div className="flex px-4 py-1.5 gap-0.5 border-b border-border shrink-0">
         {[
           { key: "ai" as const, label: l10n.t("AI Processing"), icon: SparklesIcon },
           { key: "transform" as const, label: l10n.t("Format Conversion"), icon: ArrowRightLeft },
@@ -1386,7 +1386,7 @@ function ClipboardView({
 
       {/* Content preview (for AI and Transform tabs) */}
       {tab !== "history" && (
-        <div className="px-4 py-2 max-h-[80px] overflow-y-auto border-b border-border/30 shrink-0">
+        <div className="px-4 py-2 max-h-[80px] overflow-y-auto border-b border-border shrink-0">
           {content ? (
             <p className="text-xs text-foreground/40 leading-relaxed select-text whitespace-pre-wrap font-mono">
               {content.length > 400 ? content.slice(0, 400) + "..." : content}
@@ -1402,7 +1402,7 @@ function ClipboardView({
         {tab === "ai" && (
           <div className="flex flex-col h-full">
             {/* Actions */}
-            <div className="px-4 py-2 border-b border-border/30 shrink-0">
+            <div className="px-4 py-2 border-b border-border shrink-0">
               <div className="flex flex-wrap gap-1.5">
                 {getClipActions().map((action) => {
                   const Icon = action.icon;
@@ -1471,7 +1471,7 @@ function ClipboardView({
             </div>
             {/* Copy & Close */}
             {result && !processing && (
-              <div className="px-4 py-2 flex justify-end border-t border-border/30 shrink-0">
+              <div className="px-4 py-2 flex justify-end border-t border-border shrink-0">
                 <button
                   onClick={() => onCopyAndClose(result)}
                   className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-medium bg-foreground text-background hover:opacity-90 transition-colors"
@@ -1543,7 +1543,7 @@ function ClipboardView({
               )}
             </div>
             {transformResult && (
-              <div className="px-4 py-2 flex justify-end border-t border-border/30 shrink-0">
+              <div className="px-4 py-2 flex justify-end border-t border-border shrink-0">
                 <button
                   onClick={() => onCopyAndClose(transformResult)}
                   className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-medium bg-foreground text-background hover:opacity-90 transition-colors"
@@ -1559,8 +1559,8 @@ function ClipboardView({
         {tab === "history" && (
           <div className="flex flex-col h-full">
             {/* Search */}
-            <div className="px-4 py-2 border-b border-border/30 shrink-0">
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-foreground/[0.04] border border-border/40">
+            <div className="px-4 py-2 border-b border-border shrink-0">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-foreground/[0.04] border border-border">
                 <SearchIcon className="w-3.5 h-3.5 shrink-0 text-foreground/25" />
                 <input
                   type="text"
@@ -1584,7 +1584,7 @@ function ClipboardView({
                   return (
                     <div
                       key={entry.id}
-                      className="group flex items-start gap-2 px-4 py-2 cursor-pointer hover:bg-foreground/[0.04] transition-colors border-b border-border/10"
+                      className="group flex items-start gap-2 px-4 py-2 cursor-pointer hover:bg-foreground/[0.04] transition-colors border-b border-border"
                       onClick={() => onSelectHistory(entry)}
                     >
                       <span className="mt-0.5 shrink-0 text-foreground/20">

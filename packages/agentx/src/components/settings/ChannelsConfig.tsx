@@ -259,7 +259,7 @@ export function ChannelsConfig() {
                 <img
                   src={qrCode.qrDataUrl}
                   alt={`${channel.type === "telegram" ? "Telegram" : "Discord"} QR Code`}
-                  className="w-40 h-40 rounded-lg border border-border/60"
+                  className="w-40 h-40 rounded-lg border border-border"
                 />
               </div>
             )}

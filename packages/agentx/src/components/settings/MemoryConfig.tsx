@@ -223,7 +223,7 @@ export function MemoryConfig() {
                                   if (e.key === "Enter") saveEditFact();
                                   if (e.key === "Escape") setEditingFactId(null);
                                 }}
-                                className="flex-1 text-[12px] bg-background border border-border/60 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
+                                className="flex-1 text-[12px] bg-background border border-border rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
                                 autoFocus
                               />
                               <button

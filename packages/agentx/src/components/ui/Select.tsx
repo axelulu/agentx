@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-import { glassPopoverStyle } from "@/lib/glassStyle";
 import { ChevronDownIcon, CheckIcon } from "lucide-react";
 
 export interface SelectOption {
@@ -78,7 +77,7 @@ export function Select({ value, onChange, options, placeholder, className }: Sel
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center justify-between gap-2 bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] text-foreground outline-none transition-colors hover:border-border focus:ring-1 focus:ring-ring",
+          "flex items-center justify-between gap-2 bg-background border border-border rounded-lg px-3 py-1.5 text-[12px] text-foreground outline-none transition-colors hover:border-border focus:ring-1 focus:ring-ring",
           className,
         )}
       >
@@ -99,8 +98,12 @@ export function Select({ value, onChange, options, placeholder, className }: Sel
             ref={panelRef}
             data-floating-ui
             onPointerDown={(e) => e.stopPropagation()}
-            className="fixed rounded-lg border border-border/50 shadow-lg overflow-hidden"
-            style={{ zIndex: "var(--z-popover)", pointerEvents: "auto", ...glassPopoverStyle }}
+            className="fixed rounded-xl border border-border shadow-lg overflow-hidden"
+            style={{
+              zIndex: "var(--z-popover)",
+              pointerEvents: "auto",
+              background: "var(--background)",
+            }}
           >
             <div className="max-h-[240px] overflow-y-auto py-1">
               {options.map((opt) => {

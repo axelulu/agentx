@@ -64,7 +64,7 @@ export function VoiceConfig() {
             value={voice.sttApiUrl}
             onChange={(e) => dispatch(setVoiceSettings({ sttApiUrl: e.target.value }))}
             placeholder="https://api.groq.com/openai/v1"
-            className="w-full bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+            className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
           />
         </div>
 
@@ -76,7 +76,7 @@ export function VoiceConfig() {
             value={voice.sttApiKey}
             onChange={(e) => dispatch(setVoiceSettings({ sttApiKey: e.target.value }))}
             placeholder="sk-..."
-            className="w-full bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+            className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
           />
         </div>
 

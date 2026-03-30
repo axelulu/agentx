@@ -1,85 +1,343 @@
-:root {
-  --accent-hue: 0;
-  --radius: 0.75rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.09 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.09 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.09 0 0);
+/* ================================================================
+ * Design System Color Tokens
+ * Strictly mirrors the source token set. Supports light / dark.
+ * ================================================================ */
 
-  /* Frosted glass background tokens */
-  --glass-content-bg: rgba(255, 255, 255, 0.92);
-  --glass-panel-bg: rgba(255, 255, 255, 0.45);
-  --glass-popover-bg: rgba(255, 255, 255, 0.7);
-  --primary: oklch(0.15 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.2 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.4 0 0);
-  --accent: oklch(0.95 0 0);
-  --accent-foreground: oklch(0.15 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.88 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.7 0 0);
-  --chart-1: oklch(0.3 0 0);
-  --chart-2: oklch(0.45 0 0);
-  --chart-3: oklch(0.6 0 0);
-  --chart-4: oklch(0.75 0 0);
-  --chart-5: oklch(0.85 0 0);
-  --sidebar: oklch(0.97 0 0 / 0.7);
-  --sidebar-foreground: oklch(0.09 0 0);
-  --sidebar-primary: oklch(0.15 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.15 0 0 / 0.1);
-  --sidebar-accent-foreground: oklch(0.15 0 0);
-  --sidebar-border: oklch(0.84 0 0 / 0.5);
-  --sidebar-ring: oklch(0.15 0 0);
+:root {
+  --background-gray-login: #f8f8f7;
+  --background-selection: #b8d3f8;
+  --background-tool-used: linear-gradient(
+    176deg,
+    rgba(255, 255, 255, 0) 5.88%,
+    rgba(255, 255, 255, 0.6) 51.28%,
+    rgba(255, 255, 255, 0) 94.95%
+  );
+  --background-drag-overlay: #ffffff80;
+  --background-thinking: linear-gradient(
+    90deg,
+    var(--text-primary) 0%,
+    #d9d8d8 50.48%,
+    var(--text-primary) 99.04%
+  );
+  --background-app-banner: linear-gradient(180deg, #f7f7f7, #ececec);
+  --background-share-header: linear-gradient(0deg, rgba(248, 248, 247, 0), #f8f8f7 45.05%);
+  --background-chat-with-image-toolbar: rgba(248, 248, 247, 0.12);
+  --background-text-edit-panel: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    var(--background-menu-white) 100%
+  );
+  --background-tool-used-image-loading: #000;
+  --background-canvas-bg: #f0f0ef;
+  --background-code-bg: #f0f0ef;
+  --background-desktop-half-price: linear-gradient(90deg, #edf7ff, #e9f6fd);
+}
+
+@keyframes breathe {
+  0%,
+  to {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.05;
+  }
 }
 
 .dark {
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.93 0 0);
-  --card: oklch(0.13 0 0);
-  --card-foreground: oklch(0.93 0 0);
-  --popover: oklch(0.17 0 0);
-  --popover-foreground: oklch(0.93 0 0);
-
-  /* Frosted glass background tokens — dark mode */
-  --glass-content-bg: rgba(10, 10, 10, 0.93);
-  --glass-panel-bg: rgba(28, 28, 28, 0.5);
-  --glass-popover-bg: rgba(32, 32, 32, 0.75);
-  --primary: oklch(0.93 0 0);
-  --primary-foreground: oklch(0.09 0 0);
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(0.88 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.24 0 0);
-  --accent-foreground: oklch(0.93 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.32 0 0 / 0.55);
-  --input: oklch(0.25 0 0);
-  --ring: oklch(0.93 0 0);
-  --chart-1: oklch(0.4 0 0);
-  --chart-2: oklch(0.55 0 0);
-  --chart-3: oklch(0.7 0 0);
-  --chart-4: oklch(0.3 0 0);
-  --chart-5: oklch(0.6 0 0);
-  --sidebar: oklch(0.11 0 0 / 0.7);
-  --sidebar-foreground: oklch(0.88 0 0);
-  --sidebar-primary: oklch(0.93 0 0);
-  --sidebar-primary-foreground: oklch(0.09 0 0);
-  --sidebar-accent: oklch(0.95 0 0 / 0.1);
-  --sidebar-accent-foreground: oklch(0.88 0 0);
-  --sidebar-border: oklch(0.95 0 0 / 0.15);
-  --sidebar-ring: oklch(0.93 0 0);
+  --background-gray-login: #050505;
+  --background-selection: #6580a5;
+  --background-tool-used: linear-gradient(
+    176deg,
+    rgba(40, 40, 40, 0) 5.88%,
+    rgba(255, 255, 255, 0.08) 51.28%,
+    rgba(40, 40, 40, 0) 94.95%
+  );
+  --background-drag-overlay: #00000080;
+  --background-thinking: linear-gradient(
+    90deg,
+    var(--text-primary) 0%,
+    #d9d8d8 50.48%,
+    var(--text-primary) 99.04%
+  );
+  --background-app-banner: linear-gradient(180deg, #f7f7f7, #ececec);
+  --background-share-header: linear-gradient(
+    var(--background-gray-main) 0%,
+    var(--background-gray-main) 45.05%
+  );
+  --background-chat-with-image-toolbar: rgba(39, 39, 40, 0.12);
+  --background-text-edit-panel: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    var(--background-menu-white) 100%
+  );
+  --background-tool-used-image-loading: #fff;
+  --background-canvas-bg: #2f2f30;
+  --background-code-bg: #2f2f30;
+  --background-desktop-half-price: linear-gradient(90deg, #183359, #1b415a);
 }
 
+:root {
+  --text-primary: #34322d;
+  --text-secondary: #5e5e5b;
+  --text-tertiary: #858481;
+  --text-disable: #b9b9b7;
+  --text-blue: #0081f2;
+  --text-onblack: #ffffff;
+  --text-white: #ffffff;
+  --text-white-tsp: #ffffff60;
+  --theme-text-primary: #262626;
+  --theme-text-quaternary: #8c8c8c;
+  --logo-color: #34322d;
+  --text-shining: #e5e5e5;
+  --text-blue-dark: #005fb3;
+  --background-gray-main: #f8f8f7;
+  --background-white-main: #ffffff;
+  --background-menu-white: #ffffff;
+  --background-menu-gray: #f8f8f7;
+  --background-tsp-menu-white: #ffffff14;
+  --background-tsp-card-gray: #37352f0a;
+  --background-nav: #ebebeb;
+  --background-card: #fafafa;
+  --background-mask-black: #000000a6;
+  --background-mask-white: #f8f8f7a6;
+  --background-card-gray: #fafafa;
+  --background-preview-mask: #000000d9;
+  --border-main: #0000000f;
+  --border-blue: #0081f247;
+  --border-white: #ffffff33;
+  --border-btn-main: #0000001f;
+  --border-input-active: #0000004d;
+  --border-light: #0000000a;
+  --border-dark: #0000001f;
+  --border-primary: #4f59661f;
+  --icon-primary: #34322d;
+  --icon-secondary: #5e5e5b;
+  --icon-tertiary: #858481;
+  --icon-disable: #b9b9b7;
+  --icon-blue: #0081f2;
+  --icon-onblack: #ffffff;
+  --icon-white: #ffffff;
+  --icon-white-tsp: #ffffff60;
+  --function-error: #f25a5a;
+  --function-success: #25ba3b;
+  --function-warning: #efa201;
+  --function-error-tsp: #f25a5a14;
+  --function-warning-tsp: #efa2011f;
+  --function-success-tsp: #25ba3b14;
+  --fill-blue: #0081f214;
+  --fill-tsp-white-main: #37352f0f;
+  --fill-tsp-white-dark: #37352f14;
+  --fill-tsp-white-light: #37352f0a;
+  --fill-tsp-gray-dark: #37352f14;
+  --fill-tsp-gray-main: #37352f0a;
+  --fill-white: #ffffff;
+  --fill-black: #28282973;
+  --fill-gray: #f8f8f7;
+  --Button-primary-black: #1a1a19;
+  --Button-primary-white: #ffffff;
+  --Button-primary-brand: #0081f2;
+  --Button-primary-brand-disabled: #7cbdf5;
+  --Button-secondary-brand: #0081f21a;
+  --Button-secondary-error-border: #f25a5a80;
+  --Button-secondary-error-fill: #ffffff;
+  --Button-secondary-main: #ffffff;
+  --Button-secondary-gray: #37352f0f;
+  --tab-fill: rgba(0, 0, 0, 0.04);
+  --tab-active-black: #1a1a19;
+  --shadow-L: #0000003d;
+  --shadow-M: #0000001f;
+  --shadow-S: #00000014;
+  --shadow-XS: #0000000f;
+  --shadows-inner-0: #ffffff00;
+  --shadows-inner-1: #16191d14;
+  --shadows-inner-2: #16191d1f;
+  --shadows-drop-1: #16191d08;
+  --shadows-drop-2: #16191d0a;
+  --shadows-drop-3: #16191d14;
+  --shadows-drop-4: #16191d1f;
+  --shadows-highlight-1: #cce5ff;
+  --shadows-highlight-2: #1487fa;
+  --shadows-danger-1: #fed7d7;
+  --shadows-danger-2: #ee3a3a;
+  --shadows-card-border: #16191d1f;
+  --shadows-card-border-2: #16191d1f;
+  --Tooltips-main: #000000e6;
+  --gradual-white-0: #ffffff00;
+  --gradual-gray-100: #ffffff00;
+  --gradual-gray-0: #ffffff00;
+  --gradual-dark-20: #00000033;
+  --fill-input-chat: #ffffff;
+  --gradient-bg-mask-gray-0: #eaeaeb00;
+  --gradual-white-menu-0: #ffffff00;
+}
+
+.dark {
+  --text-primary: #dadada;
+  --text-secondary: #acacac;
+  --text-tertiary: #7f7f7f;
+  --text-disable: #5f5f5f;
+  --text-blue: #1a93fe;
+  --text-onblack: #000000e6;
+  --text-white: #ffffff;
+  --text-white-tsp: #ffffff60;
+  --theme-text-primary: #dbdbdb;
+  --theme-text-quaternary: #7a7a7a;
+  --logo-color: #dadada;
+  --text-shining: #474747;
+  --text-blue-dark: #489ce6;
+  --background-gray-main: #272728;
+  --background-white-main: #161618;
+  --background-menu-white: #383739;
+  --background-menu-gray: #272728;
+  --background-tsp-menu-white: #ffffff0f;
+  --background-tsp-card-gray: #ffffff0f;
+  --background-nav: #212122;
+  --background-card: #383739;
+  --background-mask-black: #000000a6;
+  --background-mask-white: #272728a6;
+  --background-card-gray: #383739;
+  --background-preview-mask: #000000d9;
+  --border-main: #ffffff14;
+  --border-white: #00000014;
+  --border-btn-main: #ffffff1a;
+  --border-input-active: #ffffff4d;
+  --border-light: #ffffff0f;
+  --border-dark: #ffffff29;
+  --border-primary: #56565f52;
+  --border-blue: #1a93fe47;
+  --icon-primary: #dadada;
+  --icon-secondary: #acacac;
+  --icon-tertiary: #7f7f7f;
+  --icon-disable: #5f5f5f;
+  --icon-blue: #1a93fe;
+  --icon-onblack: #000000d9;
+  --icon-white: #ffffff;
+  --icon-white-tsp: #ffffff60;
+  --function-error: #eb4d4d;
+  --function-success: #5eb92d;
+  --function-warning: #ffbf36;
+  --function-error-tsp: #eb4d4d14;
+  --function-warning-tsp: #ffbf361f;
+  --function-success-tsp: #25ba3b1f;
+  --fill-blue: #1a93fe1f;
+  --fill-tsp-white-main: #ffffff0f;
+  --fill-tsp-white-dark: #ffffff1f;
+  --fill-tsp-white-light: #ffffff0a;
+  --fill-tsp-gray-dark: #00000047;
+  --fill-tsp-gray-main: #00000033;
+  --fill-white: #3e3d3e;
+  --fill-black: #28282973;
+  --fill-gray: #444345;
+  --Button-primary-black: #ffffff;
+  --Button-primary-white: #ffffff14;
+  --Button-primary-brand: #1a93fe;
+  --Button-primary-brand-disabled: #215d93;
+  --Button-secondary-brand: #1a93fe1f;
+  --Button-secondary-error-border: #eb4d4d29;
+  --Button-secondary-error-fill: #eb4d4d1f;
+  --Button-secondary-main: #ffffff1f;
+  --Button-secondary-gray: #ffffff0f;
+  --tab-fill: rgba(255, 255, 255, 0.06);
+  --tab-active-black: #ffffff;
+  --shadow-L: #00000066;
+  --shadow-M: #0000003d;
+  --shadow-S: #00000029;
+  --shadow-XS: #0000001f;
+  --shadows-inner-0: #ffffff1f;
+  --shadows-inner-1: #ffffff14;
+  --shadows-inner-2: #ffffff1f;
+  --shadows-drop-1: #0000001f;
+  --shadows-drop-2: #00000033;
+  --shadows-drop-3: #00000047;
+  --shadows-drop-4: #0000005c;
+  --shadows-highlight-1: #1b61a6;
+  --shadows-highlight-2: #1487fa;
+  --shadows-danger-1: #8f1919;
+  --shadows-danger-2: #ee3a3a;
+  --shadows-card-border: #ffffff1f;
+  --shadows-card-border-2: #ffffff00;
+  --Tooltips-main: #000000e6;
+  --gradual-white-0: #27272800;
+  --gradual-gray-100: #444345;
+  --gradual-gray-0: #44434500;
+  --gradual-dark-20: #ffffff33;
+  --fill-input-chat: #363537;
+  --gradient-bg-mask-gray-0: #1e1e1e00;
+  --gradual-white-menu-0: #38373900;
+}
+
+/* ================================================================
+ * Semantic UI Tokens (shadcn/ui compatibility layer)
+ * Maps design-system tokens → component semantics.
+ * Dark mode auto-switches because the underlying tokens change.
+ * ================================================================ */
+:root {
+  --accent-hue: 0;
+  --radius: 0.75rem;
+
+  --background: var(--background-white-main);
+  --foreground: var(--text-primary);
+  --card: var(--background-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--background-menu-white);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--Button-primary-black);
+  --primary-foreground: var(--text-white);
+  --secondary: var(--background-menu-gray);
+  --secondary-foreground: var(--text-secondary);
+  --muted: var(--background-gray-main);
+  --muted-foreground: var(--text-tertiary);
+  --accent: var(--fill-tsp-white-light);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--function-error);
+  --destructive-foreground: var(--text-white);
+  --border: var(--border-main);
+  --input: var(--border-btn-main);
+  --ring: var(--text-blue);
+  --chart-1: var(--text-primary);
+  --chart-2: var(--text-secondary);
+  --chart-3: var(--text-tertiary);
+  --chart-4: var(--text-disable);
+  --chart-5: var(--icon-tertiary);
+  --sidebar: var(--background-nav);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--Button-primary-black);
+  --sidebar-primary-foreground: var(--text-white);
+  --sidebar-accent: var(--fill-tsp-white-main);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-light);
+  --sidebar-ring: var(--text-blue);
+  --message-user-bg: var(--background-card-gray);
+
+  /* Frosted glass tokens */
+  --glass-content-bg: var(--background-mask-white);
+  --glass-panel-bg: rgba(255, 255, 255, 0.82);
+  --glass-popover-bg: rgba(255, 255, 255, 0.7);
+
+  /* Scrollbar tokens */
+  --scrollbar-thumb: var(--fill-tsp-white-dark);
+  --scrollbar-thumb-hover: var(--border-dark);
+
+  /* Glass form-input token */
+  --glass-input-bg: rgba(255, 255, 255, 0.45);
+
+  /* Terminal tokens */
+  --terminal-bg: var(--background-gray-main);
+  --terminal-fg: var(--text-primary);
+  --terminal-cursor: var(--text-primary);
+  --terminal-selection: var(--background-selection);
+}
+
+.dark {
+  /* Dark overrides for derived tokens */
+  --glass-panel-bg: rgba(28, 28, 28, 0.78);
+  --glass-popover-bg: rgba(32, 32, 32, 0.75);
+  --glass-input-bg: rgba(255, 255, 255, 0.08);
+}
+
+/* ================================================================
+ * Base Resets
+ * ================================================================ */
 * {
   box-sizing: border-box;
   outline: none;
@@ -106,13 +364,4 @@ html {
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
-}
-
-/* ========== Accent Color System (oklch + --accent-hue) ========== */
-:root {
-  --message-user-bg: oklch(0.96 0 0);
-}
-
-.dark {
-  --message-user-bg: oklch(0.22 0 0);
 }

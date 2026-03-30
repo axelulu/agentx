@@ -3,7 +3,6 @@ import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { openTab, toggleSidebar, setWeChatImportOpen } from "@/slices/uiSlice";
 import { switchConversation } from "@/slices/chatSlice";
-import { glassContentStyle } from "@/lib/glassStyle";
 import { TitleBar } from "./TitleBar";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -66,7 +65,7 @@ export function AppLayout() {
       <div className="relative flex h-full">
         {/* Left column: transparent so native macOS vibrancy shows through */}
         <div
-          className="flex flex-col shrink-0 overflow-hidden transition-all duration-200 ease-in-out frosted-glass border-r border-sidebar-border"
+          className="flex flex-col shrink-0 overflow-hidden transition-all duration-200 ease-in-out border-r border-sidebar-border bg-white/50 dark:bg-black/50"
           style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
         >
           {/* macOS traffic-light drag strip — match TitleBar height for alignment */}
@@ -77,8 +76,8 @@ export function AppLayout() {
           <Sidebar />
         </div>
 
-        {/* Right column: frosted glass content area */}
-        <div className="flex flex-col flex-1 overflow-hidden" style={glassContentStyle}>
+        {/* Right column: solid content area */}
+        <div className="flex flex-col flex-1 overflow-hidden bg-background">
           {activeView === "chat" && <TabBar />}
           {activeView !== "chat" && <TitleBar />}
           <UpdateDialog />

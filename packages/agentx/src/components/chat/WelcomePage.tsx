@@ -90,7 +90,7 @@ export function WelcomePage({ onSelectPrompt }: WelcomePageProps) {
             <button
               key={s.title}
               onClick={() => onSelectPrompt(s.prompt)}
-              className="group flex flex-col gap-2.5 p-3.5 rounded-xl border border-border/40 hover:border-border hover:bg-foreground/[0.02] transition-all text-left"
+              className="group flex flex-col gap-2.5 p-3.5 rounded-xl border border-border hover:border-border hover:bg-foreground/[0.02] transition-all text-left"
             >
               <s.icon className="w-4 h-4 text-muted-foreground/50 group-hover:text-foreground/60 transition-colors" />
               <span className="text-[12px] font-medium text-foreground/60 group-hover:text-foreground/80 leading-snug transition-colors">

@@ -54,7 +54,7 @@ export function Sidebar() {
             "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
             activeView === "chat" && !currentConversationId
               ? "bg-sidebar-accent text-sidebar-foreground"
-              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+              : "text-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
           )}
         >
           <SquarePenIcon className="w-3.5 h-3.5" />
@@ -64,11 +64,11 @@ export function Sidebar() {
           onClick={() => {
             invoke("quickchat_open_mode", { mode: "conv-search" }).catch(() => {});
           }}
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
         >
           <SearchIcon className="w-3.5 h-3.5" />
           <span className="flex-1 text-left">{l10n.t("Search")}</span>
-          <kbd className="text-[10px] text-muted-foreground/40 font-normal">⌘K</kbd>
+          <kbd className="text-[10px] text-foreground/40 font-normal">⌘K</kbd>
         </button>
         <button
           onClick={() => dispatch(setActiveView("automation"))}
@@ -76,7 +76,7 @@ export function Sidebar() {
             "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
             activeView === "automation"
               ? "bg-sidebar-accent text-sidebar-foreground"
-              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+              : "text-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
           )}
         >
           <WorkflowIcon className="w-3.5 h-3.5" />
@@ -88,7 +88,7 @@ export function Sidebar() {
             "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
             activeView === "skills"
               ? "bg-sidebar-accent text-sidebar-foreground"
-              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+              : "text-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
           )}
         >
           <ZapIcon className="w-3.5 h-3.5" />
@@ -100,7 +100,7 @@ export function Sidebar() {
             "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors",
             activeView === "notifications"
               ? "bg-sidebar-accent text-sidebar-foreground"
-              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+              : "text-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
           )}
         >
           <BellIcon className="w-3.5 h-3.5" />
@@ -108,7 +108,7 @@ export function Sidebar() {
         </button>
         <button
           onClick={() => dispatch(setWeChatImportOpen(true))}
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
         >
           <MessageCircleIcon className="w-3.5 h-3.5" />
           {l10n.t("WeChat Roleplay")}
@@ -117,7 +117,7 @@ export function Sidebar() {
 
       {/* Brand + Select/Folder */}
       <div className="flex items-center justify-between px-4 py-1">
-        <span className="font-medium text-[11px] tracking-tight text-muted-foreground/50 select-none">
+        <span className="font-medium text-[11px] tracking-tight text-foreground/50 select-none">
           {l10n.t("AgentX")}
         </span>
         {selectMode ? (
@@ -127,7 +127,7 @@ export function Sidebar() {
                 onClick={() => setSelectMode(false)}
                 className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
               >
-                <XIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
+                <XIcon className="w-3.5 h-3.5 text-foreground/40" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{l10n.t("Close")}</TooltipContent>
@@ -141,7 +141,7 @@ export function Sidebar() {
                     onClick={() => setSelectMode(true)}
                     className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
                   >
-                    <ListChecksIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
+                    <ListChecksIcon className="w-3.5 h-3.5 text-foreground/40" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{l10n.t("Select")}</TooltipContent>
@@ -153,7 +153,7 @@ export function Sidebar() {
                   onClick={() => dispatch(createFolder(l10n.t("New Folder")))}
                   className="p-1 rounded-md hover:bg-sidebar-accent transition-colors"
                 >
-                  <FolderPlusIcon className="w-3.5 h-3.5 text-muted-foreground/40" />
+                  <FolderPlusIcon className="w-3.5 h-3.5 text-foreground/40" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">{l10n.t("New Folder")}</TooltipContent>
@@ -177,11 +177,11 @@ export function Sidebar() {
                 className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
               >
                 {theme === "dark" ? (
-                  <MoonIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <MoonIcon className="w-3.5 h-3.5 text-foreground/70" />
                 ) : theme === "light" ? (
-                  <SunIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <SunIcon className="w-3.5 h-3.5 text-foreground/70" />
                 ) : (
-                  <MonitorIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <MonitorIcon className="w-3.5 h-3.5 text-foreground/70" />
                 )}
               </button>
             </TooltipTrigger>
@@ -193,7 +193,7 @@ export function Sidebar() {
                 onClick={() => dispatch(toggleSettings())}
                 className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
               >
-                <SettingsIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                <SettingsIcon className="w-3.5 h-3.5 text-foreground/70" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">{l10n.t("Settings")}</TooltipContent>

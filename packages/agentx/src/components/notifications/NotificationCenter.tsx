@@ -183,7 +183,7 @@ export function NotificationCenter() {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all disabled:opacity-50"
             >
               <RefreshCwIcon className={cn("w-3 h-3", loading && "animate-spin")} />
               {l10n.t("Refresh")}
@@ -191,7 +191,7 @@ export function NotificationCenter() {
             <button
               onClick={handleClassifyAll}
               disabled={classifying || notifications.length === 0}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all disabled:opacity-50"
             >
               <SparklesIcon className={cn("w-3 h-3", classifying && "animate-pulse")} />
               {l10n.t("Classify")}
@@ -199,14 +199,14 @@ export function NotificationCenter() {
             <button
               onClick={handleMarkAllRead}
               disabled={unreadCount === 0}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all disabled:opacity-50"
             >
               <CheckCheckIcon className="w-3 h-3" />
               {l10n.t("Read All")}
             </button>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02] transition-all"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02] transition-all"
             >
               <SettingsIcon className="w-3 h-3" />
             </button>
@@ -216,7 +216,7 @@ export function NotificationCenter() {
                 "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all",
                 config.enabled
                   ? "bg-foreground text-background hover:opacity-90"
-                  : "text-muted-foreground hover:text-foreground border border-border/50 hover:border-border hover:bg-foreground/[0.02]",
+                  : "text-muted-foreground hover:text-foreground border border-border hover:border-border hover:bg-foreground/[0.02]",
               )}
             >
               {config.enabled ? (
@@ -235,7 +235,7 @@ export function NotificationCenter() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex items-center gap-1 mb-4 border-b border-border/30 pb-2">
+        <div className="flex items-center gap-1 mb-4 border-b border-border pb-2">
           {(["all", "urgent", "important", "normal", "spam"] as FilterTab[]).map((tab) => {
             const isActive = activeFilter === tab;
             const count = counts[tab] || 0;
@@ -263,7 +263,7 @@ export function NotificationCenter() {
 
         {/* Notification list */}
         {filtered.length === 0 ? (
-          <div className="border border-dashed border-border/40 rounded-xl flex flex-col items-center justify-center py-16 gap-3">
+          <div className="border border-dashed border-border rounded-xl flex flex-col items-center justify-center py-16 gap-3">
             {config.enabled ? (
               <>
                 <BellIcon className="w-6 h-6 text-muted-foreground" />
@@ -339,8 +339,8 @@ function NotificationCard({
       className={cn(
         "group relative flex items-start gap-3 px-3.5 py-2.5 rounded-xl border transition-all cursor-pointer",
         notification.read
-          ? "border-border/20 opacity-60"
-          : "border-border/40 hover:border-border/60 hover:bg-foreground/[0.015]",
+          ? "border-border opacity-60"
+          : "border-border hover:border-border hover:bg-foreground/[0.015]",
       )}
     >
       {/* Category icon */}
@@ -508,7 +508,7 @@ function NISettingsDialog({
           </div>
 
           {/* Rules */}
-          <div className="border-t border-border/30 pt-5 space-y-3">
+          <div className="border-t border-border pt-5 space-y-3">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
               {l10n.t("Classification Rules")}
             </h3>
@@ -520,7 +520,7 @@ function NISettingsDialog({
             {localConfig.rules.map((rule) => (
               <div
                 key={rule.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-foreground/[0.02] border border-border/20"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-foreground/[0.02] border border-border"
               >
                 <span
                   className={cn(
@@ -603,7 +603,7 @@ function NISettingsDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/20">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
           <button
             onClick={() => onOpenChange(false)}
             className="px-3.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"

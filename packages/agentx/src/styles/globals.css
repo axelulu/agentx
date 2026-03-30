@@ -112,15 +112,9 @@
   }
 }
 
-/* Frosted glass — semi-transparent white to soften native macOS vibrancy */
+/* Frosted glass — semi-transparent to soften native macOS vibrancy */
 .frosted-glass {
-  background: rgba(255, 255, 255, 0.45);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
-}
-
-.dark .frosted-glass {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--glass-panel-bg);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
 }
@@ -133,13 +127,7 @@
 [data-glass] input:not([type="button"]):not([type="submit"]):not([type="reset"]),
 [data-glass] textarea,
 [data-glass] select {
-  background: rgba(255, 255, 255, 0.45) !important;
-}
-
-.dark [data-glass] input:not([type="button"]):not([type="submit"]):not([type="reset"]),
-.dark [data-glass] textarea,
-.dark [data-glass] select {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: var(--glass-input-bg) !important;
 }
 
 /*
@@ -163,13 +151,13 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1) !important;
+  background: var(--scrollbar-thumb) !important;
   border-radius: 3px !important;
   border: none !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.18) !important;
+  background: var(--scrollbar-thumb-hover) !important;
 }
 
 ::-webkit-scrollbar-corner {
@@ -179,30 +167,6 @@
 
 ::-webkit-scrollbar-button {
   display: none !important;
-}
-
-.dark ::-webkit-scrollbar {
-  background: transparent !important;
-  border: none !important;
-}
-
-.dark ::-webkit-scrollbar-track {
-  background: transparent !important;
-  border: none !important;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: none !important;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.18) !important;
-}
-
-.dark ::-webkit-scrollbar-corner {
-  background: transparent !important;
-  border: none !important;
 }
 
 /* Tab bar — hidden scrollbar */
@@ -307,7 +271,7 @@
 }
 
 .dark .hljs {
-  color: #c9d1d9;
+  color: var(--text-primary);
 }
 
 .dark .hljs-keyword,
@@ -315,32 +279,32 @@
 .dark .hljs-literal,
 .dark .hljs-section,
 .dark .hljs-link {
-  color: #b0b0b0;
+  color: var(--text-secondary);
 }
 
 .dark .hljs-string,
 .dark .hljs-attr,
 .dark .hljs-addition {
-  color: #d0d0d0;
+  color: var(--text-primary);
 }
 
 .dark .hljs-title,
 .dark .hljs-title\.class_,
 .dark .hljs-title\.function_ {
-  color: #c0c0c0;
+  color: var(--text-secondary);
 }
 
 .dark .hljs-comment,
 .dark .hljs-quote,
 .dark .hljs-meta {
-  color: #707070;
+  color: var(--text-tertiary);
 }
 
 .dark .hljs-number,
 .dark .hljs-regexp,
 .dark .hljs-selector-id,
 .dark .hljs-selector-class {
-  color: #a0a0a0;
+  color: var(--text-tertiary);
 }
 
 .dark .hljs-variable,
@@ -348,11 +312,11 @@
 .dark .hljs-tag,
 .dark .hljs-name,
 .dark .hljs-deletion {
-  color: #b8b8b8;
+  color: var(--text-secondary);
 }
 
 .dark .hljs-built_in,
 .dark .hljs-type,
 .dark .hljs-params {
-  color: #c8c8c8;
+  color: var(--text-primary);
 }

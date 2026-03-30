@@ -42,7 +42,6 @@ import { VoiceConfig } from "./VoiceConfig";
 import { MemoryConfig } from "./MemoryConfig";
 import { SystemHealthConfig } from "./SystemHealthConfig";
 import { cn } from "@/lib/utils";
-import { glassPanelStyle } from "@/lib/glassStyle";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -87,12 +86,11 @@ export function SettingsPanel() {
         onClick={() => dispatch(setSettingsOpen(false))}
       />
       <div
-        data-glass
-        className="relative border border-border/50 rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex"
-        style={glassPanelStyle}
+        className="relative border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex"
+        style={{ background: "var(--background)" }}
       >
         {/* Left: Navigation */}
-        <div className="w-[168px] shrink-0 bg-white/[0.03] dark:bg-black/[0.03] border-r border-border/50 flex flex-col">
+        <div className="w-[168px] shrink-0 bg-white/[0.03] dark:bg-black/[0.03] border-r border-border flex flex-col">
           <div className="px-3 pt-5 pb-3">
             <h2 className="text-[12px] font-semibold text-foreground">{l10n.t("Settings")}</h2>
           </div>
@@ -291,7 +289,7 @@ function GeneralSection() {
               {l10n.t("Choose your preferred color scheme")}
             </p>
           </div>
-          <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
             {themeOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -316,7 +314,7 @@ function GeneralSection() {
               {l10n.t("Adjust interface text size")}
             </p>
           </div>
-          <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
             {fontSizeOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -340,7 +338,7 @@ function GeneralSection() {
               {l10n.t("Control spacing between elements")}
             </p>
           </div>
-          <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
             {densityOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -393,7 +391,7 @@ function GeneralSection() {
             if (e.key === "Enter") commitProxy();
           }}
           placeholder="http://127.0.0.1:7890"
-          className="w-full bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
+          className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-[12px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -542,7 +540,7 @@ function GeneralSection() {
               type="button"
               onClick={() => workspacePath && window.api.fs.openPath(workspacePath)}
               className={cn(
-                "flex-1 text-left bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
+                "flex-1 text-left bg-background border border-border rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
                 workspacePath
                   ? "text-foreground hover:underline cursor-pointer"
                   : "text-muted-foreground/50 cursor-default",
@@ -571,7 +569,7 @@ function GeneralSection() {
               type="button"
               onClick={() => dataPath && window.api.fs.openPath(dataPath)}
               className={cn(
-                "flex-1 text-left bg-background border border-border/60 rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
+                "flex-1 text-left bg-background border border-border rounded-md px-3 py-1.5 text-[12px] font-medium truncate",
                 dataPath
                   ? "text-foreground hover:underline cursor-pointer"
                   : "text-muted-foreground/50 cursor-default",
@@ -759,7 +757,7 @@ function ShortcutsSection() {
                       "px-3 py-1 rounded-md border text-[12px] font-mono min-w-[130px] text-center transition-colors",
                       isSuccess
                         ? "border-green-500/60 bg-green-500/5 text-green-600"
-                        : "border-border/60 bg-background text-foreground hover:bg-foreground/[0.04]",
+                        : "border-border bg-background text-foreground hover:bg-foreground/[0.04]",
                     )}
                   >
                     {hasPending ? pendingKeys : s.shortcut}
@@ -979,7 +977,7 @@ function SystemPromptSection() {
           onBlur={commitGlobal}
           placeholder={l10n.t("Enter custom instructions for the AI...")}
           rows={6}
-          className="w-full bg-background border border-border/60 rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring resize-y min-h-[120px] max-h-[300px]"
+          className="w-full bg-background border border-border rounded-md px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring resize-y min-h-[120px] max-h-[300px]"
         />
       </div>
     </div>

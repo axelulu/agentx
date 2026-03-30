@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-import { glassPopoverStyle } from "@/lib/glassStyle";
 import { ChevronRightIcon } from "lucide-react";
 
 export interface ContextMenuItem {
@@ -61,13 +60,13 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     <div
       ref={menuRef}
       data-floating-ui
-      className="fixed min-w-[140px] py-0.5 rounded-lg shadow-md overflow-hidden ring-1 ring-foreground/[0.06]"
+      className="fixed min-w-[140px] py-1 rounded-xl shadow-lg overflow-hidden border border-border"
       style={{
         left: x,
         top: y,
         zIndex: "var(--z-popover)",
         pointerEvents: "auto",
-        ...glassPopoverStyle,
+        background: "var(--background)",
       }}
     >
       {items.map((item, i) =>
@@ -84,7 +83,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
               }
             }}
             className={cn(
-              "flex items-center gap-1.5 w-full px-2.5 py-1 text-[12px] text-left transition-colors",
+              "flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-left transition-colors",
               item.disabled
                 ? "text-muted-foreground/40 cursor-not-allowed"
                 : item.variant === "destructive"
@@ -144,7 +143,7 @@ function SubmenuItem({ item, onClose }: { item: ContextMenuItem; onClose: () => 
     <div ref={rowRef} onMouseEnter={show} onMouseLeave={hide} className="relative">
       <div
         className={cn(
-          "flex items-center gap-2 w-full px-3 py-1.5 text-[13px] text-left transition-colors cursor-default",
+          "flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-left transition-colors cursor-default",
           "text-popover-foreground hover:bg-accent",
         )}
       >
@@ -162,13 +161,13 @@ function SubmenuItem({ item, onClose }: { item: ContextMenuItem; onClose: () => 
             data-context-submenu
             onMouseEnter={show}
             onMouseLeave={hide}
-            className="fixed min-w-[120px] py-0.5 rounded-lg shadow-md overflow-hidden ring-1 ring-foreground/[0.06]"
+            className="fixed min-w-[120px] py-1 rounded-xl shadow-lg overflow-hidden border border-border"
             style={{
               left: 0,
               top: 0,
               zIndex: "var(--z-popover-nested)",
               pointerEvents: "auto",
-              ...glassPopoverStyle,
+              background: "var(--background)",
             }}
           >
             {item.submenu!.map((sub, j) => (
@@ -182,7 +181,7 @@ function SubmenuItem({ item, onClose }: { item: ContextMenuItem; onClose: () => 
                   }
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 w-full px-2.5 py-1 text-[12px] text-left transition-colors",
+                  "flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-left transition-colors",
                   sub.disabled
                     ? "text-muted-foreground/40 cursor-not-allowed"
                     : sub.variant === "destructive"

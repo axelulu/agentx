@@ -200,7 +200,7 @@ export function TabBar() {
 
                 {menuOpen && (
                   <div
-                    className="absolute left-0 top-full mt-1 min-w-[160px] rounded-lg bg-card shadow-md overflow-hidden ring-1 ring-foreground/[0.06] py-0.5"
+                    className="absolute left-0 top-full mt-1 min-w-[160px] rounded-xl bg-background border border-border shadow-lg overflow-hidden py-1"
                     style={{ zIndex: "var(--z-popover)" }}
                   >
                     {/* Favorite */}
@@ -326,7 +326,7 @@ function ExportSubmenu({
       onMouseEnter={() => onOpenChange(true)}
       onMouseLeave={() => onOpenChange(false)}
     >
-      <button className="flex items-center gap-1.5 w-full px-2.5 py-1 text-[12px] text-foreground hover:bg-foreground/[0.06] transition-colors">
+      <button className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] text-foreground hover:bg-foreground/[0.06] transition-colors">
         <DownloadIcon className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="flex-1 text-left">{l10n.t("Export")}</span>
         <ChevronRightIcon className="w-3 h-3 text-muted-foreground" />
@@ -337,7 +337,7 @@ function ExportSubmenu({
             ref={subRef}
             onMouseEnter={() => onOpenChange(true)}
             onMouseLeave={() => onOpenChange(false)}
-            className="fixed min-w-[120px] rounded-lg bg-card shadow-md overflow-hidden ring-1 ring-foreground/[0.06]"
+            className="fixed min-w-[120px] rounded-xl bg-background border border-border shadow-lg overflow-hidden py-1"
             style={{ left: 0, top: 0, zIndex: "var(--z-popover)" }}
           >
             <MenuItem
@@ -375,7 +375,7 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 w-full px-2.5 py-1 text-[12px] transition-colors ${
+      className={`flex items-center gap-2 w-full px-3 py-1.5 text-[12px] transition-colors ${
         variant === "destructive"
           ? "text-destructive hover:bg-destructive/10"
           : "text-foreground hover:bg-foreground/[0.06]"

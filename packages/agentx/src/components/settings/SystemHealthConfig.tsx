@@ -96,14 +96,14 @@ function SkeletonLoading() {
       {/* Processes skeleton */}
       <div className="space-y-3">
         <Skeleton className="h-3 w-28" />
-        <div className="rounded-md border border-border/60 overflow-hidden">
-          <div className="bg-foreground/[0.03] border-b border-border/60 px-2.5 py-1.5">
+        <div className="rounded-md border border-border overflow-hidden">
+          <div className="bg-foreground/[0.03] border-b border-border px-2.5 py-1.5">
             <Skeleton className="h-3 w-full" />
           </div>
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 px-2.5 py-1.5 border-b border-border/30 last:border-0"
+              className="flex items-center gap-3 px-2.5 py-1.5 border-b border-border last:border-0"
             >
               <Skeleton className="h-2.5 flex-1" />
               <Skeleton className="h-2.5 w-10" />
@@ -160,7 +160,7 @@ function UsageGauge({
 
 function HealthAlert({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-foreground/[0.04] border border-border/60">
+    <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-foreground/[0.04] border border-border">
       <AlertTriangleIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
       <p className="text-[12px] text-foreground/80">{message}</p>
     </div>
@@ -297,7 +297,7 @@ export function SystemHealthConfig() {
         </button>
         <button
           onClick={handleRefresh}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium border border-border/60 text-foreground hover:bg-foreground/[0.04] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium border border-border text-foreground hover:bg-foreground/[0.04] transition-colors"
         >
           <RefreshCwIcon className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           {l10n.t("Refresh")}
@@ -416,10 +416,10 @@ export function SystemHealthConfig() {
         <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
           {l10n.t("Top Processes")}
         </label>
-        <div className="rounded-md border border-border/60 overflow-hidden">
+        <div className="rounded-md border border-border overflow-hidden">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-foreground/[0.03] border-b border-border/60">
+              <tr className="bg-foreground/[0.03] border-b border-border">
                 <th className="text-left px-2.5 py-1.5 font-medium text-muted-foreground">
                   {l10n.t("Process")}
                 </th>
@@ -438,7 +438,7 @@ export function SystemHealthConfig() {
               {snapshot.topProcesses.map((proc, i) => (
                 <tr
                   key={`${proc.pid}-${i}`}
-                  className="border-b border-border/30 last:border-0 hover:bg-foreground/[0.02]"
+                  className="border-b border-border last:border-0 hover:bg-foreground/[0.02]"
                 >
                   <td className="px-2.5 py-1 text-foreground font-mono truncate max-w-[180px]">
                     {proc.name}

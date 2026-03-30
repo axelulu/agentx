@@ -123,7 +123,7 @@ export function ClipboardAIPanel() {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
           <Clipboard className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">{l10n.t("Clipboard AI")}</span>
@@ -158,7 +158,7 @@ export function ClipboardAIPanel() {
       ) : (
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Source content */}
-          <div className="px-4 py-3 border-b border-border/30 max-h-[160px] overflow-y-auto">
+          <div className="px-4 py-3 border-b border-border max-h-[160px] overflow-y-auto">
             <p className="text-xs text-foreground/50 mb-1.5">{l10n.t("Clipboard Content")}</p>
             <p className="text-xs text-foreground/80 leading-relaxed select-text whitespace-pre-wrap font-mono">
               {content.length > 1000 ? content.slice(0, 1000) + "..." : content}
@@ -166,7 +166,7 @@ export function ClipboardAIPanel() {
           </div>
 
           {/* Action buttons */}
-          <div className="px-4 py-3 border-b border-border/30">
+          <div className="px-4 py-3 border-b border-border">
             <div className="flex flex-wrap gap-1.5">
               {ACTIONS.map((action) => {
                 const Icon = action.icon;

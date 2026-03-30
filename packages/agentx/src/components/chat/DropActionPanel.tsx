@@ -115,7 +115,7 @@ export function DropActionPanel({
           transition={{ duration: 0.15, ease: "easeOut" }}
           className="mb-2"
         >
-          <div className="bg-card/80 backdrop-blur-sm border border-border/40 rounded-lg shadow-sm">
+          <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg shadow-sm">
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-1.5">
               <div className="flex items-center gap-1.5">

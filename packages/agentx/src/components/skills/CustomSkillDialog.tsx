@@ -224,7 +224,7 @@ export function CustomSkillDialog({ open, onOpenChange, editSkill }: CustomSkill
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/30">
+        <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
           <button
             onClick={() => onOpenChange(false)}
             className="px-3.5 py-1.5 rounded-md text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"

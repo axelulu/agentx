@@ -30,7 +30,7 @@ export function AccordionSection({
         <div className="space-y-1.5">{children}</div>
       ) : (
         emptyMessage && (
-          <div className="rounded-lg border border-dashed border-border/50 flex items-center justify-center py-6 text-[12px] text-muted-foreground/40">
+          <div className="rounded-lg border border-dashed border-border flex items-center justify-center py-6 text-[12px] text-muted-foreground/40">
             {emptyMessage}
           </div>
         )
@@ -75,8 +75,8 @@ export function AccordionCard({
       className={cn(
         "rounded-lg border transition-all duration-150",
         expanded
-          ? "bg-foreground/[0.02] border-border/60 shadow-sm"
-          : "bg-card border-border/50 hover:bg-foreground/[0.02] hover:border-border/60",
+          ? "bg-foreground/[0.02] border-border shadow-sm"
+          : "bg-card border-border hover:bg-foreground/[0.02] hover:border-border",
       )}
     >
       {/* Header */}

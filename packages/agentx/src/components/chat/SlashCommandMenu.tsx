@@ -238,7 +238,7 @@ export function SlashCommandMenu({
 
   return (
     <div className="absolute bottom-full left-0 right-0 mb-1 z-20">
-      <div className="bg-popover border border-border rounded-lg shadow-md overflow-hidden">
+      <div className="bg-background border border-border rounded-xl shadow-lg overflow-hidden">
         <div ref={listRef} className="max-h-[240px] overflow-y-auto py-1">
           {items.map((cmd, i) => {
             const Icon = cmd.icon;
@@ -252,7 +252,7 @@ export function SlashCommandMenu({
                   onClose();
                 }}
                 className={cn(
-                  "w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] text-foreground/80 transition-colors",
+                  "w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12px] text-foreground/80 transition-colors",
                   i === selectedIndex ? "bg-foreground/[0.06] text-foreground" : "",
                 )}
               >
