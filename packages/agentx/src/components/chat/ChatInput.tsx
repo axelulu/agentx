@@ -2,6 +2,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { setInputValue, setError } from "@/slices/chatSlice";
 import { openSettingsSection } from "@/slices/uiSlice";
+import { activateProvider } from "@/slices/settingsSlice";
 import { useAgent } from "@/hooks/useAgent";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { l10n } from "@agentx/l10n";
@@ -361,6 +362,15 @@ export const ChatInput = forwardRef<ChatInputHandle>(function ChatInput(_props, 
       dispatch(setError(l10n.t("Please configure an AI provider first")));
       dispatch(openSettingsSection("providers"));
       return;
+    }
+
+    // Auto-activate: if no provider is active but one has an API key, activate it
+    const hasActive = providers.some((p) => p.isActive && p.apiKey);
+    if (!hasActive) {
+      const candidate = providers.find((p) => p.apiKey);
+      if (candidate) {
+        dispatch(activateProvider(candidate.id));
+      }
     }
 
     // Append non-image file paths as text (existing behavior)

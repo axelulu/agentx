@@ -1631,6 +1631,10 @@ ${contentPreview.slice(0, 3000)}`;
   });
 
   console.error("[Sidecar] Ready, listening on stdin");
+
+  // Notify the Rust host that we are fully initialized and accepting requests.
+  // The Rust side waits for this before emitting sidecar:ready to the frontend.
+  pushNotification("sidecar:initialized", {});
 }
 
 main().catch((err) => {

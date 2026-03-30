@@ -49,7 +49,6 @@ export function ChatPanel() {
   // can be invoked both on initial mount and on sidecar restart.
   const loadAllData = useCallback(() => {
     dispatch(loadPreferences());
-    dispatch(loadConversations());
     dispatch(loadProviders());
     dispatch(loadKnowledgeBase());
     dispatch(loadMCPServers());
@@ -57,6 +56,7 @@ export function ChatPanel() {
     dispatch(loadInstalledSkills());
     dispatch(loadChannels());
     dispatch(loadScheduledTasks());
+    dispatch(loadConversations());
   }, [dispatch]);
 
   // Wait for the sidecar process to be ready before loading persisted data.

@@ -274,10 +274,11 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
         let _ = restart_handle.emit("sidecar:restart", ());
     });
 
-    eprintln!("[Sidecar] Started successfully");
+    eprintln!("[Sidecar] Process spawned (Node.js still initializing...)");
 
-    // Notify the frontend that the sidecar is ready to accept commands.
-    // The frontend waits for this event before loading persisted data.
+    // Emit sidecar:ready so the frontend can start loading data.
+    // The sidecar also sends a "sidecar:initialized" notification once it is
+    // fully ready — which triggers a second sidecar:ready for a reliable refresh.
     let _ = app.emit("sidecar:ready", ());
 
     Ok(())
@@ -286,6 +287,12 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
 /// Handle push notifications from the sidecar by forwarding them as Tauri events.
 fn handle_sidecar_notification(app: &AppHandle, method: &str, params: Value) {
     match method {
+        "sidecar:initialized" => {
+            // The Node.js sidecar has fully initialized and is listening on stdin.
+            // Now it's safe to tell the frontend to start loading data.
+            eprintln!("[Sidecar] Received initialized signal from Node.js — notifying frontend");
+            let _ = app.emit("sidecar:ready", ());
+        }
         "agent:event" => {
             let _ = app.emit("agent:event", params);
         }

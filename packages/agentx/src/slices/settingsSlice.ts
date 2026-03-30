@@ -728,6 +728,14 @@ const settingsSlice = createSlice({
       } else {
         state.providers.push(config);
       }
+      // Auto-activate if no other provider is active and this one has an API key
+      const hasActive = state.providers.some((p) => p.isActive && p.apiKey);
+      if (!hasActive && config.apiKey) {
+        for (const p of state.providers) {
+          p.isActive = p.id === config.id;
+        }
+        persistProviderSetActive(config.id);
+      }
       persistProvider(config);
     },
     deleteProvider(state, action: PayloadAction<string>) {

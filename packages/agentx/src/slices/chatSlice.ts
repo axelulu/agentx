@@ -108,12 +108,52 @@ function mapRawMessages(msgs: unknown[]): Message[] {
 }
 
 // ---------------------------------------------------------------------------
+// localStorage helpers (mirror pattern from settingsSlice)
+// ---------------------------------------------------------------------------
+
+const LS_CONVERSATIONS = "agentx-conversations";
+
+function lsGet<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw) as T;
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
+
+function lsSet(key: string, data: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    /* ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Async thunks
 // ---------------------------------------------------------------------------
 
 export const loadConversations = createAsyncThunk("chat/loadConversations", async () => {
-  const list = await window.api.conversation.list();
-  return list as ConversationSummary[];
+  let list: ConversationSummary[] = [];
+  try {
+    list = (await window.api.conversation.list()) as ConversationSummary[];
+  } catch {
+    /* sidecar unavailable */
+  }
+
+  // If sidecar returned empty, try localStorage backup
+  if (!list || list.length === 0) {
+    const backup = lsGet<ConversationSummary[]>(LS_CONVERSATIONS, []);
+    if (backup.length > 0) {
+      list = backup;
+    }
+  } else {
+    // Sidecar succeeded — mirror to localStorage
+    lsSet(LS_CONVERSATIONS, list);
+  }
+  return list;
 });
 
 export const createNewConversation = createAsyncThunk(
@@ -414,7 +454,7 @@ type AgentEvent =
 const EMPTY_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0 };
 
 const initialState: ChatState = {
-  conversations: [],
+  conversations: lsGet<ConversationSummary[]>(LS_CONVERSATIONS, []),
   currentConversationId: null,
   messages: [],
   inputValue: "",
@@ -764,6 +804,7 @@ const chatSlice = createSlice({
         state.conversationUsage = { ...EMPTY_USAGE };
         state.enabledSkills = [];
         state.branchInfo = {};
+        lsSet(LS_CONVERSATIONS, state.conversations);
       })
       .addCase(loadMessages.fulfilled, (state, action) => {
         state.messages = normalizeMessages(action.payload);
@@ -771,6 +812,7 @@ const chatSlice = createSlice({
       .addCase(removeConversation.fulfilled, (state, action) => {
         const id = action.payload;
         state.conversations = state.conversations.filter((c) => c.id !== id);
+        lsSet(LS_CONVERSATIONS, state.conversations);
         if (state.currentConversationId === id) {
           state.currentConversationId = state.conversations[0]?.id ?? null;
           state.messages = [];
@@ -804,6 +846,7 @@ const chatSlice = createSlice({
       .addCase(removeConversations.fulfilled, (state, action) => {
         const deleted = new Set(action.payload);
         state.conversations = state.conversations.filter((c) => !deleted.has(c.id));
+        lsSet(LS_CONVERSATIONS, state.conversations);
         if (state.currentConversationId && deleted.has(state.currentConversationId)) {
           state.currentConversationId = state.conversations[0]?.id ?? null;
           state.messages = [];
@@ -827,6 +870,7 @@ const chatSlice = createSlice({
         state.conversationUsage = { ...EMPTY_USAGE };
         state.enabledSkills = [];
         state.branchInfo = {};
+        lsSet(LS_CONVERSATIONS, []);
       })
       .addCase(initializeSessions.fulfilled, (state, action) => {
         state.runningSessions = action.payload;
