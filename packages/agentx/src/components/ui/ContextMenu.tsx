@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { glassPopoverStyle } from "@/lib/glassStyle";
 import { ChevronRightIcon } from "lucide-react";
 
 export interface ContextMenuItem {
@@ -60,8 +61,14 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     <div
       ref={menuRef}
       data-floating-ui
-      className="fixed min-w-[140px] py-0.5 rounded-lg bg-popover shadow-md overflow-hidden ring-1 ring-foreground/[0.06]"
-      style={{ left: x, top: y, zIndex: "var(--z-popover)", pointerEvents: "auto" }}
+      className="fixed min-w-[140px] py-0.5 rounded-lg shadow-md overflow-hidden ring-1 ring-foreground/[0.06]"
+      style={{
+        left: x,
+        top: y,
+        zIndex: "var(--z-popover)",
+        pointerEvents: "auto",
+        ...glassPopoverStyle,
+      }}
     >
       {items.map((item, i) =>
         item.submenu && item.submenu.length > 0 ? (
@@ -155,8 +162,14 @@ function SubmenuItem({ item, onClose }: { item: ContextMenuItem; onClose: () => 
             data-context-submenu
             onMouseEnter={show}
             onMouseLeave={hide}
-            className="fixed min-w-[120px] py-0.5 rounded-lg bg-popover shadow-md overflow-hidden ring-1 ring-foreground/[0.06]"
-            style={{ left: 0, top: 0, zIndex: "var(--z-popover-nested)", pointerEvents: "auto" }}
+            className="fixed min-w-[120px] py-0.5 rounded-lg shadow-md overflow-hidden ring-1 ring-foreground/[0.06]"
+            style={{
+              left: 0,
+              top: 0,
+              zIndex: "var(--z-popover-nested)",
+              pointerEvents: "auto",
+              ...glassPopoverStyle,
+            }}
           >
             {item.submenu!.map((sub, j) => (
               <button

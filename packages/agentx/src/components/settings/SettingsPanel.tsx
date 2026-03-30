@@ -42,6 +42,7 @@ import { VoiceConfig } from "./VoiceConfig";
 import { MemoryConfig } from "./MemoryConfig";
 import { SystemHealthConfig } from "./SystemHealthConfig";
 import { cn } from "@/lib/utils";
+import { glassPanelStyle } from "@/lib/glassStyle";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -85,9 +86,13 @@ export function SettingsPanel() {
         className="absolute inset-0 bg-black/15"
         onClick={() => dispatch(setSettingsOpen(false))}
       />
-      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex">
+      <div
+        data-glass
+        className="relative border border-border/50 rounded-xl shadow-2xl w-full max-w-[760px] h-[560px] overflow-hidden flex"
+        style={glassPanelStyle}
+      >
         {/* Left: Navigation */}
-        <div className="w-[168px] shrink-0 bg-foreground/[0.03] border-r border-border flex flex-col">
+        <div className="w-[168px] shrink-0 bg-white/[0.03] dark:bg-black/[0.03] border-r border-border/50 flex flex-col">
           <div className="px-3 pt-5 pb-3">
             <h2 className="text-[12px] font-semibold text-foreground">{l10n.t("Settings")}</h2>
           </div>
@@ -99,8 +104,8 @@ export function SettingsPanel() {
                 className={cn(
                   "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors",
                   activeSection === id
-                    ? "bg-accent text-accent-foreground font-medium"
-                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+                    ? "bg-foreground/[0.12] text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
                 )}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />

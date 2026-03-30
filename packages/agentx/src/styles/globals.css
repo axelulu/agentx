@@ -126,6 +126,23 @@
 }
 
 /*
+ * Inside glass panels, make form controls semi-transparent so they
+ * blend with the frosted glass instead of being solid white/dark.
+ * Only target actual form elements — not buttons or text.
+ */
+[data-glass] input:not([type="button"]):not([type="submit"]):not([type="reset"]),
+[data-glass] textarea,
+[data-glass] select {
+  background: rgba(255, 255, 255, 0.45) !important;
+}
+
+.dark [data-glass] input:not([type="button"]):not([type="submit"]):not([type="reset"]),
+.dark [data-glass] textarea,
+.dark [data-glass] select {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/*
  * Scrollbar styling for WKWebView (Tauri on macOS).
  *
  * We use ::-webkit-scrollbar pseudo-elements to fully control appearance.

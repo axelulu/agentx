@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Languages, Copy, Check, X, ChevronDown, Loader2 } from "lucide-react";
+import { glassPanelStyle, glassPopoverStyle } from "@/lib/glassStyle";
 
 const TARGET_LANGUAGES = [
   { code: "zh", label: "中文" },
@@ -145,11 +146,7 @@ export function TranslatorPanel() {
     <div className={isDark ? "dark" : ""}>
       <div
         className="w-screen h-screen flex flex-col overflow-hidden rounded-xl border border-border/50 shadow-2xl"
-        style={{
-          background: isDark ? "rgba(30, 30, 30, 0.92)" : "rgba(255, 255, 255, 0.92)",
-          backdropFilter: "saturate(180%) blur(20px)",
-          WebkitBackdropFilter: "saturate(180%) blur(20px)",
-        }}
+        style={glassPanelStyle}
       >
         {/* Header */}
         <div
@@ -171,7 +168,10 @@ export function TranslatorPanel() {
                 <ChevronDown className="w-3 h-3" />
               </button>
               {showLangMenu && (
-                <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[120px] animate-fade-in">
+                <div
+                  className="absolute right-0 top-full mt-1 z-50 border border-border/50 rounded-lg shadow-lg py-1 min-w-[120px] animate-fade-in"
+                  style={glassPopoverStyle}
+                >
                   {TARGET_LANGUAGES.map((lang) => (
                     <button
                       key={lang.code}

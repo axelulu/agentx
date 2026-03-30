@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "@/slices/store";
 import { openTab, toggleSidebar, setWeChatImportOpen } from "@/slices/uiSlice";
 import { switchConversation } from "@/slices/chatSlice";
+import { glassContentStyle } from "@/lib/glassStyle";
 import { TitleBar } from "./TitleBar";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -76,8 +77,8 @@ export function AppLayout() {
           <Sidebar />
         </div>
 
-        {/* Right column: opaque content area */}
-        <div className="flex flex-col flex-1 overflow-hidden bg-background">
+        {/* Right column: frosted glass content area */}
+        <div className="flex flex-col flex-1 overflow-hidden" style={glassContentStyle}>
           {activeView === "chat" && <TabBar />}
           {activeView !== "chat" && <TitleBar />}
           <UpdateDialog />

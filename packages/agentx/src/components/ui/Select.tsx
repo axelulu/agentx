@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { glassPopoverStyle } from "@/lib/glassStyle";
 import { ChevronDownIcon, CheckIcon } from "lucide-react";
 
 export interface SelectOption {
@@ -98,8 +99,8 @@ export function Select({ value, onChange, options, placeholder, className }: Sel
             ref={panelRef}
             data-floating-ui
             onPointerDown={(e) => e.stopPropagation()}
-            className="fixed rounded-lg bg-popover border border-border/60 shadow-lg overflow-hidden"
-            style={{ zIndex: "var(--z-popover)", pointerEvents: "auto" }}
+            className="fixed rounded-lg border border-border/50 shadow-lg overflow-hidden"
+            style={{ zIndex: "var(--z-popover)", pointerEvents: "auto", ...glassPopoverStyle }}
           >
             <div className="max-h-[240px] overflow-y-auto py-1">
               {options.map((opt) => {

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { glassPopoverStyle } from "@/lib/glassStyle";
 
 type Placement = "top" | "bottom" | "top-start" | "bottom-start" | "top-end" | "bottom-end";
 
@@ -90,10 +91,10 @@ export function Popover({
       ref={panelRef}
       data-floating-ui
       className={cn(
-        "fixed rounded-xl border border-border bg-popover shadow-lg overflow-hidden",
+        "fixed rounded-xl border border-border/50 shadow-lg overflow-hidden",
         className,
       )}
-      style={{ zIndex: "var(--z-popover)", pointerEvents: "auto" }}
+      style={{ zIndex: "var(--z-popover)", pointerEvents: "auto", ...glassPopoverStyle }}
     >
       {children}
     </div>,
