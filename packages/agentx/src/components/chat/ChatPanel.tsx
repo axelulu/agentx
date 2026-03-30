@@ -17,6 +17,7 @@ import {
   loadChannels,
   loadScheduledTasks,
 } from "@/slices/settingsSlice";
+import { waitForSidecar, onSidecarReady } from "@/lib/bridge";
 import { useAgentEventListener } from "@/hooks/useAgent";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { l10n } from "@agentx/l10n";
@@ -44,7 +45,9 @@ export function ChatPanel() {
 
   const { speak, stop: stopSpeaking, speakingMessageId } = useTextToSpeech();
 
-  useEffect(() => {
+  // Load all persisted data from the sidecar. Shared loader function so it
+  // can be invoked both on initial mount and on sidecar restart.
+  const loadAllData = useCallback(() => {
     dispatch(loadPreferences());
     dispatch(loadConversations());
     dispatch(loadProviders());
@@ -55,6 +58,24 @@ export function ChatPanel() {
     dispatch(loadChannels());
     dispatch(loadScheduledTasks());
   }, [dispatch]);
+
+  // Wait for the sidecar process to be ready before loading persisted data.
+  // Without this, the frontend would attempt to load settings before the
+  // sidecar is initialized, resulting in empty/default values.
+  // Also re-load on sidecar restart (crash recovery).
+  useEffect(() => {
+    let cancelled = false;
+    waitForSidecar().then(() => {
+      if (!cancelled) loadAllData();
+    });
+    const unsub = onSidecarReady(() => {
+      if (!cancelled) loadAllData();
+    });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [loadAllData]);
 
   // Refresh conversation list when a channel creates/recreates a conversation
   useEffect(() => {

@@ -159,14 +159,14 @@ export const saveProvider = createAsyncThunk(
 );
 
 export const removeProvider = createAsyncThunk("settings/removeProvider", async (id: string) => {
-  window.api.provider.remove(id);
+  await window.api.provider.remove(id);
   return id;
 });
 
 export const setActiveProvider = createAsyncThunk(
   "settings/setActiveProvider",
   async (id: string) => {
-    window.api.provider.setActive(id);
+    await window.api.provider.setActive(id);
     return id;
   },
 );

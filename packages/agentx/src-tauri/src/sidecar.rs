@@ -132,11 +132,12 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
     let args = vec![sidecar_path.to_string_lossy().to_string()];
 
     // Pass data paths as CLI args
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    // Use ~/.agentx/ as the canonical data directory — it's stable across app
+    // updates, restarts, and re-installs (unlike the Tauri app_data_dir which
+    // lives in ~/Library/Application Support/ and can be lost during updates
+    // of unsigned apps).
     let home_dir = dirs_home();
+    let data_dir = std::path::PathBuf::from(&home_dir).join(".agentx");
     let toolkit_path = if cfg!(debug_assertions) {
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         manifest_dir
@@ -274,6 +275,11 @@ pub async fn spawn_sidecar(app: &AppHandle) -> Result<(), String> {
     });
 
     eprintln!("[Sidecar] Started successfully");
+
+    // Notify the frontend that the sidecar is ready to accept commands.
+    // The frontend waits for this event before loading persisted data.
+    let _ = app.emit("sidecar:ready", ());
+
     Ok(())
 }
 

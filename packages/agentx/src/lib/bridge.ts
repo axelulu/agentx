@@ -441,8 +441,61 @@ async function setupQuitConfirmation(): Promise<void> {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Sidecar readiness — the frontend must wait for this before loading data
+// ---------------------------------------------------------------------------
+
+let _sidecarReady = false;
+let _sidecarReadyResolvers: Array<() => void> = [];
+let _sidecarReadyCallbacks: Array<() => void> = [];
+
+/** Returns a promise that resolves when the sidecar is ready. */
+export function waitForSidecar(): Promise<void> {
+  if (_sidecarReady) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    _sidecarReadyResolvers.push(resolve);
+  });
+}
+
+/** Register a callback that fires on every sidecar:ready (including restarts). */
+export function onSidecarReady(cb: () => void): () => void {
+  _sidecarReadyCallbacks.push(cb);
+  return () => {
+    _sidecarReadyCallbacks = _sidecarReadyCallbacks.filter((c) => c !== cb);
+  };
+}
+
+function markSidecarReady(): void {
+  _sidecarReady = true;
+  for (const resolve of _sidecarReadyResolvers) resolve();
+  _sidecarReadyResolvers = [];
+  for (const cb of _sidecarReadyCallbacks) {
+    try {
+      cb();
+    } catch {}
+  }
+}
+
+function setupSidecarReady(): void {
+  listen("sidecar:ready", () => {
+    console.log("[Bridge] Sidecar ready");
+    markSidecarReady();
+  });
+
+  // Fallback: if sidecar:ready event doesn't arrive within 15s, resolve anyway
+  // (the sidecar's wait_ready mechanism will still block IPC calls until ready)
+  setTimeout(() => {
+    if (!_sidecarReady) {
+      console.warn("[Bridge] Sidecar ready timeout — proceeding anyway");
+      markSidecarReady();
+    }
+  }, 15000);
+}
+
 export function initBridge(): void {
   (window as unknown as { api: NativeAPI }).api = bridge;
+
+  setupSidecarReady();
 
   setupDragDrop().catch((err) => {
     console.error("[Bridge] Failed to setup drag-drop:", err);

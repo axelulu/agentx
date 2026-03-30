@@ -481,6 +481,11 @@ async function main() {
   const resolvedDataDir = savedPrefs.dataPath || dataDir;
   const resolvedWorkspace = savedPrefs.workspacePath || workspacePath;
 
+  // Ensure resolved data directory exists (may differ from dataDir if user set custom dataPath)
+  if (resolvedDataDir !== dataDir) {
+    mkdirSync(resolvedDataDir, { recursive: true });
+  }
+
   // Initialize runtime
   const runtime = new AgentRuntime({
     toolkitPath,
