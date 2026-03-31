@@ -261,6 +261,9 @@ pub fn show_translator_window(app: &AppHandle, text: &str) -> Result<(), String>
         let _ = win_clone.emit("translator:set-text", &text_owned);
         let _ = win_clone.show();
         let _ = win_clone.set_focus();
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        #[cfg(target_os = "macos")]
+        crate::vibrancy::apply_popup_vibrancy(&win_clone);
     });
 
     // Close on blur (click outside)

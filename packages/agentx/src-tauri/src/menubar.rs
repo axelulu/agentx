@@ -80,6 +80,9 @@ pub fn toggle_menubar_panel(
         tokio::time::sleep(std::time::Duration::from_millis(400)).await;
         let _ = win_clone.show();
         let _ = win_clone.set_focus();
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        #[cfg(target_os = "macos")]
+        crate::vibrancy::apply_popup_vibrancy(&win_clone);
         let _ = win_clone.emit("menubar:ready", ());
     });
 

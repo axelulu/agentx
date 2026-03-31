@@ -92,6 +92,8 @@ fn show_contextbar_no_focus(app: &AppHandle, x: f64, y: f64) -> Result<(), Strin
         let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
         let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize::new(WIN_WIDTH, WIN_HEIGHT)));
         let _ = win.show();
+        #[cfg(target_os = "macos")]
+        crate::vibrancy::apply_popup_vibrancy(&win);
         return Ok(());
     }
     create_contextbar_window(app, x, y)

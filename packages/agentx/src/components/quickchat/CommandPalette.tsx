@@ -39,6 +39,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import { l10n } from "@agentx/l10n";
+import { useStandaloneTheme } from "@/hooks/useStandaloneTheme";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -374,7 +375,6 @@ export function CommandPalette() {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<PaletteMode>("home");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isDark, setIsDark] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(loadFavorites);
   const [recentIds, setRecentIds] = useState<string[]>(loadRecent);
 
@@ -419,20 +419,11 @@ export function CommandPalette() {
   const cleanupRef = useRef<(() => void) | null>(null);
 
   // ---------------------------------------------------------------------------
-  // Init: dark mode, focus, load data
+  // Init: theme sync, focus, load data
   // ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = (dark: boolean) => {
-      setIsDark(dark);
-      document.documentElement.classList.toggle("dark", dark);
-    };
-    apply(mq.matches);
-    const handler = (e: MediaQueryListEvent) => apply(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  // Sync theme (dark mode, accent, font size, density) from main window via localStorage
+  useStandaloneTheme();
 
   // Enter clipboard mode — reads current clipboard and switches view
   const enterClipboard = useCallback(async () => {
@@ -953,7 +944,7 @@ export function CommandPalette() {
   const isSlashMode = input.trim().startsWith("/");
 
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background shadow-2xl">
+    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/25 dark:bg-black/30 border border-black/5 dark:border-white/8">
       {/* Search input */}
       <div
         className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0"

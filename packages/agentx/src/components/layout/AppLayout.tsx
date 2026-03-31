@@ -65,7 +65,7 @@ export function AppLayout() {
       <div className="relative flex h-full">
         {/* Left column: transparent so native macOS vibrancy shows through */}
         <div
-          className="flex flex-col shrink-0 overflow-hidden transition-all duration-200 ease-in-out border-r border-sidebar-border bg-white/50 dark:bg-black/50"
+          className={`flex flex-col shrink-0 overflow-hidden transition-all duration-200 ease-in-out bg-white/50 dark:bg-black/50 ${sidebarOpen ? "border-r border-sidebar-border" : ""}`}
           style={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
         >
           {/* macOS traffic-light drag strip — match TitleBar height for alignment */}

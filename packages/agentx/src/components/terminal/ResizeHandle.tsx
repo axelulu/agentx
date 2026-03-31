@@ -23,7 +23,7 @@ export function ResizeHandle() {
       const onMouseMove = (ev: MouseEvent) => {
         // Dragging up increases height, dragging down decreases
         const delta = startY - ev.clientY;
-        const clamped = Math.max(100, Math.min(maxTermHeight, startHeight + delta));
+        const clamped = Math.max(200, Math.min(maxTermHeight, startHeight + delta));
         dispatch(setTerminalHeight(clamped));
       };
 
@@ -45,7 +45,9 @@ export function ResizeHandle() {
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="h-px cursor-row-resize bg-border/40 hover:bg-primary/30 transition-colors shrink-0"
-    />
+      className="h-2 cursor-row-resize group flex items-center justify-center shrink-0"
+    >
+      <div className="h-px w-full bg-border/40 group-hover:bg-primary/30 transition-colors" />
+    </div>
   );
 }

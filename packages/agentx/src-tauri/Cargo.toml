@@ -1,6 +1,6 @@
 [package]
 name = "agentx"
-version = "0.1.91"
+version = "0.1.92"
 description = "AgentX AI Desktop Assistant"
 authors = ["AgentX"]
 edition = "2021"
@@ -36,7 +36,7 @@ block2 = "0.6.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSEvent", "NSScreen", "NSGraphics", "NSPasteboard"] }
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSButton", "NSControl", "NSView", "NSResponder", "NSEvent", "NSScreen", "NSGraphics", "NSPasteboard", "NSVisualEffectView", "NSColor", "NSAppearance"] }
 objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSThread", "NSString"] }
 core-foundation = "0.10"
 core-graphics = "0.24"

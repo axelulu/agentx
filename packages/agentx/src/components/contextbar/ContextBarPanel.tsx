@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { l10n } from "@agentx/l10n";
 import { cn } from "@/lib/utils";
+import { useStandaloneTheme } from "@/hooks/useStandaloneTheme";
 import {
   ArrowUpIcon,
   SquareIcon,
@@ -365,20 +366,13 @@ export function ContextBarPanel() {
   const cleanupRef = useRef<(() => void) | null>(null);
   const convIdRef = useRef<string | null>(null);
 
+  // Sync theme (dark mode, accent, font size, density) from main window via localStorage
+  useStandaloneTheme();
+
   // Keep ref in sync
   useEffect(() => {
     convIdRef.current = convId;
   }, [convId]);
-
-  // Dark mode
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = (dark: boolean) => document.documentElement.classList.toggle("dark", dark);
-    apply(mq.matches);
-    const handler = (e: MediaQueryListEvent) => apply(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
 
   // Hide window helper — aborts streaming if active, then hides
   const hideWindow = useCallback(() => {
@@ -664,7 +658,7 @@ export function ContextBarPanel() {
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden rounded-xl text-foreground bg-background border border-border">
+    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/25 dark:bg-black/30 border border-black/5 dark:border-white/8">
       {/* Header: App context */}
       <div
         className="flex items-center gap-2 px-3.5 py-2 border-b border-border shrink-0"

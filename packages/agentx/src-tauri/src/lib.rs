@@ -13,6 +13,8 @@ mod spotlight;
 mod translate;
 mod tray;
 mod menu;
+#[cfg(target_os = "macos")]
+mod vibrancy;
 mod window;
 
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -460,6 +462,7 @@ pub fn run() {
             window::shortcut_set,
             window::shortcut_validate,
             window::shortcut_list_all,
+            vibrancy::set_native_appearance,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
