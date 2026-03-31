@@ -22,6 +22,7 @@ export function createChannelManager(
       notify("channel:conversationsChanged", {});
     },
     onConfigUpdate: (channelId, settingsUpdate) => {
+      // Sidecar-initiated mutation — emit changed event so frontend stays in sync
       const configs = readJsonFile<ChannelConfig[]>(channelsPath, []);
       const idx = configs.findIndex((c) => c.id === channelId);
       if (idx >= 0) {

@@ -45,7 +45,10 @@ export function ChatPanel() {
   useAgentEventListener();
 
   // Reactive store sync: automatically updates Redux + localStorage
-  // when sidecar emits {domain}:changed events
+  // when sidecar emits {domain}:changed events.
+  // Only sync from sidecar → frontend for data that the sidecar modifies
+  // independently (not in response to a frontend IPC call), to avoid
+  // race conditions with optimistic Redux updates.
   useStoreSync();
 
   const { speak, stop: stopSpeaking, speakingMessageId } = useTextToSpeech();
