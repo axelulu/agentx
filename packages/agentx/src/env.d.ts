@@ -189,11 +189,13 @@ interface NativeAPI {
     set: (config: unknown) => Promise<void>;
     remove: (id: string) => Promise<void>;
     setActive: (id: string) => Promise<void>;
+    onChanged: (callback: (items: unknown[]) => void) => () => void;
   };
   knowledgeBase: {
     list: () => Promise<unknown[]>;
     set: (item: unknown) => Promise<void>;
     remove: (id: string) => Promise<void>;
+    onChanged: (callback: (items: unknown[]) => void) => () => void;
   };
   skills: {
     search: (
@@ -206,6 +208,7 @@ interface NativeAPI {
     uninstall: (id: string) => Promise<void>;
     getEnabled: (conversationId: string) => Promise<string[]>;
     setEnabled: (conversationId: string, skillIds: string[]) => Promise<void>;
+    onChanged: (callback: (items: unknown[]) => void) => () => void;
   };
   mcp: {
     list: () => Promise<unknown[]>;
@@ -214,6 +217,7 @@ interface NativeAPI {
     status: () => Promise<MCPServerState[]>;
     reconnect: (id?: string) => Promise<void>;
     onStatusUpdate: (callback: (states: MCPServerState[]) => void) => () => void;
+    onChanged: (callback: (items: unknown[]) => void) => () => void;
   };
   channel: {
     list: () => Promise<ChannelConfigData[]>;
@@ -225,6 +229,7 @@ interface NativeAPI {
     onStatusUpdate: (callback: (states: ChannelStateData[]) => void) => () => void;
     onQRCode: (callback: (data: { channelId: string; qrDataUrl: string }) => void) => () => void;
     onConversationsChanged: (callback: () => void) => () => void;
+    onChanged: (callback: (items: unknown[]) => void) => () => void;
   };
   scheduler: {
     list: () => Promise<ScheduledTaskConfig[]>;
@@ -232,6 +237,7 @@ interface NativeAPI {
     remove: (id: string) => Promise<void>;
     runNow: (id: string) => Promise<void>;
     onStatusUpdate: (callback: (tasks: ScheduledTaskConfig[]) => void) => () => void;
+    onChanged: (callback: (items: unknown[]) => void) => () => void;
   };
   permissions: {
     checkAll: () => Promise<Record<SystemPermissionType, SystemPermissionStatus>>;
@@ -245,6 +251,7 @@ interface NativeAPI {
   toolPermissions: {
     get: () => Promise<ToolPermissions>;
     set: (permissions: ToolPermissions) => Promise<void>;
+    onChanged: (callback: (value: unknown) => void) => () => void;
   };
   memory: {
     getConfig: () => Promise<MemoryConfig>;
@@ -293,6 +300,7 @@ interface NativeAPI {
   preferences: {
     get: () => Promise<Record<string, unknown>>;
     set: (prefs: Record<string, unknown>) => Promise<void>;
+    onChanged: (callback: (value: unknown) => void) => () => void;
   };
   proxy: {
     apply: (url: string | null) => Promise<void>;

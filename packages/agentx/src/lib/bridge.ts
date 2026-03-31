@@ -124,12 +124,18 @@ const bridge: NativeAPI = {
     set: (config: unknown) => invoke("provider_set", { config }),
     remove: (id: string) => invoke("provider_remove", { id }),
     setActive: (id: string) => invoke("provider_set_active", { id }),
+    onChanged: (callback: (items: unknown[]) => void) => {
+      return createEventListener("provider:changed", callback as (...args: unknown[]) => void);
+    },
   },
 
   knowledgeBase: {
     list: () => invoke("kb_list"),
     set: (item: unknown) => invoke("kb_set", { item }),
     remove: (id: string) => invoke("kb_remove", { id }),
+    onChanged: (callback: (items: unknown[]) => void) => {
+      return createEventListener("kb:changed", callback as (...args: unknown[]) => void);
+    },
   },
 
   skills: {
@@ -141,6 +147,9 @@ const bridge: NativeAPI = {
     getEnabled: (conversationId: string) => invoke("skills_get_enabled", { conversationId }),
     setEnabled: (conversationId: string, skillIds: string[]) =>
       invoke("skills_set_enabled", { conversationId, skillIds }),
+    onChanged: (callback: (items: unknown[]) => void) => {
+      return createEventListener("skills:changed", callback as (...args: unknown[]) => void);
+    },
   },
 
   mcp: {
@@ -151,6 +160,9 @@ const bridge: NativeAPI = {
     reconnect: (id?: string) => invoke("mcp_reconnect", { id }),
     onStatusUpdate: (callback: (states: MCPServerState[]) => void) => {
       return createEventListener("mcp:statusUpdate", callback as (...args: unknown[]) => void);
+    },
+    onChanged: (callback: (items: unknown[]) => void) => {
+      return createEventListener("mcp:changed", callback as (...args: unknown[]) => void);
     },
   },
 
@@ -173,6 +185,9 @@ const bridge: NativeAPI = {
         callback as (...args: unknown[]) => void,
       );
     },
+    onChanged: (callback: (items: unknown[]) => void) => {
+      return createEventListener("channel:changed", callback as (...args: unknown[]) => void);
+    },
   },
 
   scheduler: {
@@ -185,6 +200,9 @@ const bridge: NativeAPI = {
         "scheduler:statusUpdate",
         callback as (...args: unknown[]) => void,
       );
+    },
+    onChanged: (callback: (items: unknown[]) => void) => {
+      return createEventListener("scheduler:changed", callback as (...args: unknown[]) => void);
     },
   },
 
@@ -200,6 +218,12 @@ const bridge: NativeAPI = {
   toolPermissions: {
     get: () => invoke("tool_permissions_get"),
     set: (permissions: ToolPermissions) => invoke("tool_permissions_set", { permissions }),
+    onChanged: (callback: (value: unknown) => void) => {
+      return createEventListener(
+        "toolPermissions:changed",
+        callback as (...args: unknown[]) => void,
+      );
+    },
   },
 
   memory: {
@@ -263,6 +287,9 @@ const bridge: NativeAPI = {
   preferences: {
     get: () => invoke("preferences_get"),
     set: (prefs: Record<string, unknown>) => invoke("preferences_set", { prefs }),
+    onChanged: (callback: (value: unknown) => void) => {
+      return createEventListener("preferences:changed", callback as (...args: unknown[]) => void);
+    },
   },
 
   proxy: {

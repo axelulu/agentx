@@ -20,6 +20,7 @@ import {
 import { waitForSidecar, onSidecarReady } from "@/lib/bridge";
 import { useAgentEventListener } from "@/hooks/useAgent";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { useStoreSync } from "@/hooks/useStoreSync";
 import { l10n } from "@agentx/l10n";
 import { MessageList } from "./MessageList";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
@@ -42,6 +43,10 @@ export function ChatPanel() {
 
   // Register the IPC event listener exactly once here
   useAgentEventListener();
+
+  // Reactive store sync: automatically updates Redux + localStorage
+  // when sidecar emits {domain}:changed events
+  useStoreSync();
 
   const { speak, stop: stopSpeaking, speakingMessageId } = useTextToSpeech();
 

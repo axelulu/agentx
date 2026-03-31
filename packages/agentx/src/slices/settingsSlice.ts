@@ -1,156 +1,72 @@
 import { createSlice, createAsyncThunk, type PayloadAction, current } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
 
-// ---------------------------------------------------------------------------
-// Types (mirrors ProviderConfig from @agentx/runtime)
-// ---------------------------------------------------------------------------
+// Types and persistence helpers extracted to settings/ modules
+export type {
+  ProviderConfig,
+  KnowledgeBaseItem,
+  MCPServerConfig,
+  ChannelConfig,
+  VoiceSettings,
+  ToolApprovalMode,
+  ToolPermissionsState,
+  SkillDefinition,
+  Folder,
+  ConversationOrder,
+  AccentColor,
+  FontSize,
+  LayoutDensity,
+  SettingsState,
+  PrefsPayload,
+} from "./settings/types";
 
-export interface ProviderConfig {
-  id: string;
-  name: string;
-  type: "openai" | "anthropic" | "gemini" | "custom";
-  apiKey: string;
-  baseUrl?: string;
-  defaultModel?: string;
-  isActive?: boolean;
-}
+import type {
+  ProviderConfig,
+  KnowledgeBaseItem,
+  MCPServerConfig,
+  ChannelConfig,
+  VoiceSettings,
+  ToolPermissionsState,
+  SkillDefinition,
+  Folder,
+  ConversationOrder,
+  AccentColor,
+  FontSize,
+  LayoutDensity,
+  SettingsState,
+  PrefsPayload,
+} from "./settings/types";
 
-export interface KnowledgeBaseItem {
-  id: string;
-  name: string;
-  type: "file" | "text";
-  filePath?: string;
-  content?: string;
-  enabled: boolean;
-  createdAt: number;
-}
-
-export interface MCPServerConfig {
-  id: string;
-  name: string;
-  transport: "stdio" | "sse";
-  command?: string;
-  args?: string[];
-  url?: string;
-  env?: Record<string, string>;
-  enabled: boolean;
-}
-
-export interface ChannelConfig {
-  id: string;
-  type: "telegram" | "discord";
-  name: string;
-  enabled: boolean;
-  settings: Record<string, unknown>;
-}
-
-export interface VoiceSettings {
-  sttApiUrl: string;
-  sttApiKey: string;
-  sttLanguage: string;
-  ttsVoice: string;
-  ttsRate: number;
-  ttsPitch: number;
-  autoReadReplies: boolean;
-}
-
-export type ToolApprovalMode = "auto" | "always-ask" | "smart";
-
-export interface ToolPermissionsState {
-  approvalMode: ToolApprovalMode;
-  fileRead: boolean;
-  fileWrite: boolean;
-  shellExecute: boolean;
-  mcpCall: boolean;
-  allowedPaths: string[];
-}
-
-export interface SkillDefinition {
-  id: string;
-  title: string;
-  description: string;
-  content: string;
-  category: string;
-  tags: string[];
-  author: string;
-  voteCount: number;
-  /** True for user-created skills (not from the Skill Store) */
-  isCustom?: boolean;
-}
-
-export interface Folder {
-  id: string;
-  name: string;
-  order: number;
-}
-
-export interface ConversationOrder {
-  favorites: string[];
-  ungrouped: string[];
-  folders: Record<string, string[]>;
-}
-
-export type AccentColor = "cyan" | "blue" | "violet" | "rose" | "orange" | "green" | "teal";
-export type FontSize = "small" | "default" | "large";
-export type LayoutDensity = "compact" | "comfortable" | "spacious";
-
-export interface SettingsState {
-  theme: "light" | "dark" | "system";
-  accentColor: AccentColor;
-  fontSize: FontSize;
-  layoutDensity: LayoutDensity;
-  language: string;
-  proxyUrl: string;
-  workspacePath: string;
-  dataPath: string;
-  globalSystemPrompt: string;
-  providers: ProviderConfig[];
-  knowledgeBase: KnowledgeBaseItem[];
-  mcpServers: MCPServerConfig[];
-  channels: ChannelConfig[];
-  scheduledTasks: ScheduledTaskConfig[];
-  toolPermissions: ToolPermissionsState;
-  voice: VoiceSettings;
-  installedSkills: SkillDefinition[];
-  folders: Folder[];
-  conversationOrder: ConversationOrder;
-  /** Set by createFolder so the UI can auto-enter edit mode for exactly that folder */
-  lastCreatedFolderId: string | null;
-}
-
-// ---------------------------------------------------------------------------
-// localStorage backup keys — used as fallback when sidecar file I/O fails.
-// The sidecar may fail to persist JSON files in production (macOS app sandbox,
-// race conditions, etc.), so we mirror all critical settings to localStorage
-// which the WebView reliably persists.
-// ---------------------------------------------------------------------------
-
-const LS_PROVIDERS = "agentx-providers";
-const LS_PREFERENCES = "agentx-preferences";
-const LS_KB = "agentx-knowledgebase";
-const LS_MCP = "agentx-mcpservers";
-const LS_SKILLS = "agentx-skills";
-const LS_CHANNELS = "agentx-channels";
-const LS_SCHEDULED = "agentx-scheduled-tasks";
-const LS_TOOL_PERMS = "agentx-tool-permissions";
-
-function lsGet<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw) return JSON.parse(raw) as T;
-  } catch {
-    /* corrupted — ignore */
-  }
-  return fallback;
-}
-
-function lsSet(key: string, data: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch {
-    /* quota exceeded — ignore */
-  }
-}
+import {
+  LS_PROVIDERS,
+  LS_PREFERENCES,
+  LS_KB,
+  LS_MCP,
+  LS_SKILLS,
+  LS_CHANNELS,
+  LS_SCHEDULED,
+  LS_TOOL_PERMS,
+  lsGet,
+  lsSet,
+  lsUpsert,
+  lsRemove,
+  withRetry,
+  persistPreferences,
+  persistKBItem,
+  persistKBRemove,
+  persistMCPServer,
+  persistMCPRemove,
+  persistProvider,
+  persistProviderRemove,
+  persistProviderSetActive,
+  persistSkillInstall,
+  persistSkillUninstall,
+  persistChannel,
+  persistChannelRemove,
+  persistScheduledTask,
+  persistScheduledTaskRemove,
+  persistToolPermissions,
+} from "./settings/persistence";
 
 // ---------------------------------------------------------------------------
 // Async thunks — load only (read from main process)
@@ -159,22 +75,6 @@ function lsSet(key: string, data: unknown): void {
 // ---------------------------------------------------------------------------
 // Preferences (theme, language, sidebar — disk-persisted via main process)
 // ---------------------------------------------------------------------------
-
-type PrefsPayload = {
-  theme?: string;
-  accentColor?: string;
-  fontSize?: string;
-  layoutDensity?: string;
-  language?: string;
-  sidebarOpen?: boolean;
-  proxyUrl?: string;
-  workspacePath?: string;
-  dataPath?: string;
-  globalSystemPrompt?: string;
-  voice?: VoiceSettings;
-  folders?: Folder[];
-  conversationOrder?: ConversationOrder;
-};
 
 export const loadPreferences = createAsyncThunk("settings/loadPreferences", async () => {
   let prefs: PrefsPayload = {};
@@ -468,122 +368,6 @@ export const saveToolPermissions = createAsyncThunk(
 );
 
 // ---------------------------------------------------------------------------
-// IPC persistence helpers — all operations now properly await their promises
-// and include retry logic for transient failures.
-// ---------------------------------------------------------------------------
-
-/** Simple retry wrapper: retries once after a short delay on failure. */
-function withRetry(fn: () => Promise<unknown>, label: string): void {
-  fn().catch((err: unknown) => {
-    console.warn(`[${label}] Persist failed, retrying...`, err);
-    setTimeout(() => {
-      fn().catch((retryErr: unknown) => {
-        console.error(`[${label}] Persist retry failed:`, retryErr);
-      });
-    }, 500);
-  });
-}
-
-// --- localStorage-backed upsert/remove helpers ---
-
-function lsUpsert<T extends { id: string }>(key: string, item: T): void {
-  const list = lsGet<T[]>(key, []);
-  const idx = list.findIndex((x) => x.id === item.id);
-  if (idx >= 0) list[idx] = item;
-  else list.push(item);
-  lsSet(key, list);
-}
-
-function lsRemove(key: string, id: string): void {
-  const list = lsGet<{ id: string }[]>(key, []);
-  lsSet(
-    key,
-    list.filter((x) => x.id !== id),
-  );
-}
-
-// --- Persist functions: write to sidecar + localStorage mirror ---
-
-function persistPreferences(prefs: Record<string, unknown>): void {
-  // Merge into existing localStorage prefs
-  const existing = lsGet<Record<string, unknown>>(LS_PREFERENCES, {});
-  lsSet(LS_PREFERENCES, { ...existing, ...prefs });
-  withRetry(() => window.api.preferences.set(prefs), "Preferences");
-}
-
-function persistKBItem(item: KnowledgeBaseItem): void {
-  lsUpsert(LS_KB, item);
-  withRetry(() => window.api.knowledgeBase.set(item), "KB");
-}
-
-function persistKBRemove(id: string): void {
-  lsRemove(LS_KB, id);
-  withRetry(() => window.api.knowledgeBase.remove(id), "KB");
-}
-
-function persistMCPServer(config: MCPServerConfig): void {
-  lsUpsert(LS_MCP, config);
-  withRetry(() => window.api.mcp.set(config), "MCP");
-}
-
-function persistMCPRemove(id: string): void {
-  lsRemove(LS_MCP, id);
-  withRetry(() => window.api.mcp.remove(id), "MCP");
-}
-
-function persistProvider(config: ProviderConfig): void {
-  lsUpsert(LS_PROVIDERS, config);
-  withRetry(() => window.api.provider.set(config), "Provider");
-}
-
-function persistProviderRemove(id: string): void {
-  lsRemove(LS_PROVIDERS, id);
-  withRetry(() => window.api.provider.remove(id), "Provider");
-}
-
-function persistProviderSetActive(id: string): void {
-  const list = lsGet<ProviderConfig[]>(LS_PROVIDERS, []);
-  for (const p of list) p.isActive = p.id === id;
-  lsSet(LS_PROVIDERS, list);
-  withRetry(() => window.api.provider.setActive(id), "Provider");
-}
-
-function persistSkillInstall(skill: SkillDefinition): void {
-  lsUpsert(LS_SKILLS, skill);
-  withRetry(() => window.api.skills.install(skill), "Skills");
-}
-
-function persistSkillUninstall(id: string): void {
-  lsRemove(LS_SKILLS, id);
-  withRetry(() => window.api.skills.uninstall(id), "Skills");
-}
-
-function persistChannel(config: ChannelConfig): void {
-  lsUpsert(LS_CHANNELS, config);
-  withRetry(() => window.api.channel.set(config as ChannelConfigData), "Channel");
-}
-
-function persistChannelRemove(id: string): void {
-  lsRemove(LS_CHANNELS, id);
-  withRetry(() => window.api.channel.remove(id), "Channel");
-}
-
-function persistScheduledTask(task: ScheduledTaskConfig): void {
-  lsUpsert(LS_SCHEDULED, task);
-  withRetry(() => window.api.scheduler.set(task), "Scheduler");
-}
-
-function persistScheduledTaskRemove(id: string): void {
-  lsRemove(LS_SCHEDULED, id);
-  withRetry(() => window.api.scheduler.remove(id), "Scheduler");
-}
-
-function persistToolPermissions(perms: ToolPermissionsState): void {
-  lsSet(LS_TOOL_PERMS, perms);
-  withRetry(() => window.api.toolPermissions.set(perms), "ToolPermissions");
-}
-
-// ---------------------------------------------------------------------------
 // Slice
 // ---------------------------------------------------------------------------
 
@@ -865,6 +649,57 @@ const settingsSlice = createSlice({
       state.folders = plainFolders;
       persistPreferences({ folders: plainFolders });
     },
+
+    // -----------------------------------------------------------------------
+    // Reactive sync reducers — called by useStoreSync when sidecar emits
+    // `{domain}:changed` events. These replace the entire collection with
+    // the authoritative data from the sidecar.
+    // -----------------------------------------------------------------------
+    syncProviders(state, action: PayloadAction<ProviderConfig[]>) {
+      state.providers = action.payload;
+    },
+    syncKnowledgeBase(state, action: PayloadAction<KnowledgeBaseItem[]>) {
+      state.knowledgeBase = action.payload;
+    },
+    syncMCPServers(state, action: PayloadAction<MCPServerConfig[]>) {
+      state.mcpServers = action.payload;
+    },
+    syncInstalledSkills(state, action: PayloadAction<SkillDefinition[]>) {
+      state.installedSkills = action.payload;
+    },
+    syncChannels(state, action: PayloadAction<ChannelConfig[]>) {
+      state.channels = action.payload;
+    },
+    syncScheduledTasks(state, action: PayloadAction<ScheduledTaskConfig[]>) {
+      state.scheduledTasks = action.payload;
+    },
+    syncToolPermissions(state, action: PayloadAction<ToolPermissionsState>) {
+      state.toolPermissions = action.payload;
+    },
+    syncPreferences(state, action: PayloadAction<PrefsPayload>) {
+      const prefs = action.payload;
+      if (prefs.theme && ["light", "dark", "system"].includes(prefs.theme)) {
+        state.theme = prefs.theme as SettingsState["theme"];
+      }
+      if (prefs.accentColor) state.accentColor = prefs.accentColor as AccentColor;
+      if (prefs.fontSize) state.fontSize = prefs.fontSize as FontSize;
+      if (prefs.layoutDensity) state.layoutDensity = prefs.layoutDensity as LayoutDensity;
+      if (prefs.language) state.language = prefs.language;
+      if (typeof prefs.proxyUrl === "string") state.proxyUrl = prefs.proxyUrl;
+      if (typeof prefs.workspacePath === "string") state.workspacePath = prefs.workspacePath;
+      if (typeof prefs.dataPath === "string") state.dataPath = prefs.dataPath;
+      if (typeof prefs.globalSystemPrompt === "string")
+        state.globalSystemPrompt = prefs.globalSystemPrompt;
+      if (prefs.voice && typeof prefs.voice === "object")
+        state.voice = { ...state.voice, ...prefs.voice };
+      if (Array.isArray(prefs.folders)) state.folders = prefs.folders as Folder[];
+      if (prefs.conversationOrder && typeof prefs.conversationOrder === "object") {
+        state.conversationOrder = {
+          ...state.conversationOrder,
+          ...(prefs.conversationOrder as ConversationOrder),
+        };
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -1042,6 +877,14 @@ export const {
   clearLastCreatedFolderId,
   reorderConversations,
   reorderFolders,
+  syncProviders,
+  syncKnowledgeBase,
+  syncMCPServers,
+  syncInstalledSkills,
+  syncChannels,
+  syncScheduledTasks,
+  syncToolPermissions,
+  syncPreferences,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
