@@ -330,6 +330,8 @@
 
 .dark {
   /* Dark overrides for derived tokens */
+  --primary-foreground: var(--background-white-main);
+  --sidebar-primary-foreground: var(--background-white-main);
   --glass-panel-bg: rgba(28, 28, 28, 0.78);
   --glass-popover-bg: rgba(32, 32, 32, 0.75);
   --glass-input-bg: rgba(255, 255, 255, 0.08);
