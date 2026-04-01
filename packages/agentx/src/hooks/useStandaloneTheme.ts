@@ -57,6 +57,8 @@ function isDarkMode(theme: Theme): boolean {
 /** Sync the native NSWindow appearance so vibrancy material matches dark/light. */
 function syncNativeAppearance(dark: boolean) {
   invoke("set_native_appearance", { dark }).catch(() => {});
+  // Also sync the quickchat NSPanel (no-op if panel doesn't exist yet)
+  invoke("sync_quickchat_panel_appearance", { dark }).catch(() => {});
 }
 
 function applyTheme(theme: Theme) {

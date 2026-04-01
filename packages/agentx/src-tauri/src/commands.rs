@@ -1394,17 +1394,19 @@ pub async fn window_show(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn window_show_and_emit(app: AppHandle, event: String) -> Result<(), String> {
+    use tauri::Emitter;
     if let Some(win) = app.get_webview_window("main") {
-        win.show().map_err(|e| e.to_string())?;
-        win.set_focus().map_err(|e| e.to_string())?;
-        // Use eval to directly dispatch in the main window's JS context.
-        // This is more reliable than cross-window Tauri events after show().
+        // Emit the event BEFORE showing, so the React state updates before
+        // the window becomes visible — avoids flashing stale content.
+        let _ = win.emit(&event, ());
+        // Also fire the __QUICKCHAT_ACTION__ path for non-listener handlers
         let js = format!(
             "window.__QUICKCHAT_ACTION__ && window.__QUICKCHAT_ACTION__('{}')",
             event
         );
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         let _ = win.eval(&js);
+        win.show().map_err(|e| e.to_string())?;
+        win.set_focus().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -1557,6 +1559,45 @@ pub async fn clipboard_monitor_start(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn clipboard_monitor_stop(app: AppHandle) -> Result<(), String> {
     crate::clipboard::stop_clipboard_monitor(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn clipboard_set_retention(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+    seconds: Option<u64>,
+) -> Result<(), String> {
+    state.set_retention(seconds);
+    if state.cleanup_expired() {
+        state.save_to_disk();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn clipboard_get_retention(
+    state: State<'_, crate::clipboard::ClipboardHistoryState>,
+) -> Result<Option<u64>, String> {
+    Ok(state.get_retention())
+}
+
+#[tauri::command]
+pub async fn clipboard_paste_entry(app: AppHandle, text: String) -> Result<(), String> {
+    // 1. Write to system clipboard
+    crate::clipboard::set_clipboard_text(&text)?;
+
+    // 2. Hide the quickchat window so focus returns to the previous app
+    if let Some(win) = app.get_webview_window("quickchat") {
+        let _ = win.hide();
+    }
+
+    // 3. Wait for OS to settle focus
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+
+    // 4. Simulate Cmd+V paste
+    crate::translate::simulate_key_with_cmd(0x09)
+        .map_err(|e| format!("Failed to simulate paste: {}", e))?;
+
     Ok(())
 }
 

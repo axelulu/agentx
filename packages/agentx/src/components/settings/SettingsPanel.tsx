@@ -32,6 +32,7 @@ import {
   RotateCcwIcon,
   Trash2Icon,
   ActivityIcon,
+  ClipboardIcon,
 } from "lucide-react";
 import { ProviderConfig } from "./ProviderConfig";
 import { KnowledgeBaseConfig } from "./KnowledgeBaseConfig";
@@ -41,6 +42,7 @@ import { PermissionsConfig } from "./PermissionsConfig";
 import { VoiceConfig } from "./VoiceConfig";
 import { MemoryConfig } from "./MemoryConfig";
 import { SystemHealthConfig } from "./SystemHealthConfig";
+import { ClipboardConfig } from "./ClipboardConfig";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
@@ -70,6 +72,7 @@ export function SettingsPanel() {
     { id: "knowledgeBase", label: l10n.t("Knowledge Base"), icon: BookOpenIcon },
     { id: "mcp", label: l10n.t("MCP Servers"), icon: PlugIcon },
     { id: "channels", label: l10n.t("Channels"), icon: RadioIcon },
+    { id: "clipboard", label: l10n.t("Clipboard"), icon: ClipboardIcon },
     { id: "memory", label: l10n.t("Memory"), icon: BrainIcon },
     { id: "permissions", label: l10n.t("Permissions"), icon: ShieldCheckIcon },
     { id: "systemHealth", label: l10n.t("System Health"), icon: ActivityIcon },
@@ -139,6 +142,7 @@ export function SettingsPanel() {
             {activeSection === "knowledgeBase" && <KnowledgeBaseConfig />}
             {activeSection === "mcp" && <MCPConfig />}
             {activeSection === "channels" && <ChannelsConfig />}
+            {activeSection === "clipboard" && <ClipboardConfig />}
             {activeSection === "memory" && (
               <div className="h-full flex flex-col overflow-hidden -mb-8">
                 <MemoryConfig />
@@ -617,16 +621,29 @@ function ShortcutsSection() {
     reload();
   }, [reload]);
 
-  // Key recorder — captures the next key combo when recording
+  // Key recorder — captures the next key combo when recording.
+  // Supports both standard modifier+key combos and double-tap of modifier keys.
   useEffect(() => {
     if (!recordingId) return;
-    const handler = (e: KeyboardEvent) => {
+
+    const MOD_MAP: Record<string, string> = {
+      Control: "Ctrl",
+      Alt: "Option",
+      Meta: "Cmd",
+      Shift: "Shift",
+    };
+
+    // Double-tap tracking for modifier keys
+    const lastTap = { key: "", time: 0 };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Ignore lone modifier presses
+      // Modifier-only press — let keyup handle double-tap detection
       if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
 
+      // Standard modifier+key combo (existing logic)
       const parts: string[] = [];
       if (e.ctrlKey) parts.push("Ctrl");
       if (e.altKey) parts.push("Option");
@@ -654,6 +671,10 @@ function ShortcutsSection() {
       // Must have at least one modifier
       if (parts.length === 0) return;
 
+      // A non-modifier key was pressed — cancel any pending double-tap
+      lastTap.key = "";
+      lastTap.time = 0;
+
       parts.push(key);
       const combo = parts.join("+");
 
@@ -662,8 +683,33 @@ function ShortcutsSection() {
       setRecordingId(null);
       setError(null);
     };
-    window.addEventListener("keydown", handler, true);
-    return () => window.removeEventListener("keydown", handler, true);
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const mapped = MOD_MAP[e.key];
+      if (!mapped) return; // not a modifier
+
+      const now = Date.now();
+      if (lastTap.key === mapped && now - lastTap.time < 1000) {
+        // Double-tap detected!
+        setPendingId(recordingId);
+        setPendingKeys(`DoubleTap:${mapped}`);
+        setRecordingId(null);
+        setError(null);
+        lastTap.key = "";
+        lastTap.time = 0;
+      } else {
+        // First tap — record and wait for possible second tap
+        lastTap.key = mapped;
+        lastTap.time = now;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
+    };
   }, [recordingId]);
 
   const applyShortcut = useCallback(
@@ -717,6 +763,14 @@ function ShortcutsSection() {
     [reload],
   );
 
+  // Display helper: "DoubleTap:Ctrl" → "Ctrl ×2"
+  const formatShortcut = (s: string) => {
+    if (s.startsWith("DoubleTap:")) {
+      return `${s.slice("DoubleTap:".length)} ×2`;
+    }
+    return s;
+  };
+
   return (
     <div className="space-y-3">
       <label className="text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -760,7 +814,7 @@ function ShortcutsSection() {
                         : "border-border bg-background text-foreground hover:bg-foreground/[0.04]",
                     )}
                   >
-                    {hasPending ? pendingKeys : s.shortcut}
+                    {formatShortcut(hasPending ? pendingKeys : s.shortcut)}
                   </button>
                 )}
                 {hasPending && !isRecording && (

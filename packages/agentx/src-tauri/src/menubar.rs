@@ -16,6 +16,72 @@ fn compute_position(click_x: f64, click_y: f64) -> (f64, f64) {
     (x, y)
 }
 
+/// Pre-create the menubar Tauri window so it's ready before the user clicks
+/// the tray icon.  Avoids the main-window flash caused by `build()` activating
+/// the app on first use.  Called from app setup (lib.rs).
+pub fn precreate_menubar_window(app: &AppHandle) {
+    if app.get_webview_window("menubar").is_some() {
+        return; // already exists
+    }
+    let url = WebviewUrl::App("/menubar.html".into());
+    let win = match WebviewWindowBuilder::new(app, "menubar", url)
+        .title("AgentX")
+        .inner_size(WIN_WIDTH, WIN_HEIGHT)
+        .position(0.0, 0.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .resizable(false)
+        .skip_taskbar(true)
+        .visible(false)
+        .build()
+    {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("[MenuBar] Failed to pre-create window: {e}");
+            return;
+        }
+    };
+
+    // Apply vibrancy once the webview has loaded
+    let win_clone = win.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        #[cfg(target_os = "macos")]
+        crate::vibrancy::apply_popup_vibrancy(&win_clone);
+        let _ = win_clone.emit("menubar:ready", ());
+    });
+
+    // Blur handler
+    let suppress = if let Some(state) = app.try_state::<MenuBarState>() {
+        state.suppress_blur.clone()
+    } else {
+        let flag = Arc::new(AtomicBool::new(false));
+        app.manage(MenuBarState {
+            suppress_blur: flag.clone(),
+        });
+        flag
+    };
+
+    let win_for_blur = win.clone();
+    let suppress_for_blur = suppress;
+    win.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(false) = event {
+            let w = win_for_blur.clone();
+            let s = suppress_for_blur.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                if s.load(Ordering::SeqCst) {
+                    return;
+                }
+                if !w.is_focused().unwrap_or(true) {
+                    let _ = w.hide();
+                }
+            });
+        }
+    });
+}
+
 pub fn toggle_menubar_panel(
     app: &AppHandle,
     click_x: f64,
@@ -59,50 +125,22 @@ pub fn toggle_menubar_panel(
         return Ok(());
     }
 
-    // --- First creation ---
-    let url = WebviewUrl::App("/menubar.html".into());
-
-    let win = WebviewWindowBuilder::new(app, "menubar", url)
-        .title("AgentX")
-        .inner_size(WIN_WIDTH, WIN_HEIGHT)
-        .position(x, y)
-        .decorations(false)
-        .transparent(true)
-        .always_on_top(true)
-        .resizable(false)
-        .skip_taskbar(true)
-        .visible(false)
-        .build()
-        .map_err(|e| format!("Failed to create menubar window: {}", e))?;
-
-    let win_clone = win.clone();
+    // Fallback — window wasn't pre-created (should rarely happen)
+    precreate_menubar_window(app);
+    let handle = app.clone();
+    let handle2 = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
-        let _ = win_clone.show();
-        let _ = win_clone.set_focus();
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        #[cfg(target_os = "macos")]
-        crate::vibrancy::apply_popup_vibrancy(&win_clone);
-        let _ = win_clone.emit("menubar:ready", ());
-    });
-
-    // Blur handler
-    let win_for_blur = win.clone();
-    let suppress_for_blur = suppress;
-    win.on_window_event(move |event| {
-        if let tauri::WindowEvent::Focused(false) = event {
-            let w = win_for_blur.clone();
-            let s = suppress_for_blur.clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                if s.load(Ordering::SeqCst) {
-                    return;
-                }
-                if !w.is_focused().unwrap_or(true) {
-                    let _ = w.hide();
-                }
-            });
-        }
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        let _ = handle.run_on_main_thread(move || {
+            if let Some(win) = handle2.get_webview_window("menubar") {
+                let _ = win.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(
+                    x as i32, y as i32,
+                )));
+                let _ = win.show();
+                let _ = win.set_focus();
+                let _ = win.emit("menubar:refresh", ());
+            }
+        });
     });
 
     Ok(())

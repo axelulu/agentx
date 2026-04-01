@@ -2,6 +2,7 @@ pub mod accessibility;
 mod clipboard;
 mod commands;
 mod contextbar;
+mod doubletap;
 mod finder;
 mod menubar;
 mod ocr;
@@ -133,6 +134,22 @@ pub fn run() {
                 });
             }
 
+            // Pre-create popup windows (quickchat + menubar) so their WKWebViews
+            // are loaded before the user ever triggers them.  This avoids the
+            // main-window flash caused by Tauri window creation activating the app.
+            {
+                let qc_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    // Wait a bit for the main window to finish initialising
+                    tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+                    let h = qc_handle.clone();
+                    let _ = qc_handle.run_on_main_thread(move || {
+                        quickchat::precreate_quickchat_window(&h);
+                        menubar::precreate_menubar_window(&h);
+                    });
+                });
+            }
+
             // Register command palette shortcut (default: Ctrl+Space, customizable via preferences)
             // Preference is loaded asynchronously after sidecar starts;
             // for now register the default, it will be re-registered if user has a custom one.
@@ -194,7 +211,12 @@ pub fn run() {
                 window::registry_set(app.handle(), "clipboard", "Option+Cmd+A");
             }
 
-            // Start clipboard history monitor
+            // Load clipboard history from disk and start monitor
+            {
+                let clip_state: tauri::State<'_, clipboard::ClipboardHistoryState> = app.state();
+                clip_state.load_from_disk();
+                clip_state.cleanup_expired();
+            }
             clipboard::start_clipboard_monitor(app.handle());
 
             // Register OCR shortcut (Option+O)
@@ -414,6 +436,9 @@ pub fn run() {
             commands::clipboard_detect_type,
             commands::clipboard_monitor_start,
             commands::clipboard_monitor_stop,
+            commands::clipboard_set_retention,
+            commands::clipboard_get_retention,
+            commands::clipboard_paste_entry,
             // Shortcuts commands
             commands::shortcuts_run,
             // Finder integration commands
@@ -463,6 +488,8 @@ pub fn run() {
             window::shortcut_validate,
             window::shortcut_list_all,
             vibrancy::set_native_appearance,
+            quickchat::sync_quickchat_panel_appearance,
+            quickchat::hide_quickchat_panel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

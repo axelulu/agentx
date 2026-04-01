@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -25,6 +26,14 @@ pub struct ClipboardHistoryState {
     next_id: Arc<Mutex<u64>>,
     last_content: Arc<Mutex<String>>,
     monitoring: Arc<Mutex<bool>>,
+    dirty: Arc<Mutex<bool>>,
+    retention_seconds: Arc<Mutex<Option<u64>>>,
+    /// Tracks the last non-AgentX frontmost app name, updated every 800ms
+    /// by the clipboard monitor. Used to restore focus after showing the
+    /// clipboard panel without stealing focus.
+    last_external_app: Arc<Mutex<String>>,
+    /// PID of the last non-AgentX frontmost app.
+    last_external_pid: Arc<Mutex<i32>>,
 }
 
 impl Default for ClipboardHistoryState {
@@ -34,8 +43,22 @@ impl Default for ClipboardHistoryState {
             next_id: Arc::new(Mutex::new(1)),
             last_content: Arc::new(Mutex::new(String::new())),
             monitoring: Arc::new(Mutex::new(false)),
+            dirty: Arc::new(Mutex::new(false)),
+            retention_seconds: Arc::new(Mutex::new(None)),
+            last_external_app: Arc::new(Mutex::new(String::new())),
+            last_external_pid: Arc::new(Mutex::new(0)),
         }
     }
+}
+
+/// Returns the path to the clipboard history JSON file (~/.agentx/clipboard-history.json).
+fn clipboard_history_path() -> PathBuf {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home)
+        .join(".agentx")
+        .join("clipboard-history.json")
 }
 
 const MAX_HISTORY: usize = 200;
@@ -453,6 +476,9 @@ impl ClipboardHistoryState {
             }
         }
 
+        // Mark dirty for debounced save in the monitor loop
+        *self.dirty.lock().unwrap() = true;
+
         entry
     }
 
@@ -487,6 +513,8 @@ impl ClipboardHistoryState {
         let mut entries = self.entries.lock().unwrap();
         if let Some(pos) = entries.iter().position(|e| e.id == id) {
             entries.remove(pos);
+            drop(entries);
+            self.save_to_disk();
             true
         } else {
             false
@@ -498,7 +526,10 @@ impl ClipboardHistoryState {
         let mut entries = self.entries.lock().unwrap();
         if let Some(entry) = entries.iter_mut().find(|e| e.id == id) {
             entry.pinned = !entry.pinned;
-            Some(entry.pinned)
+            let result = entry.pinned;
+            drop(entries);
+            self.save_to_disk();
+            Some(result)
         } else {
             None
         }
@@ -509,7 +540,10 @@ impl ClipboardHistoryState {
         let mut entries = self.entries.lock().unwrap();
         if let Some(entry) = entries.iter_mut().find(|e| e.id == id) {
             entry.favorite = !entry.favorite;
-            Some(entry.favorite)
+            let result = entry.favorite;
+            drop(entries);
+            self.save_to_disk();
+            Some(result)
         } else {
             None
         }
@@ -519,6 +553,8 @@ impl ClipboardHistoryState {
     pub fn clear_history(&self) {
         let mut entries = self.entries.lock().unwrap();
         entries.retain(|e| e.pinned || e.favorite);
+        drop(entries);
+        self.save_to_disk();
     }
 
     /// Check if content is new (different from last recorded).
@@ -541,6 +577,173 @@ impl ClipboardHistoryState {
     /// Set monitoring state.
     pub fn set_monitoring(&self, active: bool) {
         *self.monitoring.lock().unwrap() = active;
+    }
+
+    // -----------------------------------------------------------------------
+    // Persistence
+    // -----------------------------------------------------------------------
+
+    /// Save clipboard history to disk (atomic write).
+    pub fn save_to_disk(&self) {
+        let entries = self.entries.lock().unwrap().clone();
+        let path = clipboard_history_path();
+
+        // Ensure parent directory exists
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        let json = match serde_json::to_string_pretty(&entries) {
+            Ok(j) => j,
+            Err(e) => {
+                eprintln!("[Clipboard] Failed to serialize history: {}", e);
+                return;
+            }
+        };
+
+        // Atomic write: write to .tmp then rename
+        let tmp_path = path.with_extension("json.tmp");
+        if let Err(e) = std::fs::write(&tmp_path, &json) {
+            eprintln!("[Clipboard] Failed to write temp file: {}", e);
+            return;
+        }
+        if let Err(e) = std::fs::rename(&tmp_path, &path) {
+            eprintln!("[Clipboard] Failed to rename temp file: {}", e);
+        }
+    }
+
+    /// Load clipboard history from disk.
+    pub fn load_from_disk(&self) {
+        let path = clipboard_history_path();
+        if !path.exists() {
+            return;
+        }
+
+        let data = match std::fs::read_to_string(&path) {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("[Clipboard] Failed to read history file: {}", e);
+                return;
+            }
+        };
+
+        let loaded: Vec<ClipboardEntry> = match serde_json::from_str(&data) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("[Clipboard] Failed to parse history file: {}", e);
+                return;
+            }
+        };
+
+        // Set next_id to max(id) + 1
+        let max_id = loaded.iter().map(|e| e.id).max().unwrap_or(0);
+        *self.next_id.lock().unwrap() = max_id + 1;
+
+        // Set last_content to the most recent entry to avoid re-capturing it
+        if let Some(first) = loaded.first() {
+            *self.last_content.lock().unwrap() = first.text.clone();
+        }
+
+        *self.entries.lock().unwrap() = loaded;
+        eprintln!(
+            "[Clipboard] Loaded {} entries from disk",
+            self.entries.lock().unwrap().len()
+        );
+    }
+
+    /// Flush dirty state to disk if needed. Called from the monitor loop.
+    pub fn flush_if_dirty(&self) {
+        let mut dirty = self.dirty.lock().unwrap();
+        if *dirty {
+            *dirty = false;
+            drop(dirty);
+            self.save_to_disk();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Retention
+    // -----------------------------------------------------------------------
+
+    /// Set the retention period in seconds. `None` means keep forever.
+    pub fn set_retention(&self, seconds: Option<u64>) {
+        *self.retention_seconds.lock().unwrap() = seconds;
+    }
+
+    /// Get the current retention period.
+    pub fn get_retention(&self) -> Option<u64> {
+        *self.retention_seconds.lock().unwrap()
+    }
+
+    /// Remove entries older than the retention period (preserves pinned/favorited).
+    pub fn cleanup_expired(&self) -> bool {
+        let retention = *self.retention_seconds.lock().unwrap();
+        let retention = match retention {
+            Some(s) => s,
+            None => return false, // keep forever
+        };
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let mut entries = self.entries.lock().unwrap();
+        let before = entries.len();
+        entries.retain(|e| e.pinned || e.favorite || (now - e.timestamp) <= retention);
+        let removed = entries.len() < before;
+        removed
+    }
+
+    // -----------------------------------------------------------------------
+    // External app tracking (for focus restoration)
+    // -----------------------------------------------------------------------
+
+    /// Get the last known non-AgentX frontmost app name.
+    pub fn get_last_external_app(&self) -> String {
+        self.last_external_app.lock().unwrap().clone()
+    }
+
+    /// Get the PID of the last known non-AgentX frontmost app.
+    pub fn get_last_external_pid(&self) -> i32 {
+        *self.last_external_pid.lock().unwrap()
+    }
+
+    /// Update the last external app if the current frontmost app is not us.
+    /// Uses PID comparison (not name) for reliability.
+    fn track_frontmost_app(&self) {
+        let own_pid = std::process::id() as i32;
+        #[cfg(target_os = "macos")]
+        {
+            use std::process::Command;
+            if let Ok(output) = Command::new("osascript")
+                .args([
+                    "-e",
+                    r#"tell application "System Events"
+                        set p to first application process whose frontmost is true
+                        return (unix id of p) & "|" & (name of p)
+                    end tell"#,
+                ])
+                .output()
+            {
+                let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if let Some((pid_str, name)) = result.split_once('|') {
+                    if let Ok(pid) = pid_str.parse::<i32>() {
+                        if pid != own_pid {
+                            *self.last_external_app.lock().unwrap() = name.to_string();
+                            *self.last_external_pid.lock().unwrap() = pid;
+                        }
+                    }
+                }
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = own_pid;
+            if let Some(name) = get_frontmost_app_name() {
+                *self.last_external_app.lock().unwrap() = name;
+            }
+        }
     }
 }
 
@@ -571,6 +774,9 @@ pub fn start_clipboard_monitor(app: &AppHandle) {
                 break;
             }
 
+            // Track the frontmost app (for focus restoration on clipboard shortcut)
+            state.track_frontmost_app();
+
             if let Ok(text) = get_clipboard_text() {
                 if state.is_new_content(&text) {
                     state.set_last_content(text.clone());
@@ -578,6 +784,14 @@ pub fn start_clipboard_monitor(app: &AppHandle) {
                     let _ = handle.emit("clipboard:new-entry", &entry);
                 }
             }
+
+            // Cleanup expired entries based on retention period
+            if state.cleanup_expired() {
+                *state.dirty.lock().unwrap() = true;
+            }
+
+            // Flush dirty state to disk (debounced save)
+            state.flush_if_dirty();
         }
     });
 }

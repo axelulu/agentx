@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/slices/store";
 import { createNewConversation, switchConversation, resetToWelcome } from "@/slices/chatSlice";
-import { toggleSettings, openTab } from "@/slices/uiSlice";
+import { toggleSettings, openTab, openSettingsSection } from "@/slices/uiSlice";
 
 export function useShortcuts() {
   const dispatch = useDispatch<AppDispatch>();

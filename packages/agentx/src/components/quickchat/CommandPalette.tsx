@@ -86,7 +86,7 @@ type ClipboardActionId =
   | "rewrite"
   | "code-explain"
   | "format";
-type ClipboardTab = "ai" | "transform" | "history";
+// ClipboardTab type removed — clipboard panel is now history-first with no tabs
 
 function getClipActions(): {
   id: ClipboardActionId;
@@ -396,7 +396,6 @@ export function CommandPalette() {
   // Clipboard state
   const [clipContent, setClipContent] = useState("");
   const [clipContentType, setClipContentType] = useState("text");
-  const [clipTab, setClipTab] = useState<ClipboardTab>("ai");
   const [clipResult, setClipResult] = useState("");
   const [clipActiveAction, setClipActiveAction] = useState<ClipboardActionId | null>(null);
   const [clipProcessing, setClipProcessing] = useState(false);
@@ -405,6 +404,8 @@ export function CommandPalette() {
   const [clipHistory, setClipHistory] = useState<ClipboardEntry[]>([]);
   const [clipSearch, setClipSearch] = useState("");
   const [clipCopied, setClipCopied] = useState(false);
+  const [clipSelectedId, setClipSelectedId] = useState<number | null>(null);
+  const clipSearchRef = useRef<HTMLInputElement>(null);
 
   // Conversation search state
   const [convSearchQuery, setConvSearchQuery] = useState("");
@@ -425,35 +426,27 @@ export function CommandPalette() {
   // Sync theme (dark mode, accent, font size, density) from main window via localStorage
   useStandaloneTheme();
 
-  // Enter clipboard mode — reads current clipboard and switches view
+  // Enter clipboard mode — loads history and shows all entries
   const enterClipboard = useCallback(async () => {
     setMode("clipboard");
     setInput("");
-    setClipTab("ai");
     setClipResult("");
     setClipActiveAction(null);
     setClipTransformResult("");
     setClipActiveTransform(null);
     setClipSearch("");
     setClipCopied(false);
-    try {
-      const text = await invoke<string>("clipboard_read");
-      setClipContent(text);
-      const detected = await invoke<{ content_type: string; language: string | null }>(
-        "clipboard_detect_type",
-        { text },
-      );
-      setClipContentType(detected.content_type);
-    } catch {
-      setClipContent("");
-      setClipContentType("text");
-    }
+    setClipSelectedId(null);
+    setClipContent("");
+    setClipContentType("text");
     try {
       const entries = await invoke<ClipboardEntry[]>("clipboard_history_list");
       setClipHistory(entries);
     } catch {
       /* ignore */
     }
+    // Focus search input after render
+    setTimeout(() => clipSearchRef.current?.focus(), 50);
   }, []);
 
   // Enter conversation search mode
@@ -500,6 +493,17 @@ export function CommandPalette() {
     };
   }, [enterClipboard, enterConvSearch]);
 
+  // Real-time clipboard history updates
+  useEffect(() => {
+    if (mode !== "clipboard") return;
+    const unlisten = listen<ClipboardEntry>("clipboard:new-entry", (event) => {
+      setClipHistory((prev) => [event.payload, ...prev]);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [mode]);
+
   // Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -516,7 +520,9 @@ export function CommandPalette() {
             setConversationId(null);
           }
         } else {
-          getCurrentWebviewWindow().hide();
+          invoke("hide_quickchat_panel").catch(() => {
+            getCurrentWebviewWindow().hide();
+          });
         }
       }
     };
@@ -556,7 +562,10 @@ export function CommandPalette() {
   // ---------------------------------------------------------------------------
 
   const hideWindow = useCallback(() => {
-    getCurrentWebviewWindow().hide();
+    invoke("hide_quickchat_panel").catch(() => {
+      // Fallback for non-macOS
+      getCurrentWebviewWindow().hide();
+    });
   }, []);
 
   const systemCommands = useMemo(
@@ -867,20 +876,15 @@ export function CommandPalette() {
     setTimeout(() => setClipCopied(false), 1500);
   }, []);
 
-  const clipCopyAndClose = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
-    invoke("clipboard_write", { text }).catch(() => {});
-    getCurrentWebviewWindow().hide();
-  }, []);
-
   const clipSelectHistory = useCallback((entry: ClipboardEntry) => {
+    // Toggle selection — clicking same entry deselects
+    setClipSelectedId((prev) => (prev === entry.id ? null : entry.id));
     setClipContent(entry.text);
     setClipContentType(entry.content_type);
     setClipResult("");
     setClipActiveAction(null);
     setClipTransformResult("");
     setClipActiveTransform(null);
-    setClipTab("ai");
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -996,14 +1000,20 @@ export function CommandPalette() {
             />
           </>
         ) : mode === "clipboard" ? (
-          <div className="flex-1 flex items-center gap-2" data-tauri-drag-region>
-            <span className="text-sm font-medium text-foreground/60">{l10n.t("Clipboard")}</span>
-            {clipContentType !== "text" && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-foreground/[0.06] text-foreground/40">
-                {clipContentType.toUpperCase()}
-              </span>
-            )}
-          </div>
+          <>
+            <input
+              ref={clipSearchRef}
+              type="text"
+              value={clipSearch}
+              onChange={(e) => setClipSearch(e.target.value)}
+              placeholder={l10n.t("Search clipboard history...")}
+              className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-foreground/25"
+              autoFocus
+            />
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-foreground/[0.06] text-foreground/30 shrink-0">
+              {clipHistory.length}
+            </span>
+          </>
         ) : (
           <input
             ref={inputRef}
@@ -1057,28 +1067,30 @@ export function CommandPalette() {
             }}
           />
         ) : mode === "clipboard" ? (
-          // Clipboard mode
+          // Clipboard mode — history-first layout
           <ClipboardView
-            content={clipContent}
-            tab={clipTab}
-            setTab={setClipTab}
+            history={clipHistory}
+            search={clipSearch}
+            selectedId={clipSelectedId}
+            selectedContent={clipContent}
             result={clipResult}
             activeAction={clipActiveAction}
             processing={clipProcessing}
             transformResult={clipTransformResult}
             activeTransform={clipActiveTransform}
-            history={clipHistory}
-            search={clipSearch}
-            setSearch={setClipSearch}
             copied={clipCopied}
+            onSelect={clipSelectHistory}
+            onPaste={(entry) => {
+              hideWindow();
+              invoke("clipboard_paste_entry", { text: entry.text });
+            }}
+            onCopy={clipCopy}
             onRunAction={clipRunAction}
             onRunTransform={clipRunTransform}
-            onCopy={clipCopy}
-            onCopyAndClose={clipCopyAndClose}
-            onSelectHistory={clipSelectHistory}
-            onDeleteHistory={async (id) => {
+            onDelete={async (id) => {
               await invoke("clipboard_history_delete", { id });
               setClipHistory((prev) => prev.filter((e) => e.id !== id));
+              if (clipSelectedId === id) setClipSelectedId(null);
             }}
             onTogglePin={async (id) => {
               const pinned = await invoke<boolean | null>("clipboard_history_toggle_pin", { id });
@@ -1290,52 +1302,50 @@ function filterCommands(commands: CommandItem[], query: string): CommandItem[] {
 }
 
 // ---------------------------------------------------------------------------
-// Clipboard View (inline within CommandPalette)
+// Clipboard View — history-first layout (no tabs)
 // ---------------------------------------------------------------------------
 
 function ClipboardView({
-  content,
-  tab,
-  setTab,
+  history,
+  search,
+  selectedId,
+  selectedContent,
   result,
   activeAction,
   processing,
   transformResult,
   activeTransform,
-  history,
-  search,
-  setSearch,
   copied,
+  onSelect,
+  onPaste,
+  onCopy,
   onRunAction,
   onRunTransform,
-  onCopy,
-  onCopyAndClose,
-  onSelectHistory,
-  onDeleteHistory,
+  onDelete,
   onTogglePin,
   onToggleFavorite,
 }: {
-  content: string;
-  tab: ClipboardTab;
-  setTab: (t: ClipboardTab) => void;
+  history: ClipboardEntry[];
+  search: string;
+  selectedId: number | null;
+  selectedContent: string;
   result: string;
   activeAction: ClipboardActionId | null;
   processing: boolean;
   transformResult: string;
   activeTransform: string | null;
-  history: ClipboardEntry[];
-  search: string;
-  setSearch: (s: string) => void;
   copied: boolean;
+  onSelect: (entry: ClipboardEntry) => void;
+  onPaste: (entry: ClipboardEntry) => void;
+  onCopy: (text: string) => void;
   onRunAction: (id: ClipboardActionId) => void;
   onRunTransform: (id: string) => void;
-  onCopy: (text: string) => void;
-  onCopyAndClose: (text: string) => void;
-  onSelectHistory: (entry: ClipboardEntry) => void;
-  onDeleteHistory: (id: number) => void;
+  onDelete: (id: number) => void;
   onTogglePin: (id: number) => void;
   onToggleFavorite: (id: number) => void;
 }) {
+  const [showTransforms, setShowTransforms] = useState(false);
+
   const filteredHistory = useMemo(() => {
     if (!search.trim()) return history;
     const q = search.toLowerCase();
@@ -1347,293 +1357,262 @@ function ClipboardView({
     );
   }, [history, search]);
 
+  const selectedEntry = selectedId ? history.find((e) => e.id === selectedId) : null;
+
   return (
     <div className="flex flex-col h-full">
-      {/* Tabs */}
-      <div className="flex px-4 py-1.5 gap-0.5 border-b border-border shrink-0">
-        {[
-          { key: "ai" as const, label: l10n.t("AI Processing"), icon: SparklesIcon },
-          { key: "transform" as const, label: l10n.t("Format Conversion"), icon: ArrowRightLeft },
-          {
-            key: "history" as const,
-            label: `${l10n.t("History")} (${history.length})`,
-            icon: ClockIcon,
-          },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] transition-colors ${
-              tab === key
-                ? "bg-foreground/[0.08] text-foreground font-medium"
-                : "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.04]"
-            }`}
-          >
-            <Icon className="w-3 h-3" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content preview (for AI and Transform tabs) */}
-      {tab !== "history" && (
-        <div className="px-4 py-2 max-h-[80px] overflow-y-auto border-b border-border shrink-0">
-          {content ? (
-            <p className="text-xs text-foreground/40 leading-relaxed select-text whitespace-pre-wrap font-mono">
-              {content.length > 400 ? content.slice(0, 400) + "..." : content}
-            </p>
-          ) : (
-            <p className="text-xs text-foreground/15">{l10n.t("Clipboard is empty")}</p>
-          )}
-        </div>
-      )}
-
-      {/* Tab content */}
+      {/* History list */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        {tab === "ai" && (
-          <div className="flex flex-col h-full">
-            {/* Actions */}
-            <div className="px-4 py-2 border-b border-border shrink-0">
-              <div className="flex flex-wrap gap-1.5">
-                {getClipActions().map((action) => {
-                  const Icon = action.icon;
-                  const isActive = activeAction === action.id;
-                  return (
-                    <button
-                      key={action.id}
-                      onClick={() => onRunAction(action.id)}
-                      disabled={processing || !content}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md transition-colors ${
-                        isActive
-                          ? "bg-foreground text-background"
-                          : "bg-foreground/[0.06] text-foreground/40 hover:text-foreground/70 hover:bg-foreground/[0.1]"
-                      } ${(processing && !isActive) || !content ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Result */}
-            <div className="flex-1 px-4 py-2.5 overflow-y-auto min-h-0">
-              {processing ? (
-                <div className="flex items-center gap-2 py-4">
-                  <span className="inline-flex gap-1 items-center h-4 px-0.5">
-                    <span className="typing-dot w-1.5 h-1.5 rounded-full bg-foreground/30" />
-                    <span
-                      className="typing-dot w-1.5 h-1.5 rounded-full bg-foreground/30"
-                      style={{ animationDelay: "0.15s" }}
-                    />
-                    <span
-                      className="typing-dot w-1.5 h-1.5 rounded-full bg-foreground/30"
-                      style={{ animationDelay: "0.3s" }}
-                    />
+        {filteredHistory.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-foreground/15">
+            <ClipboardIcon className="w-6 h-6" />
+            <span className="text-xs">
+              {search.trim() ? l10n.t("No matching entries") : l10n.t("No clipboard history")}
+            </span>
+            <span className="text-[10px] text-foreground/10">
+              {l10n.t("Copy something to get started")}
+            </span>
+          </div>
+        ) : (
+          filteredHistory.map((entry) => {
+            const EntryIcon = TYPE_ICONS[entry.content_type] || Type;
+            const isSelected = selectedId === entry.id;
+            return (
+              <div key={entry.id}>
+                <div
+                  className={cn(
+                    "group flex items-start gap-2 px-4 py-2 cursor-pointer transition-colors border-b border-border",
+                    isSelected ? "bg-foreground/[0.08]" : "hover:bg-foreground/[0.04]",
+                  )}
+                  title={l10n.t("Double-click to paste")}
+                  onClick={(e) => {
+                    if (e.detail >= 2) {
+                      onPaste(entry);
+                    } else {
+                      onSelect(entry);
+                    }
+                  }}
+                >
+                  <span className="mt-0.5 shrink-0 text-foreground/20">
+                    <EntryIcon className="w-3.5 h-3.5" />
                   </span>
-                  <span className="text-xs text-foreground/30">{l10n.t("Processing...")}</span>
-                </div>
-              ) : result ? (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] text-foreground/30">{l10n.t("Result")}</p>
-                    <button
-                      onClick={() => onCopy(result)}
-                      className="p-1 rounded text-foreground/20 hover:text-foreground/50 transition-colors"
-                    >
-                      {copied ? (
-                        <CheckIcon className="w-3 h-3 text-green-500" />
-                      ) : (
-                        <CopyIcon className="w-3 h-3" />
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className={cn(
+                        "text-[11px] leading-relaxed truncate",
+                        isSelected ? "text-foreground/80" : "text-foreground/60",
                       )}
-                    </button>
-                  </div>
-                  <p className="text-[13px] text-foreground leading-relaxed select-text whitespace-pre-wrap">
-                    {result}
-                  </p>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-xs text-foreground/15">
-                    {content ? l10n.t("Select an action to start") : l10n.t("Clipboard is empty")}
-                  </p>
-                </div>
-              )}
-            </div>
-            {/* Copy & Close */}
-            {result && !processing && (
-              <div className="px-4 py-2 flex justify-end border-t border-border shrink-0">
-                <button
-                  onClick={() => onCopyAndClose(result)}
-                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-medium bg-foreground text-background hover:opacity-90 transition-colors"
-                >
-                  <CopyIcon className="w-3 h-3" />
-                  {l10n.t("Copy & Close")}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {tab === "transform" && (
-          <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto min-h-0 px-4 py-2.5">
-              {Object.entries(
-                getClipTransforms().reduce(
-                  (acc, t) => {
-                    if (!acc[t.group]) acc[t.group] = [];
-                    acc[t.group].push(t);
-                    return acc;
-                  },
-                  {} as Record<string, ReturnType<typeof getClipTransforms>>,
-                ),
-              ).map(([group, items]) => (
-                <div key={group} className="mb-2.5">
-                  <p className="text-[10px] font-medium text-foreground/30 mb-1">{group}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {items.map((t) => {
-                      const isActive = activeTransform === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => onRunTransform(t.id)}
-                          disabled={!content}
-                          className={`px-2 py-1 text-[10px] rounded-md transition-colors ${
-                            isActive
-                              ? "bg-foreground text-background"
-                              : "bg-foreground/[0.04] text-foreground/40 hover:text-foreground/60 hover:bg-foreground/[0.08]"
-                          } ${!content ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
-                        >
-                          {t.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-
-              {transformResult && (
-                <div className="mt-3 p-2.5 rounded-lg bg-foreground/[0.04]">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] text-foreground/30">{l10n.t("Result")}</p>
-                    <button
-                      onClick={() => onCopy(transformResult)}
-                      className="p-1 rounded text-foreground/20 hover:text-foreground/50 transition-colors"
                     >
-                      {copied ? (
-                        <CheckIcon className="w-3 h-3 text-green-500" />
-                      ) : (
-                        <CopyIcon className="w-3 h-3" />
-                      )}
-                    </button>
-                  </div>
-                  <pre className="text-xs text-foreground/70 leading-relaxed select-text whitespace-pre-wrap font-mono">
-                    {transformResult}
-                  </pre>
-                </div>
-              )}
-            </div>
-            {transformResult && (
-              <div className="px-4 py-2 flex justify-end border-t border-border shrink-0">
-                <button
-                  onClick={() => onCopyAndClose(transformResult)}
-                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[11px] font-medium bg-foreground text-background hover:opacity-90 transition-colors"
-                >
-                  <CopyIcon className="w-3 h-3" />
-                  {l10n.t("Copy & Close")}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {tab === "history" && (
-          <div className="flex flex-col h-full">
-            {/* Search */}
-            <div className="px-4 py-2 border-b border-border shrink-0">
-              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-foreground/[0.04] border border-border">
-                <SearchIcon className="w-3.5 h-3.5 shrink-0 text-foreground/25" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={l10n.t("Search history...")}
-                  className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-foreground/25"
-                />
-              </div>
-            </div>
-            {/* List */}
-            <div className="flex-1 overflow-y-auto min-h-0">
-              {filteredHistory.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-2 text-foreground/15">
-                  <ClockIcon className="w-6 h-6" />
-                  <span className="text-xs">{l10n.t("No history records")}</span>
-                </div>
-              ) : (
-                filteredHistory.map((entry) => {
-                  const EntryIcon = TYPE_ICONS[entry.content_type] || Type;
-                  return (
-                    <div
-                      key={entry.id}
-                      className="group flex items-start gap-2 px-4 py-2 cursor-pointer hover:bg-foreground/[0.04] transition-colors border-b border-border"
-                      onClick={() => onSelectHistory(entry)}
-                    >
-                      <span className="mt-0.5 shrink-0 text-foreground/20">
-                        <EntryIcon className="w-3.5 h-3.5" />
+                      {entry.preview}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[9px] text-foreground/25">
+                        {clipTimeAgo(entry.timestamp)}
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] text-foreground/60 leading-relaxed truncate">
-                          {entry.preview}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[9px] text-foreground/25">
-                            {clipTimeAgo(entry.timestamp)}
-                          </span>
-                          {entry.language && (
-                            <span className="text-[9px] px-1 rounded bg-foreground/[0.06] text-foreground/30">
-                              {entry.language}
-                            </span>
-                          )}
-                          {entry.pinned && <Pin className="w-2.5 h-2.5 text-foreground/30" />}
-                          {entry.favorite && (
-                            <Star className="w-2.5 h-2.5 text-foreground/30 fill-foreground/30" />
-                          )}
+                      {entry.app_source && (
+                        <span className="text-[9px] text-foreground/20">{entry.app_source}</span>
+                      )}
+                      {entry.language && (
+                        <span className="text-[9px] px-1 rounded bg-foreground/[0.06] text-foreground/30">
+                          {entry.language}
+                        </span>
+                      )}
+                      {entry.pinned && <Pin className="w-2.5 h-2.5 text-foreground/30" />}
+                      {entry.favorite && (
+                        <Star className="w-2.5 h-2.5 text-foreground/30 fill-foreground/30" />
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    className="hidden group-hover:flex items-center gap-0.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => onCopy(entry.text)}
+                      className="p-1 rounded text-foreground/20 hover:text-foreground/50 transition-colors"
+                      title={l10n.t("Copy")}
+                    >
+                      <CopyIcon className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => onTogglePin(entry.id)}
+                      className={`p-1 rounded transition-colors ${entry.pinned ? "text-foreground/50" : "text-foreground/20 hover:text-foreground/50"}`}
+                    >
+                      <Pin className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => onToggleFavorite(entry.id)}
+                      className={`p-1 rounded transition-colors ${entry.favorite ? "text-foreground/50" : "text-foreground/20 hover:text-foreground/50"}`}
+                    >
+                      <Star
+                        className="w-3 h-3"
+                        style={entry.favorite ? { fill: "currentColor" } : undefined}
+                      />
+                    </button>
+                    <button
+                      onClick={() => onDelete(entry.id)}
+                      className="p-1 rounded text-foreground/20 hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expanded detail for selected entry */}
+                {isSelected && (
+                  <div className="border-b border-border bg-foreground/[0.03]">
+                    {/* Full content preview */}
+                    <div className="px-4 py-2 max-h-[120px] overflow-y-auto">
+                      <pre className="text-[11px] text-foreground/50 leading-relaxed select-text whitespace-pre-wrap font-mono break-all">
+                        {selectedContent.length > 2000
+                          ? selectedContent.slice(0, 2000) + "..."
+                          : selectedContent}
+                      </pre>
+                    </div>
+
+                    {/* Action bar */}
+                    <div className="px-4 py-1.5 flex items-center gap-1 flex-wrap border-t border-border/50">
+                      {/* AI actions */}
+                      {getClipActions().map((action) => {
+                        const Icon = action.icon;
+                        const isActive = activeAction === action.id;
+                        return (
+                          <button
+                            key={action.id}
+                            onClick={() => onRunAction(action.id)}
+                            disabled={processing && !isActive}
+                            className={cn(
+                              "flex items-center gap-1 px-2 py-1 text-[10px] rounded-md transition-colors",
+                              isActive
+                                ? "bg-foreground text-background"
+                                : "text-foreground/35 hover:text-foreground/60 hover:bg-foreground/[0.06]",
+                              processing && !isActive
+                                ? "opacity-30 cursor-not-allowed"
+                                : "cursor-pointer",
+                            )}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {action.label}
+                          </button>
+                        );
+                      })}
+                      {/* Transform toggle */}
+                      <button
+                        onClick={() => setShowTransforms(!showTransforms)}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 text-[10px] rounded-md transition-colors",
+                          showTransforms
+                            ? "bg-foreground/[0.08] text-foreground/60"
+                            : "text-foreground/35 hover:text-foreground/60 hover:bg-foreground/[0.06]",
+                        )}
+                      >
+                        <ArrowRightLeft className="w-3 h-3" />
+                        {l10n.t("Transform")}
+                      </button>
+                    </div>
+
+                    {/* Transform options (collapsible) */}
+                    {showTransforms && (
+                      <div className="px-4 py-1.5 border-t border-border/50">
+                        <div className="flex flex-wrap gap-1">
+                          {getClipTransforms().map((t) => {
+                            const isActive = activeTransform === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => onRunTransform(t.id)}
+                                className={cn(
+                                  "px-1.5 py-0.5 text-[9px] rounded transition-colors",
+                                  isActive
+                                    ? "bg-foreground text-background"
+                                    : "bg-foreground/[0.04] text-foreground/35 hover:text-foreground/55 hover:bg-foreground/[0.08]",
+                                )}
+                              >
+                                {t.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                      <div
-                        className="hidden group-hover:flex items-center gap-0.5 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={() => onTogglePin(entry.id)}
-                          className={`p-1 rounded transition-colors ${entry.pinned ? "text-foreground/50" : "text-foreground/20 hover:text-foreground/50"}`}
-                        >
-                          <Pin className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => onToggleFavorite(entry.id)}
-                          className={`p-1 rounded transition-colors ${entry.favorite ? "text-foreground/50" : "text-foreground/20 hover:text-foreground/50"}`}
-                        >
-                          <Star
-                            className="w-3 h-3"
-                            style={entry.favorite ? { fill: "currentColor" } : undefined}
-                          />
-                        </button>
-                        <button
-                          onClick={() => onDeleteHistory(entry.id)}
-                          className="p-1 rounded text-foreground/20 hover:text-destructive transition-colors"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                    )}
+
+                    {/* AI result */}
+                    {processing && (
+                      <div className="px-4 py-2 border-t border-border/50">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex gap-1 items-center h-4">
+                            <span className="typing-dot w-1.5 h-1.5 rounded-full bg-foreground/30" />
+                            <span
+                              className="typing-dot w-1.5 h-1.5 rounded-full bg-foreground/30"
+                              style={{ animationDelay: "0.15s" }}
+                            />
+                            <span
+                              className="typing-dot w-1.5 h-1.5 rounded-full bg-foreground/30"
+                              style={{ animationDelay: "0.3s" }}
+                            />
+                          </span>
+                          <span className="text-[10px] text-foreground/25">
+                            {l10n.t("Processing...")}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
+                    )}
+                    {!processing && result && (
+                      <div className="px-4 py-2 border-t border-border/50">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[9px] text-foreground/25">{l10n.t("Result")}</p>
+                          <button
+                            onClick={() => onCopy(result)}
+                            className="p-0.5 rounded text-foreground/20 hover:text-foreground/50 transition-colors"
+                          >
+                            {copied ? (
+                              <CheckIcon className="w-3 h-3 text-green-500" />
+                            ) : (
+                              <CopyIcon className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-foreground/70 leading-relaxed select-text whitespace-pre-wrap">
+                          {result}
+                        </p>
+                      </div>
+                    )}
+                    {!processing && transformResult && (
+                      <div className="px-4 py-2 border-t border-border/50">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[9px] text-foreground/25">
+                            {l10n.t("Transform Result")}
+                          </p>
+                          <button
+                            onClick={() => onCopy(transformResult)}
+                            className="p-0.5 rounded text-foreground/20 hover:text-foreground/50 transition-colors"
+                          >
+                            {copied ? (
+                              <CheckIcon className="w-3 h-3 text-green-500" />
+                            ) : (
+                              <CopyIcon className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                        <pre className="text-[11px] text-foreground/60 leading-relaxed select-text whitespace-pre-wrap font-mono">
+                          {transformResult}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
+
+      {/* Footer hint */}
+      {filteredHistory.length > 0 && (
+        <div className="px-4 py-1.5 text-[9px] text-foreground/20 text-center border-t border-border shrink-0">
+          {l10n.t("Click to expand")} · {l10n.t("Double-click to paste")}
+        </div>
+      )}
     </div>
   );
 }

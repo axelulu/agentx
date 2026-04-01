@@ -126,6 +126,9 @@ pub fn shortcut_get_palette(app: AppHandle) -> String {
 
 #[tauri::command]
 pub fn shortcut_check(app: AppHandle, shortcut: String) -> Result<bool, String> {
+    if shortcut.starts_with("DoubleTap:") {
+        return Ok(crate::doubletap::is_registered(&shortcut));
+    }
     let parsed: Shortcut = shortcut
         .parse()
         .map_err(|e| format!("Invalid shortcut: {}", e))?;
@@ -135,6 +138,30 @@ pub fn shortcut_check(app: AppHandle, shortcut: String) -> Result<bool, String> 
 /// Change the command-palette shortcut. Unregisters the old one first.
 #[tauri::command]
 pub fn shortcut_set_palette(app: AppHandle, shortcut: String) -> Result<(), String> {
+    // --- DoubleTap path ---
+    if shortcut.starts_with("DoubleTap:") {
+        crate::doubletap::validate(&shortcut)?;
+
+        // Unregister old palette shortcut (standard or doubletap)
+        if let Some(state) = app.try_state::<PaletteShortcutState>() {
+            if let Some(old_key) = state.current.lock().unwrap().take() {
+                if old_key.starts_with("DoubleTap:") {
+                    crate::doubletap::unregister("command-palette");
+                } else if let Ok(old) = old_key.parse::<Shortcut>() {
+                    let _ = app.global_shortcut().unregister(old);
+                }
+            }
+        }
+
+        crate::doubletap::register(&app, "command-palette", &shortcut)?;
+
+        if let Some(state) = app.try_state::<PaletteShortcutState>() {
+            *state.current.lock().unwrap() = Some(shortcut);
+        }
+        return Ok(());
+    }
+
+    // --- Standard shortcut path ---
     let new_shortcut: Shortcut = shortcut
         .parse()
         .map_err(|e| format!("Invalid shortcut format: {}", e))?;
@@ -153,9 +180,12 @@ pub fn shortcut_set_palette(app: AppHandle, shortcut: String) -> Result<(), Stri
         }
     }
 
+    // Unregister old palette shortcut (standard or doubletap)
     if let Some(state) = app.try_state::<PaletteShortcutState>() {
         if let Some(old_key) = state.current.lock().unwrap().take() {
-            if let Ok(old) = old_key.parse::<Shortcut>() {
+            if old_key.starts_with("DoubleTap:") {
+                crate::doubletap::unregister("command-palette");
+            } else if let Ok(old) = old_key.parse::<Shortcut>() {
                 let _ = app.global_shortcut().unregister(old);
             }
         }
@@ -193,6 +223,37 @@ pub fn shortcut_list_all(app: AppHandle) -> Vec<serde_json::Value> {
 /// Change any shortcut by id. Unregisters the old one, registers the new one with the correct handler.
 #[tauri::command]
 pub fn shortcut_set(app: AppHandle, id: String, shortcut: String) -> Result<(), String> {
+    // --- DoubleTap path ---
+    if shortcut.starts_with("DoubleTap:") {
+        crate::doubletap::validate(&shortcut)?;
+
+        // Check conflicts
+        if crate::doubletap::is_registered(&shortcut) {
+            let current = registry_get(&app, &id);
+            if current.as_deref() != Some(shortcut.as_str()) {
+                if let Some(owner) = crate::doubletap::find_owner(&shortcut) {
+                    return Err(format!("Shortcut {} is already used by {}", shortcut, owner));
+                }
+                return Err(format!("Shortcut {} is already in use", shortcut));
+            }
+            return Ok(());
+        }
+
+        // Special case: command-palette
+        if id == "command-palette" {
+            return shortcut_set_palette(app, shortcut);
+        }
+
+        // Unregister old shortcut (standard or doubletap)
+        unregister_old_shortcut(&app, &id);
+
+        // Register double-tap
+        crate::doubletap::register(&app, &id, &shortcut)?;
+        registry_set(&app, &id, &shortcut);
+        return Ok(());
+    }
+
+    // --- Standard shortcut path ---
     let new_sc: Shortcut = shortcut
         .parse()
         .map_err(|e| format!("Invalid shortcut format: {}", e))?;
@@ -216,12 +277,8 @@ pub fn shortcut_set(app: AppHandle, id: String, shortcut: String) -> Result<(), 
         return shortcut_set_palette(app, shortcut);
     }
 
-    // Unregister old shortcut for this id
-    if let Some(old_key) = registry_get(&app, &id) {
-        if let Ok(old) = old_key.parse::<Shortcut>() {
-            let _ = app.global_shortcut().unregister(old);
-        }
-    }
+    // Unregister old shortcut (standard or doubletap)
+    unregister_old_shortcut(&app, &id);
 
     // Register new shortcut with the correct handler
     let handle = app.clone();
@@ -240,9 +297,23 @@ pub fn shortcut_set(app: AppHandle, id: String, shortcut: String) -> Result<(), 
     Ok(())
 }
 
+/// Unregister the old shortcut for an id, whether it was standard or DoubleTap.
+fn unregister_old_shortcut(app: &AppHandle, id: &str) {
+    if let Some(old_key) = registry_get(app, id) {
+        if old_key.starts_with("DoubleTap:") {
+            crate::doubletap::unregister(id);
+        } else if let Ok(old) = old_key.parse::<Shortcut>() {
+            let _ = app.global_shortcut().unregister(old);
+        }
+    }
+}
+
 /// Dispatch the correct action for a shortcut id.
-fn dispatch_shortcut_action(app: &AppHandle, id: &str) {
+pub fn dispatch_shortcut_action(app: &AppHandle, id: &str) {
     match id {
+        "command-palette" => {
+            toggle_command_palette(app);
+        }
         "translate" => {
             match crate::translate::get_selected_text() {
                 Ok(text) => {
@@ -279,6 +350,9 @@ fn dispatch_shortcut_action(app: &AppHandle, id: &str) {
 /// Validate a shortcut string (check if it can be parsed).
 #[tauri::command]
 pub fn shortcut_validate(shortcut: String) -> Result<bool, String> {
+    if shortcut.starts_with("DoubleTap:") {
+        return crate::doubletap::validate(&shortcut);
+    }
     match shortcut.parse::<Shortcut>() {
         Ok(_) => Ok(true),
         Err(e) => Err(format!("Invalid shortcut: {}", e)),
@@ -292,6 +366,18 @@ pub fn shortcut_validate(shortcut: String) -> Result<bool, String> {
 /// Find which feature owns a given shortcut key string.
 #[allow(dead_code)]
 fn find_shortcut_owner(app: &AppHandle, shortcut: &str) -> Option<String> {
+    // Check double-tap registry
+    if shortcut.starts_with("DoubleTap:") {
+        if let Some(owner_id) = crate::doubletap::find_owner(shortcut) {
+            let label = DEFAULT_SHORTCUTS
+                .iter()
+                .find(|(i, _, _)| *i == owner_id.as_str())
+                .map(|(_, _, l)| l.to_string())
+                .unwrap_or(owner_id);
+            return Some(label);
+        }
+        return None;
+    }
     // Check palette
     if let Some(state) = app.try_state::<PaletteShortcutState>() {
         if state.current.lock().unwrap().as_deref() == Some(shortcut) {

@@ -10,6 +10,7 @@ export type SettingsSection =
   | "knowledgeBase"
   | "mcp"
   | "channels"
+  | "clipboard"
   | "memory"
   | "permissions"
   | "systemHealth"
@@ -69,7 +70,17 @@ const uiSlice = createSlice({
       persistUIPreference({ sidebarOpen: action.payload });
     },
     toggleSettings(state) {
-      state.settingsOpen = !state.settingsOpen;
+      if (!state.settingsOpen) {
+        // Closed → open to home
+        state.settingsOpen = true;
+        state.settingsSection = "general";
+      } else if (state.settingsSection !== "general") {
+        // Open but not on home → navigate to home
+        state.settingsSection = "general";
+      } else {
+        // Already on home → close
+        state.settingsOpen = false;
+      }
     },
     setSettingsOpen(state, action: PayloadAction<boolean>) {
       state.settingsOpen = action.payload;
