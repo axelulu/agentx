@@ -652,5 +652,11 @@
   "No messages found in any file. Please check the format.": "In keiner Datei wurden Nachrichten gefunden. Bitte Format überprüfen.",
   "Failed to read file.": "Datei konnte nicht gelesen werden.",
   "Failed to read folder.": "Ordner konnte nicht gelesen werden.",
-  "Failed to create conversation.": "Konversation konnte nicht erstellt werden."
+  "Failed to create conversation.": "Konversation konnte nicht erstellt werden.",
+  "Source": "Quelltext",
+  "Translation": "Übersetzung",
+  "Copy translation": "Übersetzung kopieren",
+  "Translating...": "Übersetze...",
+  "⌥D to translate selection": "⌥D zum Übersetzen der Auswahl",
+  "Esc to close": "Esc zum Schließen"
 }

@@ -1,7 +1,12 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/slices/store";
-import { createNewConversation, switchConversation, resetToWelcome } from "@/slices/chatSlice";
+import {
+  createNewConversation,
+  switchConversation,
+  resetToWelcome,
+  setEnabledSkills,
+} from "@/slices/chatSlice";
 import { toggleSettings, openTab, openSettingsSection } from "@/slices/uiSlice";
 
 export function useShortcuts() {
@@ -32,6 +37,16 @@ export function useShortcuts() {
         dispatch(createNewConversation()).then((action) => {
           if (createNewConversation.fulfilled.match(action)) {
             dispatch(openTab(action.payload.id));
+          }
+        });
+      } else if (event.startsWith("skill:new:")) {
+        const skillId = event.slice("skill:new:".length);
+        dispatch(createNewConversation()).then((action) => {
+          if (createNewConversation.fulfilled.match(action)) {
+            const convId = action.payload.id;
+            dispatch(openTab(convId));
+            dispatch(setEnabledSkills([skillId]));
+            window.api.skills.setEnabled(convId, [skillId]).catch(console.error);
           }
         });
       } else if (event.startsWith("navigate:")) {

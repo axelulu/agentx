@@ -454,6 +454,8 @@ pub fn toggle_quickchat_window(
         } else {
             // show_panel_native centers the panel on screen natively
             show_panel_native(&win);
+            // Reset frontend to home mode (prevents stale clipboard/chat state)
+            let _ = win.emit("quickchat:ready", ());
         }
         return Ok(());
     }
@@ -545,14 +547,18 @@ fn set_suppress_blur(app: &AppHandle, value: bool) {
 
 /// Tauri command: sync the quickchat NSPanel appearance to match light/dark mode.
 #[tauri::command]
-pub fn sync_quickchat_panel_appearance(dark: bool) {
-    sync_panel_appearance_native(dark);
+pub fn sync_quickchat_panel_appearance(app: AppHandle, dark: bool) {
+    let _ = app.run_on_main_thread(move || {
+        sync_panel_appearance_native(dark);
+    });
 }
 
 /// Tauri command: hide the quickchat NSPanel (called from frontend on ESC, etc.).
 #[tauri::command]
-pub fn hide_quickchat_panel() {
-    hide_panel_standalone();
+pub fn hide_quickchat_panel(app: AppHandle) {
+    let _ = app.run_on_main_thread(move || {
+        hide_panel_standalone();
+    });
 }
 
 fn setup_blur_handler(app: &AppHandle, win: &tauri::WebviewWindow) {

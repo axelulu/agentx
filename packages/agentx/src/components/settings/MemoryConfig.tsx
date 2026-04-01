@@ -263,14 +263,14 @@ export function MemoryConfig() {
                             <button
                               onClick={() => startEditFact(fact)}
                               className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-foreground/[0.03] transition-colors"
-                              title="Edit"
+                              title={l10n.t("Edit")}
                             >
                               <PencilIcon className="w-3 h-3" />
                             </button>
                             <button
                               onClick={() => deleteFact(fact.id)}
                               className="p-1.5 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                              title="Delete"
+                              title={l10n.t("Delete")}
                             >
                               <Trash2Icon className="w-3 h-3" />
                             </button>
@@ -337,7 +337,7 @@ export function MemoryConfig() {
                       <button
                         onClick={() => deleteSummary(summary.id)}
                         className="shrink-0 p-1.5 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
-                        title="Delete"
+                        title={l10n.t("Delete")}
                       >
                         <Trash2Icon className="w-3 h-3" />
                       </button>

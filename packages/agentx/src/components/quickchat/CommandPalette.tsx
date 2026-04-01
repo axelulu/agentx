@@ -52,9 +52,15 @@ interface CommandItem {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   subtitle?: string;
-  category: "recent" | "skill" | "action" | "conversation" | "system" | "file";
+  category: "recent" | "skill" | "action" | "conversation" | "system" | "file" | "app";
   action: () => void | Promise<void>;
   keywords?: string[];
+}
+
+interface InstalledApp {
+  name: string;
+  bundleId: string;
+  path: string;
 }
 
 interface QuickMessage {
@@ -392,6 +398,7 @@ export function CommandPalette() {
   const [conversations, setConversations] = useState<
     { id: string; title: string; updatedAt: number; messageCount: number }[]
   >([]);
+  const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
 
   // Clipboard state
   const [clipContent, setClipContent] = useState("");
@@ -475,6 +482,28 @@ export function CommandPalette() {
       setRecentIds(loadRecent());
       setFavorites(loadFavorites());
       focus();
+      // Refresh data (skills/conversations may have changed in main window)
+      window.api.skills
+        .listInstalled()
+        .then((list) =>
+          setSkills(
+            (list as { id: string; title: string; description: string; category: string }[]) || [],
+          ),
+        )
+        .catch(() => {});
+      window.api.conversation
+        .list()
+        .then((list) =>
+          setConversations(
+            (list as { id: string; title: string; updatedAt: number; messageCount: number }[])
+              .sort((a, b) => b.updatedAt - a.updatedAt)
+              .slice(0, 20),
+          ),
+        )
+        .catch(() => {});
+      invoke<InstalledApp[]>("apps_list_installed")
+        .then((apps) => setInstalledApps(apps || []))
+        .catch(() => {});
     });
     // Listen for mode switch events (e.g. clipboard shortcut, search shortcut)
     const unlistenMode = listen<string>("quickchat:mode", (event) => {
@@ -550,6 +579,9 @@ export function CommandPalette() {
         ),
       )
       .catch(() => {});
+    invoke<InstalledApp[]>("apps_list_installed")
+      .then((apps) => setInstalledApps(apps || []))
+      .catch(() => {});
   }, []);
 
   // Cleanup
@@ -584,11 +616,10 @@ export function CommandPalette() {
         category: "skill" as const,
         keywords: [s.category, "skill"],
         action: async () => {
-          // Execute skill: create a conversation and send the skill content
           pushRecent(`skill:${s.id}`);
           setRecentIds(loadRecent());
           hideWindow();
-          invoke("window_show_and_emit", { event: "shortcut:new-conversation" });
+          invoke("window_show_and_emit", { event: `skill:new:${s.id}` });
         },
       })),
     [skills, hideWindow],
@@ -618,10 +649,28 @@ export function CommandPalette() {
     [conversations, hideWindow],
   );
 
+  // App commands from installed macOS applications
+  const appCommands = useMemo<CommandItem[]>(
+    () =>
+      installedApps.map((app) => ({
+        id: `app:${app.bundleId}`,
+        icon: AppWindowIcon,
+        title: app.name,
+        subtitle: app.path.replace(/^\/Applications\//, "").replace(/\.app$/, ""),
+        category: "app" as const,
+        keywords: [app.bundleId.toLowerCase(), app.name.toLowerCase()],
+        action: () => {
+          hideWindow();
+          invoke("ni_open_app", { bundleId: app.bundleId });
+        },
+      })),
+    [installedApps, hideWindow],
+  );
+
   // All commands merged
   const allCommands = useMemo(
-    () => [...systemCommands, ...skillCommands, ...conversationItems],
-    [systemCommands, skillCommands, conversationItems],
+    () => [...systemCommands, ...skillCommands, ...conversationItems, ...appCommands],
+    [systemCommands, skillCommands, conversationItems, appCommands],
   );
 
   // ---------------------------------------------------------------------------
@@ -979,7 +1028,11 @@ export function CommandPalette() {
               onChange={(e) => setConvSearchQuery(e.target.value)}
               onKeyDown={(e) => {
                 const items = convSearchResults ?? conversations;
-                if (e.key === "ArrowDown") {
+                if (e.key === "Backspace" && !convSearchQuery) {
+                  e.preventDefault();
+                  setMode("home");
+                  setInput("");
+                } else if (e.key === "ArrowDown") {
                   e.preventDefault();
                   setConvSearchIndex((i) => Math.min(i + 1, items.length - 1));
                 } else if (e.key === "ArrowUp") {
@@ -1006,6 +1059,13 @@ export function CommandPalette() {
               type="text"
               value={clipSearch}
               onChange={(e) => setClipSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Backspace" && !clipSearch) {
+                  e.preventDefault();
+                  setMode("home");
+                  setInput("");
+                }
+              }}
               placeholder={l10n.t("Search clipboard history...")}
               className="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-foreground/25"
               autoFocus
@@ -1205,16 +1265,22 @@ export function CommandPalette() {
                   <div
                     className={cn(
                       "flex items-center justify-center w-7 h-7 rounded-lg shrink-0",
-                      item.category === "skill"
-                        ? "bg-orange-500/10 text-orange-500"
-                        : item.category === "conversation"
-                          ? "bg-blue-500/10 text-blue-500"
-                          : item.category === "system"
-                            ? "bg-green-500/10 text-green-500"
-                            : "bg-foreground/[0.06] text-foreground/50",
+                      item.category === "app"
+                        ? ""
+                        : item.category === "skill"
+                          ? "bg-orange-500/10 text-orange-500"
+                          : item.category === "conversation"
+                            ? "bg-blue-500/10 text-blue-500"
+                            : item.category === "system"
+                              ? "bg-green-500/10 text-green-500"
+                              : "bg-foreground/[0.06] text-foreground/50",
                     )}
                   >
-                    <Icon className="w-3.5 h-3.5" />
+                    {item.category === "app" ? (
+                      <AppIcon bundleId={item.id.replace("app:", "")} fallback={Icon} />
+                    ) : (
+                      <Icon className="w-3.5 h-3.5" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium truncate">{item.title}</div>
@@ -1276,6 +1342,46 @@ export function CommandPalette() {
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// App icon lazy loader
+// ---------------------------------------------------------------------------
+
+const appIconCache = new Map<string, string | null>();
+
+function AppIcon({
+  bundleId,
+  fallback: Fallback,
+}: {
+  bundleId: string;
+  fallback: React.ComponentType<{ className?: string }>;
+}) {
+  const [src, setSrc] = useState<string | null>(appIconCache.get(bundleId) ?? null);
+  const [loaded, setLoaded] = useState(appIconCache.has(bundleId));
+
+  useEffect(() => {
+    if (appIconCache.has(bundleId)) {
+      setSrc(appIconCache.get(bundleId) ?? null);
+      setLoaded(true);
+      return;
+    }
+    invoke<string | null>("apps_get_icon", { bundleId })
+      .then((data) => {
+        appIconCache.set(bundleId, data);
+        setSrc(data);
+        setLoaded(true);
+      })
+      .catch(() => {
+        appIconCache.set(bundleId, null);
+        setLoaded(true);
+      });
+  }, [bundleId]);
+
+  if (!loaded || !src) {
+    return <Fallback className="w-4 h-4" />;
+  }
+  return <img src={src} className="w-5 h-5 rounded" alt="" draggable={false} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -1399,21 +1505,21 @@ function ClipboardView({
                   <div className="flex-1 min-w-0">
                     <p
                       className={cn(
-                        "text-[11px] leading-relaxed truncate",
+                        "text-[13px] leading-relaxed truncate",
                         isSelected ? "text-foreground/80" : "text-foreground/60",
                       )}
                     >
                       {entry.preview}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[9px] text-foreground/25">
+                      <span className="text-[10px] text-foreground/25">
                         {clipTimeAgo(entry.timestamp)}
                       </span>
                       {entry.app_source && (
-                        <span className="text-[9px] text-foreground/20">{entry.app_source}</span>
+                        <span className="text-[10px] text-foreground/20">{entry.app_source}</span>
                       )}
                       {entry.language && (
-                        <span className="text-[9px] px-1 rounded bg-foreground/[0.06] text-foreground/30">
+                        <span className="text-[10px] px-1 rounded bg-foreground/[0.06] text-foreground/30">
                           {entry.language}
                         </span>
                       )}
@@ -1463,7 +1569,7 @@ function ClipboardView({
                   <div className="border-b border-border bg-foreground/[0.03]">
                     {/* Full content preview */}
                     <div className="px-4 py-2 max-h-[120px] overflow-y-auto">
-                      <pre className="text-[11px] text-foreground/50 leading-relaxed select-text whitespace-pre-wrap font-mono break-all">
+                      <pre className="text-[13px] text-foreground/50 leading-relaxed select-text whitespace-pre-wrap font-mono break-all">
                         {selectedContent.length > 2000
                           ? selectedContent.slice(0, 2000) + "..."
                           : selectedContent}

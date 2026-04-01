@@ -652,5 +652,11 @@
   "No messages found in any file. Please check the format.": "어떤 파일에서도 메시지를 찾을 수 없습니다. 형식을 확인하세요.",
   "Failed to read file.": "파일 읽기에 실패했습니다.",
   "Failed to read folder.": "폴더 읽기에 실패했습니다.",
-  "Failed to create conversation.": "대화 생성에 실패했습니다."
+  "Failed to create conversation.": "대화 생성에 실패했습니다.",
+  "Source": "원문",
+  "Translation": "번역",
+  "Copy translation": "번역 복사",
+  "Translating...": "번역 중...",
+  "⌥D to translate selection": "⌥D로 선택 텍스트 번역",
+  "Esc to close": "Esc로 닫기"
 }

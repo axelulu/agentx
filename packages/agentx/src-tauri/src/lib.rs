@@ -1,4 +1,5 @@
 pub mod accessibility;
+mod apps;
 mod clipboard;
 mod commands;
 mod contextbar;
@@ -40,6 +41,7 @@ pub fn run() {
         .manage(sidecar::SidecarState::default())
         .manage(clipboard::ClipboardHistoryState::default())
         .manage(window::GlobalShortcutRegistry::default())
+        .manage(apps::InstalledAppsCache::default())
         .setup(|app| {
             // Set up tray
             tray::create_tray(app.handle())?;
@@ -201,9 +203,12 @@ pub fn run() {
                 let clip_handle = app.handle().clone();
                 if let Err(e) = app.global_shortcut().on_shortcut(clip_shortcut, move |_app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        if let Err(e) = quickchat::show_quickchat_mode(&clip_handle, "clipboard") {
-                            eprintln!("[Clipboard] Failed to show quickchat clipboard mode: {}", e);
-                        }
+                        let h = clip_handle.clone();
+                        let _ = clip_handle.run_on_main_thread(move || {
+                            if let Err(e) = quickchat::show_quickchat_mode(&h, "clipboard") {
+                                eprintln!("[Clipboard] Failed to show quickchat clipboard mode: {}", e);
+                            }
+                        });
                     }
                 }) {
                     eprintln!("[Clipboard] Failed to register shortcut: {}", e);
@@ -389,6 +394,9 @@ pub fn run() {
             commands::ni_stop,
             commands::ni_mark_read,
             commands::ni_open_app,
+            // App launcher
+            commands::apps_list_installed,
+            commands::apps_get_icon,
             // Native commands (not sidecar pass-through)
             commands::fs_read_file,
             commands::fs_write_file,

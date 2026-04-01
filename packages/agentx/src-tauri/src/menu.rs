@@ -106,9 +106,12 @@ pub fn create_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             let _ = handle.emit("shortcut:new-conversation", ());
         }
         "menu_search" => {
-            if let Err(e) = crate::quickchat::show_quickchat_mode(&handle, "conv-search") {
-                eprintln!("[Menu] Failed to show quickchat search mode: {}", e);
-            }
+            let h = handle.clone();
+            let _ = handle.run_on_main_thread(move || {
+                if let Err(e) = crate::quickchat::show_quickchat_mode(&h, "conv-search") {
+                    eprintln!("[Menu] Failed to show quickchat search mode: {}", e);
+                }
+            });
         }
         "menu_settings" => {
             let _ = handle.emit("shortcut:settings", ());

@@ -652,5 +652,11 @@
   "No messages found in any file. Please check the format.": "どのファイルにもメッセージが見つかりません。形式を確認してください。",
   "Failed to read file.": "ファイルの読み込みに失敗しました。",
   "Failed to read folder.": "フォルダの読み込みに失敗しました。",
-  "Failed to create conversation.": "会話の作成に失敗しました。"
+  "Failed to create conversation.": "会話の作成に失敗しました。",
+  "Source": "原文",
+  "Translation": "翻訳",
+  "Copy translation": "翻訳をコピー",
+  "Translating...": "翻訳中...",
+  "⌥D to translate selection": "⌥D で選択テキストを翻訳",
+  "Esc to close": "Esc で閉じる"
 }

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Languages, Copy, Check, X, ChevronDown, Loader2 } from "lucide-react";
+import { l10n } from "@agentx/l10n";
 import { useStandaloneTheme } from "@/hooks/useStandaloneTheme";
 
 const TARGET_LANGUAGES = [
@@ -144,7 +145,7 @@ export function TranslatorPanel() {
       >
         <div className="flex items-center gap-2">
           <Languages className="w-4 h-4 text-primary" />
-          <span className="text-xs font-medium text-foreground/80">Translate</span>
+          <span className="text-xs font-medium text-foreground/80">{l10n.t("Translate")}</span>
         </div>
         <div className="flex items-center gap-1">
           {/* Language selector */}
@@ -189,19 +190,19 @@ export function TranslatorPanel() {
 
       {/* Source text */}
       <div className="px-3 py-2 border-b border-border max-h-[120px] overflow-y-auto">
-        <p className="text-xs text-foreground/60 mb-1">Source</p>
+        <p className="text-xs text-foreground/60 mb-1">{l10n.t("Source")}</p>
         <p className="text-sm text-foreground leading-relaxed select-text">{sourceText}</p>
       </div>
 
       {/* Translation result */}
       <div className="flex-1 px-3 py-2 overflow-y-auto min-h-0">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-xs text-foreground/60">Translation</p>
+          <p className="text-xs text-foreground/60">{l10n.t("Translation")}</p>
           {translatedText && !isTranslating && (
             <button
               onClick={handleCopy}
               className="p-1 rounded-md hover:bg-accent/50 text-foreground/50 transition-colors"
-              title="Copy translation"
+              title={l10n.t("Copy translation")}
             >
               {copied ? (
                 <Check className="w-3.5 h-3.5 text-green-500" />
@@ -214,7 +215,7 @@ export function TranslatorPanel() {
         {isTranslating ? (
           <div className="flex items-center gap-2 py-4">
             <Loader2 className="w-4 h-4 text-primary animate-spin" />
-            <span className="text-xs text-foreground/50">Translating...</span>
+            <span className="text-xs text-foreground/50">{l10n.t("Translating...")}</span>
           </div>
         ) : (
           <p className="text-sm text-foreground leading-relaxed select-text whitespace-pre-wrap">
@@ -225,8 +226,10 @@ export function TranslatorPanel() {
 
       {/* Footer hint */}
       <div className="px-3 py-1.5 border-t border-border flex items-center justify-between">
-        <span className="text-[10px] text-foreground/30">⌥D to translate selection</span>
-        <span className="text-[10px] text-foreground/30">Esc to close</span>
+        <span className="text-[10px] text-foreground/30">
+          {l10n.t("⌥D to translate selection")}
+        </span>
+        <span className="text-[10px] text-foreground/30">{l10n.t("Esc to close")}</span>
       </div>
     </div>
   );

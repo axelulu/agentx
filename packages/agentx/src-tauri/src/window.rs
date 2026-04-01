@@ -72,7 +72,10 @@ pub fn register_palette_shortcut(
     app.global_shortcut()
         .on_shortcut(shortcut, move |_app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
-                toggle_command_palette(&handle);
+                let h = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    toggle_command_palette(&h);
+                });
             }
         })?;
 
@@ -309,42 +312,49 @@ fn unregister_old_shortcut(app: &AppHandle, id: &str) {
 }
 
 /// Dispatch the correct action for a shortcut id.
+/// Global shortcut callbacks fire on a background thread, so we always
+/// bounce to the main thread to ensure AppKit calls are safe.
 pub fn dispatch_shortcut_action(app: &AppHandle, id: &str) {
-    match id {
-        "command-palette" => {
-            toggle_command_palette(app);
-        }
-        "translate" => {
-            match crate::translate::get_selected_text() {
-                Ok(text) => {
-                    if let Err(e) = crate::translate::show_translator_window(app, &text) {
-                        eprintln!("[Translate] Failed to show window: {}", e);
+    let handle = app.clone();
+    let id = id.to_string();
+    let _ = app.run_on_main_thread(move || {
+        let app = handle;
+        match id.as_str() {
+            "command-palette" => {
+                toggle_command_palette(&app);
+            }
+            "translate" => {
+                match crate::translate::get_selected_text() {
+                    Ok(text) => {
+                        if let Err(e) = crate::translate::show_translator_window(&app, &text) {
+                            eprintln!("[Translate] Failed to show window: {}", e);
+                        }
                     }
+                    Err(e) => eprintln!("[Translate] No text selected: {}", e),
                 }
-                Err(e) => eprintln!("[Translate] No text selected: {}", e),
             }
-        }
-        "clipboard" => {
-            if let Err(e) = crate::quickchat::show_quickchat_mode(app, "clipboard") {
-                eprintln!("[Clipboard] Failed to show quickchat clipboard mode: {}", e);
+            "clipboard" => {
+                if let Err(e) = crate::quickchat::show_quickchat_mode(&app, "clipboard") {
+                    eprintln!("[Clipboard] Failed to show quickchat clipboard mode: {}", e);
+                }
             }
+            "ocr" => {
+                use tauri::Emitter;
+                let _ = app.emit("ocr:trigger", ());
+            }
+            "contextbar" => {
+                let (cursor_x, cursor_y) = crate::translate::get_cursor_position();
+                let h = app.clone();
+                // Gather context in background (captures app info + Cmd+C before showing window)
+                std::thread::spawn(move || {
+                    let context = crate::contextbar::gather_context();
+                    let context_str = serde_json::to_string(&context).unwrap_or_default();
+                    let _ = crate::contextbar::show_contextbar_at(&h, cursor_x, cursor_y, &context_str);
+                });
+            }
+            _ => eprintln!("[Window] Unknown shortcut id: {}", id),
         }
-        "ocr" => {
-            use tauri::Emitter;
-            let _ = app.emit("ocr:trigger", ());
-        }
-        "contextbar" => {
-            let (cursor_x, cursor_y) = crate::translate::get_cursor_position();
-            let h = app.clone();
-            // Gather context in background (captures app info + Cmd+C before showing window)
-            std::thread::spawn(move || {
-                let context = crate::contextbar::gather_context();
-                let context_str = serde_json::to_string(&context).unwrap_or_default();
-                let _ = crate::contextbar::show_contextbar_at(&h, cursor_x, cursor_y, &context_str);
-            });
-        }
-        _ => eprintln!("[Window] Unknown shortcut id: {}", id),
-    }
+    });
 }
 
 /// Validate a shortcut string (check if it can be parsed).

@@ -693,7 +693,7 @@ export function ContextBarPanel() {
             <XIcon className="w-3.5 h-3.5" />
           </button>
           <div className="absolute right-0 top-full mt-1 px-2 py-1 rounded bg-foreground text-background text-[10px] whitespace-nowrap z-50 pointer-events-none shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-            Close <span className="opacity-60">Esc</span>
+            {l10n.t("Close")} <span className="opacity-60">Esc</span>
           </div>
         </div>
       </div>

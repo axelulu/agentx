@@ -652,5 +652,11 @@
   "No messages found in any file. Please check the format.": "所有文件中均未找到消息，请检查格式。",
   "Failed to read file.": "文件读取失败。",
   "Failed to read folder.": "文件夹读取失败。",
-  "Failed to create conversation.": "创建对话失败。"
+  "Failed to create conversation.": "创建对话失败。",
+  "Source": "原文",
+  "Translation": "译文",
+  "Copy translation": "复制译文",
+  "Translating...": "翻译中...",
+  "⌥D to translate selection": "⌥D 翻译选中文本",
+  "Esc to close": "Esc 关闭"
 }

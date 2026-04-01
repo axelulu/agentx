@@ -734,6 +734,26 @@ pub async fn ni_open_app(bundle_id: String) -> Result<Value, String> {
 }
 
 // ---------------------------------------------------------------------------
+// App launcher commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn apps_list_installed(
+    cache: State<'_, crate::apps::InstalledAppsCache>,
+) -> Result<Value, String> {
+    let apps = cache.list_installed();
+    serde_json::to_value(&apps).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn apps_get_icon(
+    cache: State<'_, crate::apps::InstalledAppsCache>,
+    bundle_id: String,
+) -> Result<Option<String>, String> {
+    Ok(cache.get_icon(&bundle_id))
+}
+
+// ---------------------------------------------------------------------------
 // File System commands (native - not through sidecar)
 // ---------------------------------------------------------------------------
 
@@ -1413,7 +1433,13 @@ pub async fn window_show_and_emit(app: AppHandle, event: String) -> Result<(), S
 
 #[tauri::command]
 pub async fn quickchat_open_mode(app: AppHandle, mode: String) -> Result<(), String> {
-    crate::quickchat::show_quickchat_mode(&app, &mode)
+    let h = app.clone();
+    app.run_on_main_thread(move || {
+        if let Err(e) = crate::quickchat::show_quickchat_mode(&h, &mode) {
+            eprintln!("[QuickChat] Failed to open mode: {}", e);
+        }
+    })
+    .map_err(|e| e.to_string())
 }
 
 // ---------------------------------------------------------------------------
