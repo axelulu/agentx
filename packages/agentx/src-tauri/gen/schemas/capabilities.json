@@ -3,7 +3,7 @@
     "identifier": "default",
     "description": "Default capabilities for AgentX",
     "local": true,
-    "windows": ["main", "translator", "quickchat", "menubar", "contextbar"],
+    "windows": ["main", "translator", "quickchat", "contextbar", "island"],
     "permissions": [
       "core:default",
       "core:window:default",

@@ -42,6 +42,10 @@ static PANEL_CLASS_REGISTERED: std::sync::Once = std::sync::Once::new();
 #[cfg(target_os = "macos")]
 fn ensure_panel_class() -> &'static objc2::runtime::AnyClass {
     PANEL_CLASS_REGISTERED.call_once(|| {
+        // Class may already be registered by the island module — skip if so.
+        if objc2::runtime::AnyClass::get(c"AgentXKeyPanel").is_some() {
+            return;
+        }
         unsafe {
             let superclass = objc2::runtime::AnyClass::get(c"NSPanel").unwrap();
             let cls = objc2::ffi::objc_allocateClassPair(

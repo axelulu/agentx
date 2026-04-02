@@ -1594,7 +1594,7 @@ function ClipboardView({
                     <p
                       className={cn(
                         "text-[13px] leading-relaxed truncate",
-                        isSelected ? "text-foreground/80" : "text-foreground/60",
+                        isSelected ? "text-foreground" : "text-foreground",
                       )}
                     >
                       {entry.preview}
@@ -1657,7 +1657,7 @@ function ClipboardView({
                   <div className="border-b border-border bg-foreground/[0.03]">
                     {/* Full content preview */}
                     <div className="px-4 py-2 max-h-[120px] overflow-y-auto">
-                      <pre className="text-[13px] text-foreground/50 leading-relaxed select-text whitespace-pre-wrap font-mono break-all">
+                      <pre className="text-[13px] text-foreground leading-relaxed select-text whitespace-pre-wrap font-mono break-all">
                         {selectedContent.length > 2000
                           ? selectedContent.slice(0, 2000) + "..."
                           : selectedContent}

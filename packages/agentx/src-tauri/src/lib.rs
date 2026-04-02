@@ -5,7 +5,7 @@ mod commands;
 mod contextbar;
 mod doubletap;
 mod finder;
-mod menubar;
+pub mod island;
 mod ocr;
 pub mod quickchat;
 mod share;
@@ -136,18 +136,25 @@ pub fn run() {
                 });
             }
 
-            // Pre-create popup windows (quickchat + menubar) so their WKWebViews
+            // Pre-create popup windows (quickchat + island) so their WKWebViews
             // are loaded before the user ever triggers them.  This avoids the
             // main-window flash caused by Tauri window creation activating the app.
             {
                 let qc_handle = app.handle().clone();
+                let island_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     // Wait a bit for the main window to finish initialising
                     tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
                     let h = qc_handle.clone();
                     let _ = qc_handle.run_on_main_thread(move || {
                         quickchat::precreate_quickchat_window(&h);
-                        menubar::precreate_menubar_window(&h);
+                        island::precreate_island_window(&h);
+                    });
+                    // Show the Dynamic Island after webview has loaded
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                    let ih = island_handle.clone();
+                    let _ = island_handle.run_on_main_thread(move || {
+                        island::show_island(&ih);
                     });
                 });
             }
@@ -499,6 +506,12 @@ pub fn run() {
             quickchat::sync_quickchat_panel_appearance,
             quickchat::hide_quickchat_panel,
             quickchat::drag_quickchat_panel,
+            // Dynamic Island commands
+            island::show_island_panel,
+            island::hide_island_panel,
+            island::resize_island_panel,
+            island::sync_island_panel_appearance,
+            island::island_set_expanded,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

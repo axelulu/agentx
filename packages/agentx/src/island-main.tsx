@@ -1,8 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "@/lib/i18n";
-import { MenuBarPanel } from "@/components/menubar/MenuBarPanel";
-import { TooltipProvider } from "@/components/ui/Tooltip";
+import { DynamicIslandPanel } from "@/components/island/DynamicIslandPanel";
 import { initBridge } from "@/lib/bridge";
 import "@/styles/globals.css";
 
@@ -13,8 +12,6 @@ document.addEventListener("contextmenu", (e) => e.preventDefault());
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <TooltipProvider delayDuration={0}>
-      <MenuBarPanel />
-    </TooltipProvider>
+    <DynamicIslandPanel />
   </React.StrictMode>,
 );
