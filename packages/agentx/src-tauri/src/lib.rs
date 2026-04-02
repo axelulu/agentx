@@ -498,6 +498,7 @@ pub fn run() {
             vibrancy::set_native_appearance,
             quickchat::sync_quickchat_panel_appearance,
             quickchat::hide_quickchat_panel,
+            quickchat::drag_quickchat_panel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

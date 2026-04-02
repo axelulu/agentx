@@ -561,6 +561,27 @@ pub fn hide_quickchat_panel(app: AppHandle) {
     });
 }
 
+/// Tauri command: move the quickchat NSPanel by a delta (called from frontend drag handler).
+#[tauri::command]
+pub fn drag_quickchat_panel(app: AppHandle, delta_x: f64, delta_y: f64) {
+    let _ = app.run_on_main_thread(move || {
+        #[cfg(target_os = "macos")]
+        unsafe {
+            if PANEL_PTR.is_null() {
+                return;
+            }
+            use objc2::msg_send;
+            let panel = PANEL_PTR as *mut objc2::runtime::AnyObject;
+            let frame: objc2_foundation::NSRect = msg_send![panel, frame];
+            let new_origin = objc2_foundation::NSPoint::new(
+                frame.origin.x + delta_x,
+                frame.origin.y - delta_y,
+            );
+            let _: () = msg_send![panel, setFrameOrigin: new_origin];
+        }
+    });
+}
+
 fn setup_blur_handler(app: &AppHandle, win: &tauri::WebviewWindow) {
     let suppress = if let Some(state) = app.try_state::<QuickChatState>() {
         state.suppress_blur.clone()

@@ -658,7 +658,7 @@ export function ContextBarPanel() {
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/25 dark:bg-black/30 border border-black/5 dark:border-white/8">
+    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/70 dark:bg-black/30 border border-black/5 dark:border-white/8">
       {/* Header: App context */}
       <div
         className="flex items-center gap-2 px-3.5 py-2 border-b border-border shrink-0"

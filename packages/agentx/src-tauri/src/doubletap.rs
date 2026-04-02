@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::AppHandle;
 
-/// Fixed threshold: two presses within 1 second counts as a double-tap.
-const DOUBLETAP_THRESHOLD_MS: u64 = 1000;
+/// Fixed threshold: two presses within 400ms counts as a double-tap.
+const DOUBLETAP_THRESHOLD_MS: u64 = 400;
 
 // ---------------------------------------------------------------------------
 // State

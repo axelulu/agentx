@@ -17,6 +17,8 @@ import { emit } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import { l10n } from "@agentx/l10n";
+import { Streamdown } from "streamdown";
+import "streamdown/styles.css";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 
 /* ------------------------------------------------------------------ */
@@ -265,7 +267,7 @@ export function MenuBarPanel() {
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/25 dark:bg-black/30 border border-black/5 dark:border-white/8">
+    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/70 dark:bg-black/30 border border-black/5 dark:border-white/8">
       {/* Header */}
       <div
         className="flex items-center gap-2 px-3.5 py-2 border-b border-border shrink-0"
@@ -306,13 +308,32 @@ export function MenuBarPanel() {
           >
             <div
               className={cn(
-                "max-w-[85%] rounded-xl px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap break-words",
+                "max-w-[85%] rounded-xl px-3 py-2 text-[13px] leading-relaxed break-words",
                 msg.role === "user"
-                  ? "bg-[var(--message-user-bg,hsl(var(--primary)/0.12))] text-foreground rounded-br-sm"
-                  : "bg-foreground/[0.06] text-foreground rounded-bl-sm",
+                  ? "bg-[var(--message-user-bg,hsl(var(--primary)/0.12))] text-foreground rounded-br-sm whitespace-pre-wrap"
+                  : "bg-foreground/[0.06] text-foreground rounded-bl-sm markdown-body",
               )}
             >
-              {msg.content}
+              {msg.role === "assistant" && msg.content ? (
+                <Streamdown
+                  mode={
+                    isStreaming && msg.id === messages[messages.length - 1]?.id
+                      ? "streaming"
+                      : "static"
+                  }
+                  animated={
+                    isStreaming && msg.id === messages[messages.length - 1]?.id
+                      ? { animation: "fadeIn" as const, duration: 200, stagger: 15 }
+                      : undefined
+                  }
+                  controls={false}
+                  lineNumbers={false}
+                >
+                  {msg.content}
+                </Streamdown>
+              ) : (
+                msg.content
+              )}
               {msg.role === "assistant" && !msg.content && isStreaming && (
                 <span className="inline-flex gap-1 items-center h-4 px-0.5">
                   <span className="typing-dot w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />

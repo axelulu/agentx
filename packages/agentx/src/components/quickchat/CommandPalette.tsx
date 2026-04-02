@@ -426,6 +426,18 @@ export function CommandPalette() {
   const streamingContentRef = useRef("");
   const cleanupRef = useRef<(() => void) | null>(null);
 
+  // Filtered clipboard history (used for keyboard navigation)
+  const clipFilteredHistory = useMemo(() => {
+    if (!clipSearch.trim()) return clipHistory;
+    const q = clipSearch.toLowerCase();
+    return clipHistory.filter(
+      (e) =>
+        e.text.toLowerCase().includes(q) ||
+        e.content_type.includes(q) ||
+        (e.language && e.language.includes(q)),
+    );
+  }, [clipHistory, clipSearch]);
+
   // ---------------------------------------------------------------------------
   // Init: theme sync, focus, load data
   // ---------------------------------------------------------------------------
@@ -997,11 +1009,32 @@ export function CommandPalette() {
   const isSlashMode = input.trim().startsWith("/");
 
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/25 dark:bg-black/30 border border-black/5 dark:border-white/8">
-      {/* Search input */}
+    <div className="w-screen h-screen flex flex-col overflow-hidden text-foreground rounded-xl bg-white/70 dark:bg-black/30 border border-black/5 dark:border-white/8">
+      {/* Search input — draggable via native panel drag */}
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0"
-        data-tauri-drag-region
+        className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 cursor-default"
+        onMouseDown={(e) => {
+          // Only drag when clicking the bar itself, not child inputs/buttons
+          if ((e.target as HTMLElement).closest("input, button, textarea, [role=button]")) return;
+          e.preventDefault();
+          let lastX = e.screenX;
+          let lastY = e.screenY;
+          const onMove = (ev: MouseEvent) => {
+            const dx = ev.screenX - lastX;
+            const dy = ev.screenY - lastY;
+            lastX = ev.screenX;
+            lastY = ev.screenY;
+            if (dx !== 0 || dy !== 0) {
+              invoke("drag_quickchat_panel", { deltaX: dx, deltaY: dy });
+            }
+          };
+          const onUp = () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+          };
+          document.addEventListener("mousemove", onMove);
+          document.addEventListener("mouseup", onUp);
+        }}
       >
         <div className="flex items-center justify-center w-5 h-5 text-foreground/30">
           {mode === "conv-search" ? (
@@ -1064,6 +1097,39 @@ export function CommandPalette() {
                   e.preventDefault();
                   setMode("home");
                   setInput("");
+                } else if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  const list = clipFilteredHistory;
+                  if (list.length === 0) return;
+                  const curIdx = clipSelectedId
+                    ? list.findIndex((x) => x.id === clipSelectedId)
+                    : -1;
+                  const nextIdx = Math.min(curIdx + 1, list.length - 1);
+                  const entry = list[nextIdx]!;
+                  setClipSelectedId(entry.id);
+                  setClipContent(entry.text);
+                  setClipContentType(entry.content_type);
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  const list = clipFilteredHistory;
+                  if (list.length === 0) return;
+                  const curIdx = clipSelectedId
+                    ? list.findIndex((x) => x.id === clipSelectedId)
+                    : list.length;
+                  const nextIdx = Math.max(curIdx - 1, 0);
+                  const entry = list[nextIdx]!;
+                  setClipSelectedId(entry.id);
+                  setClipContent(entry.text);
+                  setClipContentType(entry.content_type);
+                } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  const entry = clipSelectedId
+                    ? clipFilteredHistory.find((x) => x.id === clipSelectedId)
+                    : clipFilteredHistory[0];
+                  if (entry) {
+                    hideWindow();
+                    invoke("clipboard_paste_entry", { text: entry.text });
+                  }
                 }
               }}
               placeholder={l10n.t("Search clipboard history...")}
@@ -1316,8 +1382,30 @@ export function CommandPalette() {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-border px-3 py-1.5 flex items-center gap-3 shrink-0 text-[10px] text-foreground/25">
+      {/* Footer — also draggable */}
+      <div
+        className="border-t border-border px-3 py-1.5 flex items-center gap-3 shrink-0 text-[10px] text-foreground/25 cursor-default"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          let lastX = e.screenX;
+          let lastY = e.screenY;
+          const onMove = (ev: MouseEvent) => {
+            const dx = ev.screenX - lastX;
+            const dy = ev.screenY - lastY;
+            lastX = ev.screenX;
+            lastY = ev.screenY;
+            if (dx !== 0 || dy !== 0) {
+              invoke("drag_quickchat_panel", { deltaX: dx, deltaY: dy });
+            }
+          };
+          const onUp = () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+          };
+          document.addEventListener("mousemove", onMove);
+          document.addEventListener("mouseup", onUp);
+        }}
+      >
         <span className="flex items-center gap-1">
           <kbd className="px-1 py-0.5 rounded bg-foreground/[0.06] text-[9px]">↑↓</kbd>
           {l10n.t("navigate")}
