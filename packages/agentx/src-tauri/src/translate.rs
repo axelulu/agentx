@@ -1,6 +1,86 @@
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 // ---------------------------------------------------------------------------
+// Activate an external app by PID and wait for it to become frontmost
+// ---------------------------------------------------------------------------
+
+/// Activate an app by its PID using NSRunningApplication, then poll until
+/// the app actually becomes the frontmost application (or timeout).
+/// Returns Ok(true) if the app gained focus, Ok(false) if timed out.
+#[cfg(target_os = "macos")]
+pub fn activate_and_wait_for_focus(pid: i32, timeout_ms: u64) -> Result<bool, String> {
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    extern "C" {
+        fn CGEventSourceFlagsState(stateID: i32) -> u64;
+    }
+
+    // Wait for physical modifier keys to be released first (same as simulate_key_with_cmd)
+    let modifier_mask: u64 = 0x00FF0000;
+    unsafe {
+        for _ in 0..20 {
+            let flags = CGEventSourceFlagsState(0); // Combined state
+            if (flags & modifier_mask) == 0 {
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    // Use NSRunningApplication to activate the target app
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send, msg_send_id};
+
+    unsafe {
+        // [NSRunningApplication runningApplicationWithProcessIdentifier:pid]
+        let cls = class!(NSRunningApplication);
+        let app: Option<Retained<AnyObject>> =
+            msg_send_id![cls, runningApplicationWithProcessIdentifier: pid];
+        let app = match app {
+            Some(a) => a,
+            None => return Err(format!("No running app with PID {}", pid)),
+        };
+
+        // [app activateWithOptions: NSApplicationActivateIgnoringOtherApps]
+        // NSApplicationActivateIgnoringOtherApps = 1 << 1 = 2
+        let activated: bool = msg_send![&app, activateWithOptions: 2u64];
+        if !activated {
+            eprintln!("[activate_and_wait] activateWithOptions returned false for PID {}", pid);
+        }
+
+        // Poll until the target app is frontmost or timeout
+        let start = Instant::now();
+        let deadline = Duration::from_millis(timeout_ms);
+        loop {
+            // [NSWorkspace sharedWorkspace]
+            let workspace: Retained<AnyObject> =
+                msg_send_id![class!(NSWorkspace), sharedWorkspace];
+            // [[NSWorkspace sharedWorkspace] frontmostApplication]
+            let front_app: Option<Retained<AnyObject>> =
+                msg_send_id![&workspace, frontmostApplication];
+            if let Some(ref front) = front_app {
+                let front_pid: i32 = msg_send![front, processIdentifier];
+                if front_pid == pid {
+                    return Ok(true);
+                }
+            }
+            if start.elapsed() >= deadline {
+                eprintln!("[activate_and_wait] Timed out waiting for PID {} to become frontmost", pid);
+                return Ok(false);
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn activate_and_wait_for_focus(_pid: i32, _timeout_ms: u64) -> Result<bool, String> {
+    Ok(true)
+}
+
+// ---------------------------------------------------------------------------
 // CGEvent-based keystroke simulation (replaces osascript which is blocked)
 // ---------------------------------------------------------------------------
 

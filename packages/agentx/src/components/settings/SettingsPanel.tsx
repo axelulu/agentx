@@ -15,6 +15,7 @@ import {
 } from "@/slices/settingsSlice";
 import { clearAllConversations } from "@/slices/chatSlice";
 import { checkForUpdates, openUpdateDialog, setUpdateStatus } from "@/slices/updateSlice";
+import { invoke } from "@tauri-apps/api/core";
 import { l10n, SUPPORTED_LANGUAGE } from "@agentx/l10n";
 import {
   XIcon,
@@ -205,6 +206,28 @@ function GeneralSection() {
     else await mod.disable();
     setAutostart(next);
   }, [autostart]);
+
+  // Dynamic Island toggle
+  const [islandEnabled, setIslandEnabled] = useState(true);
+  useEffect(() => {
+    window.api.preferences
+      .get()
+      .then((p) => {
+        const v = (p as Record<string, unknown>).islandEnabled;
+        if (typeof v === "boolean") setIslandEnabled(v);
+      })
+      .catch(() => {});
+  }, []);
+  const toggleIsland = useCallback(async () => {
+    const next = !islandEnabled;
+    setIslandEnabled(next);
+    window.api.preferences.set({ islandEnabled: next }).catch(() => {});
+    if (next) {
+      invoke("show_island_panel").catch(() => {});
+    } else {
+      invoke("hide_island_panel").catch(() => {});
+    }
+  }, [islandEnabled]);
 
   // Notification preferences
   const [notifEnabled, setNotifEnabled] = useState(true);
@@ -421,6 +444,28 @@ function GeneralSection() {
               className={cn(
                 "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-primary-foreground transition-transform",
                 autostart && "translate-x-4",
+              )}
+            />
+          </button>
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm text-foreground">{l10n.t("Dynamic Island")}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {l10n.t("Show the floating overlay at the top of the screen")}
+            </p>
+          </div>
+          <button
+            onClick={toggleIsland}
+            className={cn(
+              "relative w-9 h-5 rounded-full transition-colors",
+              islandEnabled ? "bg-primary" : "bg-foreground/[0.12]",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-primary-foreground transition-transform",
+                islandEnabled && "translate-x-4",
               )}
             />
           </button>

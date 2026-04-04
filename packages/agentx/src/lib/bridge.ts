@@ -117,6 +117,8 @@ const bridge: NativeAPI = {
     },
     status: (conversationId?: string) => invoke("agent_status", { conversationId }),
     runningConversations: () => invoke("agent_running_conversations"),
+    getStreamingContent: (conversationId: string) =>
+      invoke("agent_get_streaming_content", { conversationId }) as Promise<string>,
   },
 
   provider: {

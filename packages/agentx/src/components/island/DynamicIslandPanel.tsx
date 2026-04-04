@@ -1,13 +1,11 @@
 /**
  * Dynamic Island — persistent floating overlay pinned to top center.
  *
- * Animation architecture:
- *   Native window morph: macOS NSAnimationContext (CoreAnimation, 60fps, system compositor)
- *   Content transitions: framer-motion (opacity, y, stagger)
- *   These animate DIFFERENT things so they never conflict.
- *
- * Expand: native window morphs open (350ms ease-out) + content fades in (staggered, 120ms delay)
- * Collapse: content fades out (80ms) → native window morphs closed (350ms ease-out)
+ * Bounce: native window resize overshoot + settle.
+ *   Expand:   resize to 107% of target → 250ms later resize to 100%
+ *   Collapse: resize to 94% of target  → 250ms later resize to 100%
+ * Both steps use CoreAnimation (fast-slow-fast curve). The overlap between
+ * the two animations creates a natural elastic feel — no CSS scale, no clipping.
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,27 +15,46 @@ import { useStandaloneTheme } from "@/hooks/useStandaloneTheme";
 import { useIslandData } from "./useIslandData";
 import { IslandCollapsed } from "./IslandCollapsed";
 import { IslandExpanded } from "./IslandExpanded";
-import { PixelAgent } from "./PixelArt";
+import { PixelAgent, PixelCpuIcon, PixelMemIcon, PixelStatBar } from "./PixelArt";
+import { useSystemStats } from "./useSystemStats";
 import { playNotifySound } from "./sounds";
 import "./island.css";
 
 type IslandMode = "idle" | "collapsed" | "expanded";
 
 const WIN = {
-  idle: { width: 200, height: 40 },
+  idle: { width: 250, height: 40 },
+  // On notch Macs, idle shows minimal wings flanking the real notch
+  // 180px notch gap + 45px per wing = 270px total
+  idleNotch: { width: 270, height: 40 },
   collapsed: { width: 350, height: 40 },
   expanded: { width: 420, height: 440 },
 };
-
 const HOVER_SPRING = { type: "spring" as const, stiffness: 500, damping: 32 };
-
-// fast-slow-fast cubic bezier — matches the native CoreAnimation curve
-// fast-slow-fast: aggressive curve — snaps at both ends, glides in middle
 const EASE_FSF: [number, number, number, number] = [0.83, 0, 0.17, 1];
 
-/** Resize native window. animated=true uses macOS CoreAnimation (smooth 60fps morph). */
-function resizeNative(w: number, h: number, animated: boolean) {
-  invoke("resize_island_panel", { width: w, height: h, animated }).catch(() => {});
+function resizeNative(w: number, h: number, animated: boolean, duration?: number) {
+  invoke("resize_island_panel", { width: w, height: h, animated, duration }).catch(() => {});
+}
+
+/**
+ * Two-step native resize bounce:
+ *   Step 1: snap past target FAST (120ms)
+ *   Step 2: settle back to 100% smoothly (150ms)
+ * The short durations + overlap = quick, punchy bounce.
+ */
+function resizeWithBounce(w: number, h: number, expand: boolean) {
+  if (expand) {
+    // Overshoot to 104% at original expand speed
+    resizeNative(Math.round(w * 1.04), Math.round(h * 1.04), true, 0.25);
+    // Settle back smoothly
+    setTimeout(() => resizeNative(w, h, true, 0.2), 220);
+  } else {
+    // Collapse at original speed, undershoot to 96%
+    resizeNative(Math.round(w * 0.96), Math.round(h * 0.96), true, 0.25);
+    // Settle back smoothly
+    setTimeout(() => resizeNative(w, h, true, 0.2), 220);
+  }
 }
 
 export function DynamicIslandPanel() {
@@ -46,10 +63,19 @@ export function DynamicIslandPanel() {
   const { agents, hasApprovalPending } = useIslandData();
   const [mode, setMode] = useState<IslandMode>("idle");
   const [isHovered, setIsHovered] = useState(false);
+  const [hasNotch, setHasNotch] = useState(false);
+  // Only poll system stats when idle on non-notch Macs (notch idle hides stats)
+  const { cpuPercent, memPercent } = useSystemStats(mode === "idle" && !hasNotch);
   const prevAgentCountRef = useRef(0);
   const prevModeRef = useRef<IslandMode>("idle");
 
-  // ── Auto-transition idle ↔ collapsed ──
+  // Detect notch on mount
+  useEffect(() => {
+    invoke("island_has_notch")
+      .then((v) => setHasNotch(v as boolean))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (agents.length === 0 && mode === "collapsed") {
       setMode("idle");
@@ -58,7 +84,6 @@ export function DynamicIslandPanel() {
     }
   }, [agents.length, mode]);
 
-  // Auto-expand on approval
   useEffect(() => {
     if (hasApprovalPending && mode !== "expanded") {
       setMode("expanded");
@@ -66,7 +91,6 @@ export function DynamicIslandPanel() {
     }
   }, [hasApprovalPending, mode]);
 
-  // Sound on new agent
   useEffect(() => {
     if (agents.length > prevAgentCountRef.current && prevAgentCountRef.current >= 0) {
       playNotifySound();
@@ -74,26 +98,22 @@ export function DynamicIslandPanel() {
     prevAgentCountRef.current = agents.length;
   }, [agents.length]);
 
-  // ── Native window resize + click monitor on mode change ──
   useEffect(() => {
     const prev = prevModeRef.current;
     prevModeRef.current = mode;
-    const size = WIN[mode];
+    const size = mode === "idle" && hasNotch ? WIN.idleNotch : WIN[mode];
 
     if (mode === "expanded") {
-      resizeNative(size.width, size.height, true);
-      // Install global click monitor — clicks outside the island will collapse it
+      resizeWithBounce(size.width, size.height, true);
       invoke("island_set_expanded", { expanded: true }).catch(() => {});
     } else if (prev === "expanded") {
-      resizeNative(size.width, size.height, true);
-      // Remove global click monitor
+      resizeWithBounce(size.width, size.height, false);
       invoke("island_set_expanded", { expanded: false }).catch(() => {});
     } else {
       resizeNative(size.width, size.height, false);
     }
-  }, [mode]);
+  }, [mode, hasNotch]);
 
-  // ── Listen for click-outside event from native monitor ──
   useEffect(() => {
     const unlisten = listen("island:click-outside", () => {
       if (mode === "expanded") {
@@ -131,6 +151,8 @@ export function DynamicIslandPanel() {
         ? "island-pulse"
         : "";
 
+  const isIdle = mode === "idle";
+
   return (
     <motion.div
       className={`island-container island-scanlines relative w-full h-full ${pulseClass}`}
@@ -139,70 +161,206 @@ export function DynamicIslandPanel() {
         transition: "border-radius 0.42s cubic-bezier(0.83, 0, 0.17, 1)",
       }}
       initial={{ opacity: 0 }}
-      animate={{
-        opacity: 1,
-        scale: isHovered && !isExpanded ? 1.04 : 1,
-      }}
-      transition={HOVER_SPRING}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Hover glow */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none rounded-[inherit]"
-        animate={{ opacity: isHovered && !isExpanded ? 1 : 0 }}
-        transition={{ duration: 0.2 }}
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,255,0.06) 0%, transparent 100%)",
-        }}
-      />
+      {/* Pixel scan sweep on hover */}
+      {isIdle && (
+        <motion.div
+          className="absolute inset-0 pointer-events-none z-20 rounded-[inherit]"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent 0%, rgba(74,222,128,0.06) 50%, transparent 100%)",
+            backgroundSize: "200% 100%",
+          }}
+          animate={{
+            backgroundPosition: isHovered ? ["200% 0%", "-200% 0%"] : "200% 0%",
+            opacity: isHovered ? 1 : 0,
+          }}
+          transition={{
+            backgroundPosition: { duration: 0.8, ease: "linear", repeat: Infinity },
+            opacity: { duration: 0.15 },
+          }}
+        />
+      )}
 
-      {/* mode="sync" lets new content enter WHILE old exits — no waiting */}
       <AnimatePresence mode="sync" initial={false}>
-        {mode === "idle" && (
+        {/* ── Idle: Notch Mac — minimal wings flanking the real notch ── */}
+        {mode === "idle" && hasNotch && (
           <motion.div
-            key="idle"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.75, transition: { duration: 0.25, ease: EASE_FSF } }}
-            transition={{ duration: 0.35, ease: EASE_FSF }}
-            className="absolute inset-0 flex items-center justify-center gap-2.5 px-4 z-10 cursor-pointer"
+            key="idle-notch"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE_FSF } }}
+            transition={{ duration: 0.2, ease: EASE_FSF }}
+            className="island-idle-content absolute inset-0 flex items-center justify-between z-10 cursor-pointer"
+            style={{ paddingLeft: 10, paddingRight: 10 }}
             onClick={handleExpand}
           >
+            {/* Left wing: agent icon */}
             <motion.div
-              className="pixel-breathe flex-shrink-0"
+              className="flex-shrink-0"
               style={{ width: 20, height: 20 }}
-              animate={{ y: isHovered ? -2 : 0 }}
+              animate={{
+                scale: isHovered ? 1.15 : 1,
+                rotate: isHovered ? [0, -8, 8, -4, 0] : 0,
+              }}
+              transition={{
+                scale: HOVER_SPRING,
+                rotate: { duration: 0.5, ease: "easeInOut" },
+              }}
+            >
+              <PixelAgent working={isHovered} />
+            </motion.div>
+
+            {/* Center gap — matches real notch width */}
+            <div style={{ width: 180, flexShrink: 0 }} />
+
+            {/* Right wing: notification indicator */}
+            <motion.div
+              className="flex items-center justify-center flex-shrink-0"
+              style={{ width: 20, height: 20 }}
+              animate={{ scale: isHovered ? 1.2 : 1 }}
               transition={HOVER_SPRING}
             >
-              <PixelAgent />
+              <motion.div
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 4,
+                  background: hasApprovalPending
+                    ? "#f59e0b"
+                    : agents.length > 0
+                      ? "#4ade80"
+                      : "rgba(255,255,255,0.2)",
+                }}
+                animate={{
+                  scale: hasApprovalPending ? [1, 1.4, 1] : 1,
+                  opacity: hasApprovalPending ? [1, 0.6, 1] : 1,
+                }}
+                transition={
+                  hasApprovalPending
+                    ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
+                    : { duration: 0.2 }
+                }
+              />
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* ── Idle: Non-notch Mac — full stats display ── */}
+        {mode === "idle" && !hasNotch && (
+          <motion.div
+            key="idle"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE_FSF } }}
+            transition={{ duration: 0.2, ease: EASE_FSF }}
+            className="island-idle-content absolute inset-0 flex items-center justify-center gap-2.5 px-4 z-10 cursor-pointer"
+            onClick={handleExpand}
+          >
+            {/* Left side: Agent + CPU */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <motion.div
+                className="flex-shrink-0"
+                style={{ width: 20, height: 20 }}
+                animate={{
+                  y: isHovered ? -3 : 0,
+                  rotate: isHovered ? [0, -8, 8, -4, 0] : 0,
+                }}
+                transition={{
+                  y: HOVER_SPRING,
+                  rotate: { duration: 0.5, ease: "easeInOut" },
+                }}
+              >
+                <PixelAgent working={isHovered} />
+              </motion.div>
+              <motion.div
+                className="flex items-center gap-1.5 flex-shrink-0"
+                style={{ height: 14 }}
+                animate={{ x: isHovered ? 2 : 0 }}
+                transition={HOVER_SPRING}
+              >
+                <div className="flex items-center justify-center" style={{ width: 12, height: 14 }}>
+                  <PixelCpuIcon />
+                </div>
+                <div className="flex items-center" style={{ width: 16, height: 14 }}>
+                  <PixelStatBar percent={cpuPercent} />
+                </div>
+                <motion.span
+                  className="island-pixel-text-sm"
+                  animate={{
+                    color: isHovered
+                      ? "#fff"
+                      : cpuPercent >= 80
+                        ? "#f87171"
+                        : cpuPercent >= 50
+                          ? "#facc15"
+                          : "rgba(255,255,255,0.35)",
+                  }}
+                  transition={{ duration: 0.15 }}
+                  style={{ minWidth: 22, textAlign: "right", lineHeight: "14px" }}
+                >
+                  {cpuPercent}%
+                </motion.span>
+              </motion.div>
+            </div>
+
+            {/* Center separator dot */}
             <motion.span
-              className="island-pixel-text"
-              animate={{ color: isHovered ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)" }}
-              transition={{ duration: 0.15 }}
+              animate={{ scale: isHovered ? 1.5 : 1, opacity: isHovered ? 0.3 : 0.12 }}
+              transition={HOVER_SPRING}
+              style={{
+                width: 2,
+                height: 2,
+                borderRadius: 1,
+                background: "rgba(255,255,255,1)",
+                flexShrink: 0,
+              }}
+            />
+
+            {/* MEM stat */}
+            <motion.div
+              className="flex items-center gap-1.5 flex-shrink-0"
+              style={{ height: 14 }}
+              animate={{ x: isHovered ? -2 : 0 }}
+              transition={HOVER_SPRING}
             >
-              AgentX
-            </motion.span>
-            <motion.span
-              className="island-pixel-text-sm"
-              animate={{ opacity: isHovered ? 0.4 : 0 }}
-              transition={{ duration: 0.12 }}
-              style={{ color: "rgba(255,255,255,0.4)" }}
-            >
-              ▼
-            </motion.span>
+              <div className="flex items-center justify-center" style={{ width: 12, height: 14 }}>
+                <PixelMemIcon />
+              </div>
+              <div className="flex items-center" style={{ width: 16, height: 14 }}>
+                <PixelStatBar percent={memPercent} />
+              </div>
+              <motion.span
+                className="island-pixel-text-sm"
+                animate={{
+                  color: isHovered
+                    ? "#fff"
+                    : memPercent >= 80
+                      ? "#f87171"
+                      : memPercent >= 50
+                        ? "#facc15"
+                        : "rgba(255,255,255,0.35)",
+                }}
+                transition={{ duration: 0.15 }}
+                style={{ minWidth: 22, textAlign: "right", lineHeight: "14px" }}
+              >
+                {memPercent}%
+              </motion.span>
+            </motion.div>
           </motion.div>
         )}
 
         {mode === "collapsed" && (
           <motion.div
             key="collapsed"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.75, transition: { duration: 0.25, ease: EASE_FSF } }}
-            transition={{ duration: 0.35, ease: EASE_FSF }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE_FSF } }}
+            transition={{ duration: 0.2, ease: EASE_FSF }}
             className="absolute inset-0 z-10"
           >
             <IslandCollapsed agents={agents} isHovered={isHovered} onClick={handleExpand} />
@@ -212,11 +370,10 @@ export function DynamicIslandPanel() {
         {mode === "expanded" && (
           <motion.div
             key="expanded"
-            // NO delay — content enters immediately as window expands
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.2, ease: EASE_FSF } }}
-            transition={{ duration: 0.18, ease: EASE_FSF }}
+            exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE_FSF } }}
+            transition={{ duration: 0.2, delay: 0.05, ease: EASE_FSF }}
             className="absolute inset-0 z-10"
           >
             <IslandExpanded agents={agents} onCollapse={handleCollapse} />

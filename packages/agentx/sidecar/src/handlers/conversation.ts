@@ -43,6 +43,8 @@ export function registerConversationHandlers(
   handlers["agent:unsubscribe"] = (conversationId: string) => runtime.unsubscribe(conversationId);
   handlers["agent:status"] = (conversationId?: string) => runtime.getSessionStatus(conversationId);
   handlers["agent:runningConversations"] = () => runtime.getRunningConversations();
+  handlers["agent:getStreamingContent"] = (conversationId: string) =>
+    runtime.getStreamingContent(conversationId);
 
   // Memory
   handlers["memory:getConfig"] = () =>

@@ -16,6 +16,8 @@ export interface IslandAgent {
     toolName: string;
     arguments: Record<string, unknown>;
   };
+  /** Accumulated streaming content from message_delta events */
+  streamingContent?: string;
 }
 
 export interface IslandState {
@@ -68,19 +70,24 @@ export function useIslandData(): IslandState {
   const fetchRunning = useCallback(async () => {
     try {
       const rawRunning = (await window.api.agent.runningConversations()) as unknown;
-      const running = (Array.isArray(rawRunning) ? rawRunning : []) as Array<{
-        id: string;
-        title?: string;
-      }>;
+      // API returns string[] (conversation IDs), not objects
+      const runningRaw = Array.isArray(rawRunning) ? rawRunning : [];
+      const runningIds = new Set(
+        runningRaw.map((r: unknown) => (typeof r === "string" ? r : (r as { id?: string })?.id)),
+      );
+      // Remove undefined entries
+      runningIds.delete(undefined as unknown as string);
+
       setAgents((prev) => {
-        // Merge: keep existing agents that are still running, add new ones
-        const runningIds = new Set(running.map((r) => r.id));
+        // Keep existing agents that are still running (preserves accumulated streamingContent)
         const kept = prev.filter((a) => runningIds.has(a.conversationId));
-        const newAgents = running
-          .filter((r) => !prev.some((a) => a.conversationId === r.id))
-          .map((r) => ({
-            conversationId: r.id,
-            title: r.title || "Agent",
+        // Add newly discovered running conversations
+        const existingIds = new Set(prev.map((a) => a.conversationId));
+        const newAgents = [...runningIds]
+          .filter((id) => !existingIds.has(id))
+          .map((id) => ({
+            conversationId: id,
+            title: "Agent",
             startedAt: Date.now(),
             status: "thinking" as const,
           }));
@@ -162,6 +169,21 @@ export function useIslandData(): IslandState {
           }));
           break;
 
+        case "message_start":
+          upsertAgent(convId, (existing) => ({
+            ...(existing || {
+              conversationId: convId,
+              title: "Agent",
+              startedAt: Date.now(),
+            }),
+            conversationId: convId,
+            title: existing?.title || "Agent",
+            startedAt: existing?.startedAt || Date.now(),
+            status: existing?.status || "thinking",
+            streamingContent: "",
+          }));
+          break;
+
         case "message_delta":
           upsertAgent(convId, (existing) => ({
             ...(existing || {
@@ -176,6 +198,22 @@ export function useIslandData(): IslandState {
             currentTool: undefined,
             currentToolArgs: undefined,
             pendingApproval: existing?.pendingApproval,
+            streamingContent: (existing?.streamingContent || "") + (e.delta || ""),
+          }));
+          break;
+
+        case "message_end":
+          upsertAgent(convId, (existing) => ({
+            ...(existing || {
+              conversationId: convId,
+              title: "Agent",
+              startedAt: Date.now(),
+            }),
+            conversationId: convId,
+            title: existing?.title || "Agent",
+            startedAt: existing?.startedAt || Date.now(),
+            status: existing?.status || "thinking",
+            streamingContent: e.content || existing?.streamingContent || "",
           }));
           break;
 

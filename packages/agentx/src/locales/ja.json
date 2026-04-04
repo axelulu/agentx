@@ -658,5 +658,22 @@
   "Copy translation": "翻訳をコピー",
   "Translating...": "翻訳中...",
   "⌥D to translate selection": "⌥D で選択テキストを翻訳",
-  "Esc to close": "Esc で閉じる"
+  "Esc to close": "Esc で閉じる",
+  "Running tool": "ツール実行中",
+  "Writing response": "応答を生成中",
+  "Approval needed": "承認が必要",
+  "Idle": "待機中",
+  "Recents": "最近",
+  "Chat": "チャット",
+  "Running": "実行中",
+  "Recent": "最近",
+  "No recent activity": "最近のアクティビティはありません",
+  "running tool...": "ツール実行中...",
+  "writing...": "書き込み中...",
+  "needs approval": "承認が必要",
+  "thinking...": "考え中...",
+  "idle": "待機中",
+  "New": "新規",
+  "Dynamic Island": "ダイナミックアイランド",
+  "Show the floating overlay at the top of the screen": "画面上部にフローティングオーバーレイを表示"
 }

@@ -1127,8 +1127,9 @@ export function CommandPalette() {
                     ? clipFilteredHistory.find((x) => x.id === clipSelectedId)
                     : clipFilteredHistory[0];
                   if (entry) {
-                    hideWindow();
-                    invoke("clipboard_paste_entry", { text: entry.text });
+                    invoke("clipboard_paste_entry", { text: entry.text }).catch((e: unknown) => {
+                      console.error("[clipboard_paste_entry] failed:", e);
+                    });
                   }
                 }
               }}
@@ -1207,8 +1208,10 @@ export function CommandPalette() {
             copied={clipCopied}
             onSelect={clipSelectHistory}
             onPaste={(entry) => {
-              hideWindow();
-              invoke("clipboard_paste_entry", { text: entry.text });
+              // clipboard_paste_entry handles hiding, focus restore, and paste internally
+              invoke("clipboard_paste_entry", { text: entry.text }).catch((e: unknown) => {
+                console.error("[clipboard_paste_entry] failed:", e);
+              });
             }}
             onCopy={clipCopy}
             onRunAction={clipRunAction}
@@ -1539,6 +1542,16 @@ function ClipboardView({
   onToggleFavorite: (id: number) => void;
 }) {
   const [showTransforms, setShowTransforms] = useState(false);
+  const clipListRef = useRef<HTMLDivElement>(null);
+
+  // Scroll selected entry into view on keyboard navigation
+  useEffect(() => {
+    if (!clipListRef.current || selectedId == null) return;
+    const el = clipListRef.current.querySelector(
+      `[data-clip-id="${selectedId}"]`,
+    ) as HTMLElement | null;
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selectedId]);
 
   const filteredHistory = useMemo(() => {
     if (!search.trim()) return history;
@@ -1556,7 +1569,7 @@ function ClipboardView({
   return (
     <div className="flex flex-col h-full">
       {/* History list */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div ref={clipListRef} className="flex-1 overflow-y-auto min-h-0">
         {filteredHistory.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-foreground/15">
             <ClipboardIcon className="w-6 h-6" />
@@ -1572,7 +1585,7 @@ function ClipboardView({
             const EntryIcon = TYPE_ICONS[entry.content_type] || Type;
             const isSelected = selectedId === entry.id;
             return (
-              <div key={entry.id}>
+              <div key={entry.id} data-clip-id={entry.id}>
                 <div
                   className={cn(
                     "group flex items-start gap-2 px-4 py-2 cursor-pointer transition-colors border-b border-border",
@@ -1582,8 +1595,18 @@ function ClipboardView({
                   onClick={(e) => {
                     if (e.detail >= 2) {
                       onPaste(entry);
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    // Single click → select; use mousedown with a short delay
+                    // so double-click can cancel it before select fires
+                    if (e.detail === 1) {
+                      const timer = setTimeout(() => onSelect(entry), 200);
+                      (e.currentTarget as HTMLElement).dataset.clickTimer = String(timer);
                     } else {
-                      onSelect(entry);
+                      // Double-click: cancel pending select
+                      const t = (e.currentTarget as HTMLElement).dataset.clickTimer;
+                      if (t) clearTimeout(Number(t));
                     }
                   }}
                 >

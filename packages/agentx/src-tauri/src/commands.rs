@@ -245,6 +245,19 @@ pub async fn agent_running_conversations(
     sidecar_call(&state, "agent:runningConversations", serde_json::json!([])).await
 }
 
+#[tauri::command]
+pub async fn agent_get_streaming_content(
+    state: State<'_, SidecarState>,
+    conversation_id: String,
+) -> Result<Value, String> {
+    sidecar_call(
+        &state,
+        "agent:getStreamingContent",
+        serde_json::json!([conversation_id]),
+    )
+    .await
+}
+
 // ---------------------------------------------------------------------------
 // Provider commands
 // ---------------------------------------------------------------------------
@@ -1609,22 +1622,79 @@ pub async fn clipboard_get_retention(
 
 #[tauri::command]
 pub async fn clipboard_paste_entry(app: AppHandle, text: String) -> Result<(), String> {
+    eprintln!("[clipboard_paste_entry] START text_len={}", text.len());
+
     // 1. Write to system clipboard
     crate::clipboard::set_clipboard_text(&text)?;
+    eprintln!("[clipboard_paste_entry] clipboard written");
 
-    // 2. Hide the quickchat window so focus returns to the previous app
-    if let Some(win) = app.get_webview_window("quickchat") {
-        let _ = win.hide();
-    }
+    // 2. Get the last external app PID before hiding (tracked by clipboard monitor)
+    let target_pid = {
+        let state: tauri::State<'_, crate::clipboard::ClipboardHistoryState> = app.state();
+        state.get_last_external_pid()
+    };
+    eprintln!("[clipboard_paste_entry] target_pid={}", target_pid);
 
-    // 3. Wait for OS to settle focus
-    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+    // 3. Hide the quickchat NSPanel — wait for main thread to complete.
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let app_for_hide = app.clone();
+    let _ = app_for_hide.run_on_main_thread(move || {
+        crate::quickchat::hide_panel_standalone();
+        let _ = tx.send(());
+    });
+    let _ = tokio::time::timeout(std::time::Duration::from_millis(500), rx).await;
 
-    // 4. Simulate Cmd+V paste
-    crate::translate::simulate_key_with_cmd(0x09)
-        .map_err(|e| format!("Failed to simulate paste: {}", e))?;
+    // 4. Activate previous app via NSRunningApplication (fast, no osascript overhead),
+    //    then paste via CGEvent. AppleScript only as fallback.
+    let paste_result = tokio::task::spawn_blocking(move || {
+        if target_pid > 0 {
+            // activate_and_wait_for_focus uses NSRunningApplication — near instant
+            match crate::translate::activate_and_wait_for_focus(target_pid, 300) {
+                Ok(true) => {
+                    eprintln!("[clipboard_paste_entry] focus confirmed for PID {}", target_pid);
+                    std::thread::sleep(std::time::Duration::from_millis(30));
+                }
+                Ok(false) => {
+                    eprintln!("[clipboard_paste_entry] focus timeout for PID {}", target_pid);
+                    std::thread::sleep(std::time::Duration::from_millis(80));
+                }
+                Err(e) => {
+                    eprintln!("[clipboard_paste_entry] activate failed: {}", e);
+                    std::thread::sleep(std::time::Duration::from_millis(80));
+                }
+            }
+        } else {
+            eprintln!("[clipboard_paste_entry] no tracked PID, short delay");
+            std::thread::sleep(std::time::Duration::from_millis(80));
+        }
 
-    Ok(())
+        // CGEvent paste — fastest path
+        eprintln!("[clipboard_paste_entry] simulating Cmd+V via CGEvent...");
+        match crate::translate::simulate_key_with_cmd(0x09) {
+            Ok(()) => {
+                eprintln!("[clipboard_paste_entry] CGEvent Cmd+V sent OK");
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("[clipboard_paste_entry] CGEvent failed: {}, trying osascript", e);
+                let output = std::process::Command::new("osascript")
+                    .args(["-e", r#"tell application "System Events" to keystroke "v" using command down"#])
+                    .output()
+                    .map_err(|e| format!("osascript failed: {}", e))?;
+                if output.status.success() {
+                    eprintln!("[clipboard_paste_entry] osascript Cmd+V OK");
+                    Ok(())
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Err(format!("Cmd+V failed: {}", stderr))
+                }
+            }
+        }
+    })
+    .await
+    .map_err(|e| format!("Paste task panicked: {}", e))?;
+
+    paste_result
 }
 
 // ---------------------------------------------------------------------------
@@ -3698,11 +3768,30 @@ fn request_automation_on_main_thread() -> bool {
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-pub fn simulate_paste() -> Result<(), String> {
+pub fn simulate_paste(app: AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
+        // Try to activate the last external app first for reliable paste
+        let target_pid = {
+            let state: tauri::State<'_, crate::clipboard::ClipboardHistoryState> = app.state();
+            state.get_last_external_pid()
+        };
+        if target_pid > 0 {
+            match crate::translate::activate_and_wait_for_focus(target_pid, 500) {
+                Ok(true) => {
+                    std::thread::sleep(std::time::Duration::from_millis(30));
+                }
+                _ => {
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+            }
+        }
         crate::translate::simulate_key_with_cmd(0x09) // 0x09 = kVK_V
             .map_err(|e| format!("Failed to simulate Cmd+V: {}", e))?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
     }
     Ok(())
 }

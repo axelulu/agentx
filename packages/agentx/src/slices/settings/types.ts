@@ -129,4 +129,6 @@ export type PrefsPayload = {
   voice?: VoiceSettings;
   folders?: Folder[];
   conversationOrder?: ConversationOrder;
+  /** Whether the Dynamic Island overlay is shown */
+  islandEnabled?: boolean;
 };

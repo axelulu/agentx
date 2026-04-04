@@ -307,7 +307,7 @@ fn remove_global_click_monitor() {
 /// activation policy when the panel was never shown (e.g. spurious blur
 /// event from newly created Tauri window).
 #[cfg(target_os = "macos")]
-fn hide_panel_standalone() {
+pub fn hide_panel_standalone() {
     use objc2::msg_send;
     unsafe {
         if PANEL_PTR.is_null() {
@@ -330,7 +330,7 @@ fn hide_panel_native(_win: &tauri::WebviewWindow) {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn hide_panel_standalone() {}
+pub fn hide_panel_standalone() {}
 
 
 #[cfg(target_os = "macos")]

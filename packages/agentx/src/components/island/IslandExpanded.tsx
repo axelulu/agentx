@@ -7,7 +7,6 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { invoke } from "@tauri-apps/api/core";
 import {
   PixelAgent,
   PixelToolIcon,
@@ -19,6 +18,7 @@ import {
 import { playApprovalSound, playErrorSound } from "./sounds";
 import { useRecentConversations } from "./useRecentConversations";
 import { IslandChat } from "./IslandChat";
+import { l10n } from "@agentx/l10n";
 import type { IslandAgent } from "./useIslandData";
 
 const EASE_FSF: [number, number, number, number] = [0.83, 0, 0.17, 1];
@@ -66,27 +66,27 @@ function formatElapsed(startedAt: number): string {
 function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return l10n.t("just now");
+  if (mins < 60) return l10n.t("${count}m ago", { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return l10n.t("${count}h ago", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return l10n.t("${count}d ago", { count: days });
   return `${Math.floor(days / 7)}w ago`;
 }
 
 function getStatusLabel(agent: IslandAgent): string {
   switch (agent.status) {
     case "tool":
-      return agent.currentTool || "Running tool";
+      return agent.currentTool || l10n.t("Running tool");
     case "streaming":
-      return "Writing response";
+      return l10n.t("Writing response");
     case "waiting_approval":
-      return "Approval needed";
+      return l10n.t("Approval needed");
     case "thinking":
-      return "Thinking";
+      return l10n.t("Thinking");
     default:
-      return "Idle";
+      return l10n.t("Idle");
   }
 }
 
@@ -97,14 +97,24 @@ interface IslandExpandedProps {
 
 export function IslandExpanded({ agents, onCollapse }: IslandExpandedProps) {
   const [activeTab, setActiveTab] = useState<TabId>("recents");
-  const [showScrollbar, setShowScrollbar] = useState(false);
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [selectedConvTitle, setSelectedConvTitle] = useState<string | null>(null);
+  const [initialStreamingContent, setInitialStreamingContent] = useState<string | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setShowScrollbar(true), 500);
-    return () => {
-      clearTimeout(timer);
-      setShowScrollbar(false);
-    };
+  const handleOpenInChat = useCallback(
+    (convId: string, title: string, streamingContent?: string) => {
+      setSelectedConvId(convId);
+      setSelectedConvTitle(title);
+      setInitialStreamingContent(streamingContent || null);
+      setActiveTab("chat");
+    },
+    [],
+  );
+
+  const handleChatBack = useCallback(() => {
+    setSelectedConvId(null);
+    setSelectedConvTitle(null);
+    setInitialStreamingContent(null);
   }, []);
 
   return (
@@ -139,13 +149,13 @@ export function IslandExpanded({ agents, onCollapse }: IslandExpandedProps) {
           active={activeTab === "recents"}
           onClick={() => setActiveTab("recents")}
           icon={<PixelListIcon />}
-          label="Recents"
+          label={l10n.t("Recents")}
         />
         <TabButton
           active={activeTab === "chat"}
           onClick={() => setActiveTab("chat")}
           icon={<PixelChatIcon />}
-          label="Chat"
+          label={l10n.t("Chat")}
         />
       </motion.div>
 
@@ -161,7 +171,7 @@ export function IslandExpanded({ agents, onCollapse }: IslandExpandedProps) {
               transition={{ duration: 0.2, ease: EASE_FSF }}
               className="absolute inset-0"
             >
-              <RecentsContent agents={agents} showScrollbar={showScrollbar} />
+              <RecentsContent agents={agents} onOpenInChat={handleOpenInChat} />
             </motion.div>
           )}
           {activeTab === "chat" && (
@@ -173,7 +183,12 @@ export function IslandExpanded({ agents, onCollapse }: IslandExpandedProps) {
               transition={{ duration: 0.2, ease: EASE_FSF }}
               className="absolute inset-0"
             >
-              <IslandChat />
+              <IslandChat
+                conversationId={selectedConvId}
+                conversationTitle={selectedConvTitle}
+                initialStreamingContent={initialStreamingContent}
+                onBack={handleChatBack}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -207,10 +222,10 @@ function TabButton({
 
 function RecentsContent({
   agents,
-  showScrollbar,
+  onOpenInChat,
 }: {
   agents: IslandAgent[];
-  showScrollbar: boolean;
+  onOpenInChat: (convId: string, title: string, streamingContent?: string) => void;
 }) {
   const [, setTick] = useState(0);
   const conversations = useRecentConversations(6);
@@ -231,27 +246,33 @@ function RecentsContent({
     else playErrorSound();
   }, []);
 
-  const handleOpenConversation = useCallback((convId: string) => {
-    // "navigate:{id}" is handled by __QUICKCHAT_ACTION__ in useShortcuts.ts
-    // → dispatches openTab + switchConversation
-    invoke("window_show_and_emit", { event: `navigate:${convId}` }).catch(() => {
-      invoke("window_show", {}).catch(() => {});
-    });
-  }, []);
+  const handleOpenConversation = useCallback(
+    (convId: string, title: string, streamingContent?: string) => {
+      onOpenInChat(convId, title, streamingContent);
+    },
+    [onOpenInChat],
+  );
 
   const hasAgents = agents.length > 0;
 
   return (
-    <div
-      className={`h-full overflow-y-auto overflow-x-hidden island-scroll${showScrollbar ? " show-scrollbar" : ""}`}
-    >
+    <div className="h-full overflow-y-auto overflow-x-hidden island-scroll">
       {hasAgents && (
         <>
           <div className="px-3.5 pt-2.5 pb-1">
-            <span className="island-section-label">Running · {agents.length}</span>
+            <span className="island-section-label">
+              {l10n.t("Running")} · {agents.length}
+            </span>
           </div>
           {agents.map((agent) => (
-            <AgentRow key={agent.conversationId} agent={agent} onApproval={handleApproval} />
+            <AgentRow
+              key={agent.conversationId}
+              agent={agent}
+              onApproval={handleApproval}
+              onOpen={() =>
+                handleOpenConversation(agent.conversationId, agent.title, agent.streamingContent)
+              }
+            />
           ))}
           {conversations.length > 0 && (
             <div
@@ -265,12 +286,12 @@ function RecentsContent({
       {conversations.length > 0 && (
         <>
           <div className="px-3.5 pt-2 pb-1">
-            <span className="island-section-label">Recent</span>
+            <span className="island-section-label">{l10n.t("Recent")}</span>
           </div>
           {conversations.map((conv) => (
             <motion.div
               key={conv.id}
-              onClick={() => handleOpenConversation(conv.id)}
+              onClick={() => handleOpenConversation(conv.id, conv.title)}
               className="island-conv-item"
               whileHover={{
                 backgroundColor: "rgba(255,255,255,0.04)",
@@ -299,7 +320,7 @@ function RecentsContent({
                     className="island-pixel-text-sm"
                     style={{ color: "rgba(255,255,255,0.25)" }}
                   >
-                    {conv.messageCount} msgs
+                    {conv.messageCount} {l10n.t("msgs")}
                   </span>
                   <span
                     className="island-pixel-text-sm"
@@ -329,7 +350,7 @@ function RecentsContent({
             <PixelAgent />
           </div>
           <span className="island-pixel-text" style={{ color: "rgba(255,255,255,0.2)" }}>
-            No recent activity
+            {l10n.t("No recent activity")}
           </span>
         </div>
       )}
@@ -342,9 +363,11 @@ function RecentsContent({
 function AgentRow({
   agent,
   onApproval,
+  onOpen,
 }: {
   agent: IslandAgent;
   onApproval: (agent: IslandAgent, approved: boolean) => void;
+  onOpen: () => void;
 }) {
   const isApproval = agent.status === "waiting_approval" && agent.pendingApproval;
   const toolArgs = agent.currentToolArgs;
@@ -355,7 +378,17 @@ function AgentRow({
       : null;
 
   return (
-    <div className="island-agent-item">
+    <motion.div
+      className="island-agent-item"
+      style={{ cursor: "pointer" }}
+      onClick={onOpen}
+      whileHover={{
+        backgroundColor: "rgba(255,255,255,0.04)",
+        x: 3,
+        transition: { duration: 0.2, ease: EASE_FSF },
+      }}
+      whileTap={{ scale: 0.97 }}
+    >
       <div className="flex items-center gap-2">
         <div className="flex-shrink-0" style={{ width: 18, height: 18 }}>
           {agent.status === "tool" && agent.currentTool ? (
@@ -413,6 +446,7 @@ function AgentRow({
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-1 mb-2">
             <span className="island-pixel-text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
@@ -426,7 +460,7 @@ function AgentRow({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Allow
+              {l10n.t("Allow")}
             </motion.button>
             <motion.button
               className="island-btn island-btn-deny"
@@ -434,11 +468,11 @@ function AgentRow({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Deny
+              {l10n.t("Deny")}
             </motion.button>
           </div>
         </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

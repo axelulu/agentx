@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PixelAgent, PixelThinkingDots, PixelToolIcon } from "./PixelArt";
+import { l10n } from "@agentx/l10n";
 import type { IslandAgent } from "./useIslandData";
 
 const HOVER_SPRING = { type: "spring" as const, stiffness: 500, damping: 30 };
@@ -30,15 +31,15 @@ function getStatusText(agent: IslandAgent): string {
         if (args?.command) return `$ ${String(args.command).slice(0, 24)}`;
         return agent.currentTool;
       }
-      return "running tool...";
+      return l10n.t("running tool...");
     case "streaming":
-      return "writing...";
+      return l10n.t("writing...");
     case "waiting_approval":
-      return "needs approval";
+      return l10n.t("needs approval");
     case "thinking":
-      return "thinking...";
+      return l10n.t("thinking...");
     default:
-      return "idle";
+      return l10n.t("idle");
   }
 }
 

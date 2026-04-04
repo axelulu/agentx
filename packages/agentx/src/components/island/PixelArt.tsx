@@ -395,3 +395,73 @@ export function PixelToolIcon({
   }
   return <PixelAgent working className={className} style={style} />;
 }
+
+// ---------------------------------------------------------------------------
+// System stats pixel art — CPU icon, MEM icon, stat bar
+// ---------------------------------------------------------------------------
+
+/** 6x6 CPU chip icon */
+const CPU_PIXELS = `
+..aa..
+.abba.
+abccba
+abccba
+.abba.
+..aa..`;
+const CPU_PALETTE: Record<string, string> = {
+  a: "rgba(255,255,255,0.3)",
+  b: "rgba(255,255,255,0.15)",
+  c: "#4ade80",
+};
+
+export function PixelCpuIcon({ style }: { style?: React.CSSProperties }) {
+  return <PixelSprite pixels={CPU_PIXELS} palette={CPU_PALETTE} size={6} style={style} />;
+}
+
+/** 6x6 Memory chip icon */
+const MEM_PIXELS = `
+aabbaa
+acccca
+abbbba
+acccca
+abbbba
+aabbaa`;
+const MEM_PALETTE: Record<string, string> = {
+  a: "rgba(255,255,255,0.3)",
+  b: "rgba(255,255,255,0.15)",
+  c: "#60a5fa",
+};
+
+export function PixelMemIcon({ style }: { style?: React.CSSProperties }) {
+  return <PixelSprite pixels={MEM_PIXELS} palette={MEM_PALETTE} size={6} style={style} />;
+}
+
+/**
+ * Pixel-art progress bar for system stats.
+ * 8 segments wide, each segment = 2px (PX scale). Color coded by threshold.
+ */
+export function PixelStatBar({ percent, style }: { percent: number; style?: React.CSSProperties }) {
+  const filled = Math.round((Math.min(Math.max(percent, 0), 100) / 100) * 8);
+  const color = percent >= 80 ? "#f87171" : percent >= 50 ? "#facc15" : "#4ade80";
+  const emptyColor = "rgba(255,255,255,0.08)";
+
+  const shadows: string[] = [];
+  for (let i = 0; i < 8; i++) {
+    shadows.push(`${i * PX}px 0px 0 0 ${i < filled ? color : emptyColor}`);
+    shadows.push(`${i * PX}px ${PX}px 0 0 ${i < filled ? color : emptyColor}`);
+  }
+
+  return (
+    <div
+      style={{
+        width: PX,
+        height: PX,
+        boxShadow: shadows.join(", "),
+        display: "inline-block",
+        marginRight: 7 * PX,
+        marginBottom: PX,
+        ...style,
+      }}
+    />
+  );
+}

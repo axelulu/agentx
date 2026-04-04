@@ -658,5 +658,22 @@
   "Copy translation": "번역 복사",
   "Translating...": "번역 중...",
   "⌥D to translate selection": "⌥D로 선택 텍스트 번역",
-  "Esc to close": "Esc로 닫기"
+  "Esc to close": "Esc로 닫기",
+  "Running tool": "도구 실행 중",
+  "Writing response": "응답 작성 중",
+  "Approval needed": "승인 필요",
+  "Idle": "대기 중",
+  "Recents": "최근",
+  "Chat": "채팅",
+  "Running": "실행 중",
+  "Recent": "최근",
+  "No recent activity": "최근 활동 없음",
+  "running tool...": "도구 실행 중...",
+  "writing...": "작성 중...",
+  "needs approval": "승인 필요",
+  "thinking...": "생각 중...",
+  "idle": "대기",
+  "New": "새로 만들기",
+  "Dynamic Island": "다이나믹 아일랜드",
+  "Show the floating overlay at the top of the screen": "화면 상단에 플로팅 오버레이 표시"
 }

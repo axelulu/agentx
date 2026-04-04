@@ -658,5 +658,22 @@
   "Copy translation": "Скопировать перевод",
   "Translating...": "Перевод...",
   "⌥D to translate selection": "⌥D для перевода выделенного",
-  "Esc to close": "Esc для закрытия"
+  "Esc to close": "Esc для закрытия",
+  "Running tool": "Выполнение инструмента",
+  "Writing response": "Написание ответа",
+  "Approval needed": "Требуется одобрение",
+  "Idle": "Ожидание",
+  "Recents": "Недавние",
+  "Chat": "Чат",
+  "Running": "Выполняется",
+  "Recent": "Недавнее",
+  "No recent activity": "Нет недавней активности",
+  "running tool...": "выполнение инструмента...",
+  "writing...": "пишет...",
+  "needs approval": "нужно одобрение",
+  "thinking...": "думает...",
+  "idle": "ожидание",
+  "New": "Новый",
+  "Dynamic Island": "Dynamic Island",
+  "Show the floating overlay at the top of the screen": "Показывать плавающую панель в верхней части экрана"
 }

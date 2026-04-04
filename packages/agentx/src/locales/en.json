@@ -658,5 +658,22 @@
   "Copy translation": "Copy translation",
   "Translating...": "Translating...",
   "⌥D to translate selection": "⌥D to translate selection",
-  "Esc to close": "Esc to close"
+  "Esc to close": "Esc to close",
+  "Running tool": "Running tool",
+  "Writing response": "Writing response",
+  "Approval needed": "Approval needed",
+  "Idle": "Idle",
+  "Recents": "Recents",
+  "Chat": "Chat",
+  "Running": "Running",
+  "Recent": "Recent",
+  "No recent activity": "No recent activity",
+  "running tool...": "running tool...",
+  "writing...": "writing...",
+  "needs approval": "needs approval",
+  "thinking...": "thinking...",
+  "idle": "idle",
+  "New": "New",
+  "Dynamic Island": "Dynamic Island",
+  "Show the floating overlay at the top of the screen": "Show the floating overlay at the top of the screen"
 }

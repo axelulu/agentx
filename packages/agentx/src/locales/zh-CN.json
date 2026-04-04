@@ -658,5 +658,22 @@
   "Copy translation": "复制译文",
   "Translating...": "翻译中...",
   "⌥D to translate selection": "⌥D 翻译选中文本",
-  "Esc to close": "Esc 关闭"
+  "Esc to close": "Esc 关闭",
+  "Running tool": "运行工具",
+  "Writing response": "正在输出",
+  "Approval needed": "需要审批",
+  "Idle": "空闲",
+  "Recents": "最近",
+  "Chat": "对话",
+  "Running": "运行中",
+  "Recent": "最近",
+  "No recent activity": "暂无最近活动",
+  "running tool...": "运行工具中...",
+  "writing...": "输出中...",
+  "needs approval": "需要审批",
+  "thinking...": "思考中...",
+  "idle": "空闲",
+  "New": "新建",
+  "Dynamic Island": "灵动岛",
+  "Show the floating overlay at the top of the screen": "在屏幕顶部显示悬浮灵动岛"
 }

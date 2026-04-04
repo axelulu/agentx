@@ -150,12 +150,21 @@ pub fn run() {
                         quickchat::precreate_quickchat_window(&h);
                         island::precreate_island_window(&h);
                     });
-                    // Show the Dynamic Island after webview has loaded
+                    // Show the Dynamic Island after webview has loaded,
+                    // but only if the user hasn't disabled it in preferences.
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-                    let ih = island_handle.clone();
-                    let _ = island_handle.run_on_main_thread(move || {
-                        island::show_island(&ih);
-                    });
+                    let mut should_show = true;
+                    if let Ok(prefs) = crate::commands::preferences_get_internal(&island_handle).await {
+                        if let Some(false) = prefs.get("islandEnabled").and_then(|v| v.as_bool()) {
+                            should_show = false;
+                        }
+                    }
+                    if should_show {
+                        let ih = island_handle.clone();
+                        let _ = island_handle.run_on_main_thread(move || {
+                            island::show_island(&ih);
+                        });
+                    }
                 });
             }
 
@@ -348,6 +357,7 @@ pub fn run() {
             commands::agent_unsubscribe,
             commands::agent_status,
             commands::agent_running_conversations,
+            commands::agent_get_streaming_content,
             commands::provider_list,
             commands::provider_set,
             commands::provider_remove,
@@ -512,6 +522,7 @@ pub fn run() {
             island::resize_island_panel,
             island::sync_island_panel_appearance,
             island::island_set_expanded,
+            island::island_has_notch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

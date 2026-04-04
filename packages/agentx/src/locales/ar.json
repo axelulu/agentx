@@ -658,5 +658,22 @@
   "Copy translation": "نسخ الترجمة",
   "Translating...": "جارٍ الترجمة...",
   "⌥D to translate selection": "⌥D لترجمة النص المحدد",
-  "Esc to close": "Esc للإغلاق"
+  "Esc to close": "Esc للإغلاق",
+  "Running tool": "تشغيل الأداة",
+  "Writing response": "كتابة الرد",
+  "Approval needed": "الموافقة مطلوبة",
+  "Idle": "خامل",
+  "Recents": "الأخيرة",
+  "Chat": "محادثة",
+  "Running": "قيد التشغيل",
+  "Recent": "الأخيرة",
+  "No recent activity": "لا يوجد نشاط حديث",
+  "running tool...": "تشغيل الأداة...",
+  "writing...": "جارٍ الكتابة...",
+  "needs approval": "تحتاج إلى موافقة",
+  "thinking...": "يفكر...",
+  "idle": "خامل",
+  "New": "جديد",
+  "Dynamic Island": "الجزيرة الديناميكية",
+  "Show the floating overlay at the top of the screen": "عرض اللوحة العائمة في أعلى الشاشة"
 }

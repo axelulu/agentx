@@ -658,5 +658,22 @@
   "Copy translation": "Copiar traducción",
   "Translating...": "Traduciendo...",
   "⌥D to translate selection": "⌥D para traducir selección",
-  "Esc to close": "Esc para cerrar"
+  "Esc to close": "Esc para cerrar",
+  "Running tool": "Ejecutando herramienta",
+  "Writing response": "Escribiendo respuesta",
+  "Approval needed": "Aprobación necesaria",
+  "Idle": "Inactivo",
+  "Recents": "Recientes",
+  "Chat": "Chat",
+  "Running": "En ejecución",
+  "Recent": "Reciente",
+  "No recent activity": "Sin actividad reciente",
+  "running tool...": "ejecutando herramienta...",
+  "writing...": "escribiendo...",
+  "needs approval": "necesita aprobación",
+  "thinking...": "pensando...",
+  "idle": "inactivo",
+  "New": "Nuevo",
+  "Dynamic Island": "Isla Dinámica",
+  "Show the floating overlay at the top of the screen": "Mostrar el panel flotante en la parte superior de la pantalla"
 }

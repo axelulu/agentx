@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
-const INITIAL_WIDTH: f64 = 200.0;
+const INITIAL_WIDTH: f64 = 250.0;
 const INITIAL_HEIGHT: f64 = 40.0;
 
 #[cfg(target_os = "macos")]
@@ -29,42 +29,66 @@ static mut ISLAND_MOUSE_INSIDE: bool = false;
 #[cfg(target_os = "macos")]
 static mut ISLAND_PANEL_PTR: *mut std::ffi::c_void = std::ptr::null_mut();
 
-/// Ensure the AgentXKeyPanel class is registered (shared with quickchat).
-/// We need canBecomeKeyWindow=YES for the expanded state's buttons.
+/// Register a dedicated Island panel class that:
+///   1. canBecomeKeyWindow → YES (for expanded state buttons)
+///   2. constrainFrameRect:toScreen: → returns frame unchanged
+///      (bypasses macOS pushing the window below the menu bar / notch)
 #[cfg(target_os = "macos")]
-fn ensure_panel_class() -> &'static objc2::runtime::AnyClass {
-    // The class is registered by quickchat::ensure_panel_class() at startup.
-    // If quickchat hasn't registered it yet, register it here.
-    if let Some(cls) = objc2::runtime::AnyClass::get(c"AgentXKeyPanel") {
-        return cls;
-    }
-    // Fallback: register it ourselves (same logic as quickchat.rs)
-    static ISLAND_PANEL_CLASS_REGISTERED: std::sync::Once = std::sync::Once::new();
-    ISLAND_PANEL_CLASS_REGISTERED.call_once(|| {
+static ISLAND_CLASS_REGISTERED: std::sync::Once = std::sync::Once::new();
+
+#[cfg(target_os = "macos")]
+fn ensure_island_panel_class() -> &'static objc2::runtime::AnyClass {
+    ISLAND_CLASS_REGISTERED.call_once(|| {
         unsafe {
             let superclass = objc2::runtime::AnyClass::get(c"NSPanel").unwrap();
             let cls = objc2::ffi::objc_allocateClassPair(
                 superclass,
-                c"AgentXKeyPanel".as_ptr(),
+                c"AgentXIslandPanel".as_ptr(),
                 0,
             );
             assert!(!cls.is_null());
 
+            // canBecomeKeyWindow → YES
             unsafe extern "C-unwind" fn yes(
                 _: *mut objc2::runtime::AnyObject,
                 _: objc2::runtime::Sel,
             ) -> objc2::runtime::Bool {
                 objc2::runtime::Bool::YES
             }
-            let imp: objc2::runtime::Imp =
+            let imp_yes: objc2::runtime::Imp =
                 std::mem::transmute(yes as unsafe extern "C-unwind" fn(_, _) -> _);
-            let sel = objc2::ffi::sel_registerName(c"canBecomeKeyWindow".as_ptr()).unwrap();
-            objc2::ffi::class_addMethod(cls, sel, imp, c"B@:".as_ptr());
+            let sel_key = objc2::ffi::sel_registerName(c"canBecomeKeyWindow".as_ptr()).unwrap();
+            objc2::ffi::class_addMethod(cls, sel_key, imp_yes, c"B@:".as_ptr());
+
+            // constrainFrameRect:toScreen: → return frameRect as-is
+            // This prevents macOS from pushing the panel below the notch/menu bar.
+            unsafe extern "C-unwind" fn unconstrained(
+                _: *mut objc2::runtime::AnyObject,
+                _: objc2::runtime::Sel,
+                frame: objc2_foundation::NSRect,
+                _screen: *const objc2::runtime::AnyObject,
+            ) -> objc2_foundation::NSRect {
+                frame
+            }
+            let imp_constrain: objc2::runtime::Imp =
+                std::mem::transmute(
+                    unconstrained as unsafe extern "C-unwind" fn(_, _, _, _) -> _,
+                );
+            let sel_constrain = objc2::ffi::sel_registerName(
+                c"constrainFrameRect:toScreen:".as_ptr(),
+            ).unwrap();
+            // Return type: NSRect ({CGRect={CGPoint=dd}{CGSize=dd}}), args: @:, NSRect, NSScreen*
+            objc2::ffi::class_addMethod(
+                cls,
+                sel_constrain,
+                imp_constrain,
+                c"{CGRect={CGPoint=dd}{CGSize=dd}}@:{CGRect={CGPoint=dd}{CGSize=dd}}@".as_ptr(),
+            );
 
             objc2::ffi::objc_registerClassPair(cls);
         }
     });
-    objc2::runtime::AnyClass::get(c"AgentXKeyPanel").unwrap()
+    objc2::runtime::AnyClass::get(c"AgentXIslandPanel").unwrap()
 }
 
 /// Create the NSPanel for the Dynamic Island and move the WKWebView into it.
@@ -78,7 +102,7 @@ fn setup_island_panel(win: &tauri::WebviewWindow) {
             return;
         }
 
-        let cls = ensure_panel_class();
+        let cls = ensure_island_panel_class();
 
         // Create NSPanel
         let panel: *mut objc2::runtime::AnyObject = msg_send![cls, alloc];
@@ -95,8 +119,8 @@ fn setup_island_panel(win: &tauri::WebviewWindow) {
             defer: false
         ];
 
-        // Panel config
-        let _: () = msg_send![panel, setLevel: 3i64]; // NSFloatingWindowLevel
+        // Panel config — level 25 (NSStatusWindowLevel) to render above the menu bar/notch
+        let _: () = msg_send![panel, setLevel: 25i64];
         let _: () = msg_send![panel, setBecomesKeyOnlyIfNeeded: false];
         let _: () = msg_send![panel, setHidesOnDeactivate: false];
         let _: () = msg_send![panel, setFloatingPanel: true];
@@ -114,7 +138,7 @@ fn setup_island_panel(win: &tauri::WebviewWindow) {
         let clear: *mut objc2::runtime::AnyObject = msg_send![clear_cls, clearColor];
         let _: () = msg_send![panel, setBackgroundColor: clear];
 
-        // Corner radius (pill shape)
+        // Corner radius (pill shape) — no system shadow to avoid rectangular halo
         let panel_ref: &NSWindow = &*(panel as *const NSWindow);
         if let Some(panel_content) = panel_ref.contentView() {
             panel_content.setWantsLayer(true);
@@ -122,8 +146,7 @@ fn setup_island_panel(win: &tauri::WebviewWindow) {
                 let _: () = msg_send![&layer, setCornerRadius: 20.0f64];
                 let _: () = msg_send![&layer, setMasksToBounds: true];
             }
-            panel_ref.setHasShadow(true);
-            panel_ref.invalidateShadow();
+            panel_ref.setHasShadow(false);
         }
 
         // Move WKWebView from Tauri's window to our panel
@@ -173,6 +196,8 @@ fn find_webview(
 }
 
 /// Position the island panel at the top center of the main screen.
+/// On notch MacBooks, positions the island flush inside the notch/menu-bar area
+/// so it visually merges with the notch. On non-notch Macs, uses a small offset.
 #[cfg(target_os = "macos")]
 fn position_island_at_top_center(panel: *mut objc2::runtime::AnyObject) {
     use objc2::msg_send;
@@ -181,8 +206,11 @@ fn position_island_at_top_center(panel: *mut objc2::runtime::AnyObject) {
         use objc2_app_kit::NSScreen;
         use objc2_foundation::MainThreadMarker;
 
-        let screen_frame = MainThreadMarker::new()
-            .and_then(|mtm| NSScreen::mainScreen(mtm))
+        let mtm = MainThreadMarker::new();
+        let screen = mtm.and_then(|m| NSScreen::mainScreen(m));
+
+        let screen_frame = screen
+            .as_ref()
             .map(|s| s.frame())
             .unwrap_or_else(|| {
                 objc2_foundation::NSRect::new(
@@ -191,14 +219,35 @@ fn position_island_at_top_center(panel: *mut objc2::runtime::AnyObject) {
                 )
             });
 
+        let visible_frame = screen
+            .as_ref()
+            .map(|s| s.visibleFrame())
+            .unwrap_or(screen_frame);
+
         let panel_frame: objc2_foundation::NSRect = msg_send![panel, frame];
         let w = panel_frame.size.width;
         let h = panel_frame.size.height;
 
-        // Center horizontally, position at top with 8px offset
-        // NSScreen coords: origin at bottom-left, Y increases upward
+        // Detect notch: menu bar on notch Macs is ~38px, non-notch is ~24px
+        let screen_top = screen_frame.origin.y + screen_frame.size.height;
+        let visible_top = visible_frame.origin.y + visible_frame.size.height;
+        let menu_bar_height = screen_top - visible_top;
+        let has_notch = menu_bar_height > 30.0;
+
+        // Center horizontally
         let x = screen_frame.origin.x + (screen_frame.size.width - w) / 2.0;
-        let y = screen_frame.origin.y + screen_frame.size.height - h - 8.0;
+
+        // NSScreen coords: origin at bottom-left, Y increases upward
+        let y = if has_notch {
+            // Notch Mac: position flush at the top of the screen so the island
+            // visually extends from the notch, like iPhone Dynamic Island.
+            // The notch is ~32px tall, our island is 40px — it will poke out
+            // slightly below the notch, creating the "merged" look.
+            screen_top - h
+        } else {
+            // Non-notch Mac: 6px below the top of the screen
+            screen_top - h - 6.0
+        };
 
         let new_frame = objc2_foundation::NSRect::new(
             objc2_foundation::NSPoint::new(x, y),
@@ -327,7 +376,7 @@ fn hide_island_native() {
 }
 
 #[cfg(target_os = "macos")]
-fn resize_island_native(width: f64, height: f64, animated: bool) {
+fn resize_island_native(width: f64, height: f64, animated: bool, duration: f64) {
     use objc2::msg_send;
     unsafe {
         if ISLAND_PANEL_PTR.is_null() {
@@ -357,7 +406,7 @@ fn resize_island_native(width: f64, height: f64, animated: bool) {
             let ctx_cls = objc2::runtime::AnyClass::get(c"NSAnimationContext").unwrap();
             let _: () = msg_send![ctx_cls, beginGrouping];
             let ctx: *mut objc2::runtime::AnyObject = msg_send![ctx_cls, currentContext];
-            let _: () = msg_send![ctx, setDuration: 0.42f64];
+            let _: () = msg_send![ctx, setDuration: duration];
             let _: () = msg_send![ctx, setAllowsImplicitAnimation: true];
 
             // Custom cubic-bezier(0.76, 0, 0.24, 1) = fast-slow-fast.
@@ -493,7 +542,7 @@ fn show_island_native(win: &tauri::WebviewWindow) {
 #[cfg(not(target_os = "macos"))]
 fn hide_island_native() {}
 #[cfg(not(target_os = "macos"))]
-fn resize_island_native(_width: f64, _height: f64, _animated: bool) {}
+fn resize_island_native(_width: f64, _height: f64, _animated: bool, _duration: f64) {}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -559,10 +608,11 @@ pub fn hide_island_panel(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn resize_island_panel(app: AppHandle, width: f64, height: f64, animated: Option<bool>) {
+pub fn resize_island_panel(app: AppHandle, width: f64, height: f64, animated: Option<bool>, duration: Option<f64>) {
     let anim = animated.unwrap_or(false);
+    let dur = duration.unwrap_or(0.35);
     let _ = app.run_on_main_thread(move || {
-        resize_island_native(width, height, anim);
+        resize_island_native(width, height, anim, dur);
     });
 }
 
@@ -571,6 +621,26 @@ pub fn sync_island_panel_appearance(app: AppHandle, dark: bool) {
     let _ = app.run_on_main_thread(move || {
         sync_island_appearance_native(dark);
     });
+}
+
+/// Returns whether the current screen has a notch (menu bar > 30px).
+#[tauri::command]
+pub fn island_has_notch() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::NSScreen;
+        use objc2_foundation::MainThreadMarker;
+        if let Some(mtm) = MainThreadMarker::new() {
+            if let Some(screen) = NSScreen::mainScreen(mtm) {
+                let frame = screen.frame();
+                let visible = screen.visibleFrame();
+                let screen_top = frame.origin.y + frame.size.height;
+                let visible_top = visible.origin.y + visible.size.height;
+                return (screen_top - visible_top) > 30.0;
+            }
+        }
+    }
+    false
 }
 
 /// Called by frontend when island expands/collapses.

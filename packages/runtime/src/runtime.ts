@@ -874,7 +874,39 @@ export class AgentRuntime {
       startedAt: session.startedAt,
       eventCount: session.eventLog.length,
       pendingApproval: pendingApproval ?? undefined,
+      streamingContent: this.getStreamingContent(conversationId),
     };
+  }
+
+  /**
+   * Get the accumulated streaming assistant content from a running session's event log.
+   * Returns the latest assistant message content built from message_delta/message_end events.
+   */
+  getStreamingContent(conversationId: string): string {
+    const session = this.sessions.get(conversationId);
+    if (!session) return "";
+
+    // Walk backwards to find the last message_start, then accumulate deltas from there
+    let startIdx = -1;
+    for (let i = session.eventLog.length - 1; i >= 0; i--) {
+      const e = session.eventLog[i];
+      if (e && e.type === "message_start") {
+        startIdx = i;
+        break;
+      }
+    }
+    if (startIdx === -1) return "";
+
+    let content = "";
+    for (let i = startIdx; i < session.eventLog.length; i++) {
+      const e = session.eventLog[i]!;
+      if (e.type === "message_delta") {
+        content += (e as { delta: string }).delta;
+      } else if (e.type === "message_end") {
+        content = (e as { content: string }).content;
+      }
+    }
+    return content;
   }
 
   /**

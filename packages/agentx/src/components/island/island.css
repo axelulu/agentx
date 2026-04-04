@@ -25,24 +25,28 @@
 /* Island container                                                    */
 /* ------------------------------------------------------------------ */
 .island-container {
-  background: rgba(0, 0, 0, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
-  box-shadow:
-    0 2px 20px rgba(0, 0, 0, 0.4),
-    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset;
-  backdrop-filter: blur(40px) saturate(1.8);
-  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  box-shadow: none;
   overflow: hidden;
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
-  /* Smooth border transitions */
-  transition: border-color 0.3s ease;
+  transition: border-color 0.2s ease;
 }
 
 .island-container:hover {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+/* Idle content — CSS-driven hover scale for zero-latency response */
+.island-idle-content {
+  will-change: transform;
+  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+.island-container:hover .island-idle-content {
+  transform: scale(1.06);
 }
 
 /* ------------------------------------------------------------------ */
@@ -51,16 +55,10 @@
 @keyframes island-pulse {
   0%,
   100% {
-    box-shadow:
-      0 2px 20px rgba(0, 0, 0, 0.4),
-      0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-      0 0 0 0 rgba(74, 222, 128, 0);
+    border-color: rgba(74, 222, 128, 0.1);
   }
   50% {
-    box-shadow:
-      0 2px 20px rgba(0, 0, 0, 0.4),
-      0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-      0 0 12px 2px rgba(74, 222, 128, 0.1);
+    border-color: rgba(74, 222, 128, 0.3);
   }
 }
 .island-pulse {
@@ -71,16 +69,10 @@
 @keyframes island-pulse-approval {
   0%,
   100% {
-    box-shadow:
-      0 2px 20px rgba(0, 0, 0, 0.4),
-      0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-      0 0 0 0 rgba(250, 204, 21, 0);
+    border-color: rgba(250, 204, 21, 0.1);
   }
   50% {
-    box-shadow:
-      0 2px 20px rgba(0, 0, 0, 0.4),
-      0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-      0 0 16px 3px rgba(250, 204, 21, 0.15);
+    border-color: rgba(250, 204, 21, 0.4);
   }
 }
 .island-pulse-approval {
@@ -274,33 +266,14 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Scrollbar — hidden by default, fades in after expand animation      */
+/* Scrollbar — always hidden, scroll via trackpad/mousewheel only      */
 /* ------------------------------------------------------------------ */
 .island-scroll {
-  scrollbar-width: none; /* hidden during expand animation */
+  scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .island-scroll::-webkit-scrollbar {
-  width: 0; /* hidden during expand animation */
-}
-
-/* Scrollbar only appears after the expand settles (via JS class toggle) */
-.island-scroll.show-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
-}
-.island-scroll.show-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.island-scroll.show-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.island-scroll.show-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-}
-.island-scroll.show-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  display: none;
 }
 
 /* ------------------------------------------------------------------ */
@@ -359,6 +332,15 @@
   color: rgba(255, 255, 255, 0.75);
   font-size: 11px;
   line-height: 1.5;
+}
+
+/* Allow text selection inside chat bubbles (overrides .island-container user-select:none) */
+.island-chat-bubble-user,
+.island-chat-bubble-assistant,
+.island-chat-markdown {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .island-chat-markdown {
@@ -452,4 +434,23 @@
   height: 3px;
   background: rgba(255, 255, 255, 0.4);
   animation: island-dot-pulse 1.2s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tool call badge (compact inline indicator)                          */
+/* ------------------------------------------------------------------ */
+.island-tool-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 8px;
+}
+.island-tool-badge[data-running] {
+  border-color: rgba(74, 222, 128, 0.15);
+  color: rgba(74, 222, 128, 0.6);
 }
